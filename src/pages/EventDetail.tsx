@@ -79,7 +79,7 @@ const EventDetail = () => {
     if (!id) return;
     const nowFavorite = toggleEventFavorite(id, user?.id);
     setIsFavorite(nowFavorite);
-    toast.success(nowFavorite ? "أُضيفت الفعالية إلى المفضلة ❤️" : "أُزيلت الفعالية من المفضلة");
+    toast.success(nowFavorite ? "أُضيفت الفعالية إلى المفضلة 💜" : "أُزيلت الفعالية من المفضلة");
   };
 
   useEffect(() => {
