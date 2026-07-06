@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===========================================================
+   Nakvik Brand Identity — official palette
+   Primary    #492C5A  271 35% 26%   (deep purple)
+   Brick      #A03C4A  353 45% 43%
+   Gold       #CC8E3D   34 58% 52%
+   Teal       #006962  176 100% 21%
+   Secondary muted variants for social/marketing contexts
+   =========================================================== */
+
+@layer base {
+  :root {
+    --background: 270 25% 98%;
+    --foreground: 271 35% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 271 35% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 271 35% 14%;
+
+    /* Primary — official deep purple #492C5A */
+    --primary: 271 35% 26%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 271 35% 40%;
+
+    --secondary: 271 20% 94%;
+    --secondary-foreground: 271 35% 22%;
+
+    --muted: 271 15% 94%;
+    --muted-foreground: 271 10% 42%;
+
+    /* Accent — official gold #CC8E3D */
+    --accent: 34 58% 52%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive — official brick red #A03C4A */
+    --destructive: 353 45% 43%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 271 18% 88%;
+    --input: 271 18% 88%;
+    --ring: 271 35% 26%;
+
+    --radius: 0.75rem;
+
+    /* ===== Brand custom tokens (full Nakvik palette) ===== */
+    /* Primary brand */
+    --brand-purple: 271 35% 26%;          /* #492C5A */
+    --brand-purple-foreground: 0 0% 100%;
+    --brand-brick: 353 45% 43%;           /* #A03C4A */
+    --brand-brick-foreground: 0 0% 100%;
+    --brand-gold: 34 58% 52%;             /* #CC8E3D */
+    --brand-gold-foreground: 0 0% 100%;
+    --brand-teal: 176 100% 21%;           /* #006962 */
+    --brand-teal-foreground: 0 0% 100%;
+
+    /* Secondary brand (softer / social media) */
+    --brand-rose: 351 27% 51%;            /* #A65F69 */
+    --brand-sand: 40 47% 60%;             /* #C8A467 */
+    --brand-sage: 177 21% 35%;            /* #476D6B */
+    --brand-mauve: 271 18% 40%;           /* #6B5379 */
+
+    /* Aliases (kept for backwards compat) */
+    --teal: 176 100% 21%;
+    --teal-foreground: 0 0% 100%;
+    --gold: 34 58% 52%;
+    --gold-foreground: 0 0% 100%;
+    --purple-deep: 271 35% 26%;
+    --purple-light: 271 18% 40%;
+    --purple-glow: 271 35% 40%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(271 35% 22%), hsl(271 35% 36%));
+    --gradient-hero: linear-gradient(160deg, hsl(271 35% 18%), hsl(271 35% 30%) 50%, hsl(271 35% 24%));
+    --gradient-accent: linear-gradient(135deg, hsl(34 58% 52%), hsl(353 45% 43%));
+    --gradient-brand: linear-gradient(135deg, hsl(271 35% 26%), hsl(176 100% 21%));
+    --gradient-warm: linear-gradient(135deg, hsl(34 58% 52%), hsl(353 45% 43%) 60%, hsl(271 35% 26%));
+
+    /* Shadows tinted with brand purple */
+    --shadow-card: 0 4px 24px -4px hsl(271 35% 26% / 0.10);
+    --shadow-elevated: 0 12px 40px -8px hsl(271 35% 26% / 0.18);
+    --shadow-elegant: 0 10px 30px -10px hsl(271 35% 26% / 0.30);
+    --shadow-gold: 0 8px 24px -8px hsl(34 58% 52% / 0.40);
+
+    /* Sidebar — deep brand purple */
+    --sidebar-background: 271 35% 22%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 34 58% 52%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 271 30% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 271 25% 32%;
+    --sidebar-ring: 34 58% 52%;
+  }
+
+  .dark {
+    --background: 271 35% 8%;
+    --foreground: 0 0% 96%;
+    --card: 271 30% 12%;
+    --card-foreground: 0 0% 96%;
+    --popover: 271 30% 12%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 34 58% 55%;
+    --primary-foreground: 271 35% 12%;
+    --secondary: 271 25% 18%;
+    --secondary-foreground: 0 0% 92%;
+    --muted: 271 22% 18%;
+    --muted-foreground: 271 12% 62%;
+    --accent: 34 58% 52%;
+    --accent-foreground: 271 35% 12%;
+    --destructive: 353 45% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 271 22% 22%;
+    --input: 271 22% 22%;
+    --ring: 34 58% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Cairo', 'Inter', sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  [dir="rtl"] {
+    font-family: 'Cairo', 'Inter', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Cairo', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .font-body {
+    font-family: 'Cairo', 'Inter', sans-serif;
+  }
+
+  .gradient-primary { background: var(--gradient-primary); }
+  .gradient-hero    { background: var(--gradient-hero); }
+  .gradient-accent  { background: var(--gradient-accent); }
+  .gradient-brand   { background: var(--gradient-brand); }
+  .gradient-warm    { background: var(--gradient-warm); }
+
+  .text-gradient {
+    background: linear-gradient(135deg, hsl(34 58% 52%), hsl(271 35% 40%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(135deg, hsl(271 35% 26%), hsl(176 100% 21%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-elegant { box-shadow: var(--shadow-elegant); }
+  .shadow-gold    { box-shadow: var(--shadow-gold); }
+
+  /* Brand pattern background (decorative) */
+  .bg-brand-pattern {
+    background-image: url('/src/assets/brand/pattern.jpg');
+    background-repeat: repeat;
+    background-size: 320px auto;
+  }
+  .bg-brand-pattern-soft {
+    background-image: url('/src/assets/brand/pattern.jpg');
+    background-repeat: repeat;
+    background-size: 320px auto;
+    opacity: 0.06;
+  }
+}

@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS public.badge_print_log CASCADE;
