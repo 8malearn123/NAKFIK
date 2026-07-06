@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, Ticket, Users, IdCard, LogOut, LayoutDashboard, Shield, Bell } from "lucide-react";
+import { User, Ticket, Users, IdCard, LogOut, LayoutDashboard, Shield, Bell, Globe } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,7 @@ import {
 import logo from "@/assets/logo.png";
 
 const Navbar = () => {
-  const { t } = useLanguage();
+  const { t, lang, toggleLang } = useLanguage();
   const { user, profile, isSuperAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -39,6 +39,16 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 rounded-full text-xs font-bold"
+            onClick={toggleLang}
+            aria-label={lang === "ar" ? "Switch to English" : "التبديل إلى العربية"}
+          >
+            <Globe className="w-4 h-4" />
+            {lang === "ar" ? "EN" : "عربي"}
+          </Button>
 
           {user ? (
             <DropdownMenu>

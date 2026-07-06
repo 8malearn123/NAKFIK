@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { ar } from "@/i18n/ar";
 import { en } from "@/i18n/en";
 
@@ -32,6 +32,12 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const dir = lang === "ar" ? "rtl" : "ltr";
+
+  // طبّق اللغة المحفوظة على الصفحة عند التحميل (وليس فقط عند التبديل)
+  useEffect(() => {
+    document.documentElement.dir = dir;
+    document.documentElement.lang = lang;
+  }, [lang, dir]);
 
   const t = useCallback(
     (key: string): string => {
