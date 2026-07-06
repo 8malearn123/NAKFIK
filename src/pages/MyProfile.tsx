@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import {
   Loader2, Upload, User as UserIcon, Briefcase, Mail, Phone, Linkedin, Instagram,
   CheckCircle, AlertCircle, Save, Ticket, Users2, Sparkles, Share2, Download,
-  QrCode, Globe, X as XIcon, Eye, Lock, Award, Calendar, Copy,
+  QrCode, Globe, X as XIcon, Eye, Lock, Award, Calendar, Copy, Heart,
 } from "lucide-react";
 
 const profileSchema = z.object({
@@ -343,6 +343,9 @@ const MyProfile = () => {
                 </Button>
                 <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
                   <Link to="/my/connections"><Users2 className="w-3 h-3" /> اتصالاتي</Link>
+                </Button>
+                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
+                  <Link to="/favorites"><Heart className="w-3 h-3" /> المفضلة</Link>
                 </Button>
               </div>
             </div>
