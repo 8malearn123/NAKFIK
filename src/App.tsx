@@ -10,6 +10,7 @@ import ImpersonationBanner from "@/components/admin/ImpersonationBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import EventsMarketplace from "./pages/EventsMarketplace";
+import Favorites from "./pages/Favorites";
 import EventDetail from "./pages/EventDetail";
 import MyTickets from "./pages/MyTickets";
 import Login from "./pages/Login";
@@ -85,6 +86,7 @@ const App = () => (
                 {/* Public */}
                 <Route path="/" element={<Index />} />
                 <Route path="/events" element={<EventsMarketplace />} />
+                <Route path="/favorites" element={<Favorites />} />
                 <Route path="/events/:id" element={<EventDetail />} />
                 <Route path="/o/:id" element={<OrganizerProfile />} />
                 <Route path="/login" element={<Login />} />

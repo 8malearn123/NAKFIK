@@ -273,8 +273,8 @@ const EventDetail = () => {
               <Heart
                 className={`w-5 h-5 transition-colors ${
                   isFavorite
-                    ? "fill-red-500 text-red-500"
-                    : "text-muted-foreground hover:text-red-500"
+                    ? "fill-primary text-primary"
+                    : "text-muted-foreground hover:text-primary"
                 }`}
               />
             </button>

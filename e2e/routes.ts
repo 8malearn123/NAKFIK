@@ -8,6 +8,7 @@ type RouteEntry = { path: string; name: string };
 export const PUBLIC_ROUTES: RouteEntry[] = [
   { path: "/", name: "الصفحة الرئيسية" },
   { path: "/events", name: "سوق الفعاليات" },
+  { path: "/favorites", name: "المفضلة" },
   { path: "/login", name: "تسجيل الدخول" },
   { path: "/register", name: "إنشاء حساب" },
   { path: "/forgot-password", name: "استعادة كلمة المرور" },
