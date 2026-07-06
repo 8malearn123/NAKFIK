@@ -122,6 +122,11 @@ const EventDetail = () => {
       navigate(`/my/profile?required=1&return=${encodeURIComponent(`/events/${event.id}`)}`);
       return;
     }
+    // لا تسجيل بعد نفاد المقاعد
+    if (event.max_attendees && event.current_attendees_count >= event.max_attendees) {
+      toast.error("نفدت المقاعد");
+      return;
+    }
     setSubmitting(true);
     try {
       const { data: reg, error } = await supabase.from("registrations").insert({
@@ -138,6 +143,23 @@ const EventDetail = () => {
       const chosen = tickets.find(t => t.id === selectedTicket);
       if (chosen) setRegisteredTicket(chosen);
       toast.success("تم التسجيل بنجاح!");
+      // حدّث عدد المقاعد المتبقية فوراً ثم زامنه مع العدد الفعلي في قاعدة البيانات
+      setEvent(prev =>
+        prev ? { ...prev, current_attendees_count: prev.current_attendees_count + 1 } : prev,
+      );
+      supabase
+        .from("events")
+        .select("current_attendees_count")
+        .eq("id", event.id)
+        .single()
+        .then(({ data }) => {
+          if (data)
+            setEvent(prev =>
+              prev
+                ? { ...prev, current_attendees_count: (data as any).current_attendees_count }
+                : prev,
+            );
+        });
     } catch (err: any) {
       if (err.message?.includes("duplicate")) {
         toast.error("أنت مسجل في هذه الفعالية مسبقاً");
@@ -180,8 +202,9 @@ const EventDetail = () => {
     minute: "2-digit",
   });
   const remainingSeats = event.max_attendees
-    ? event.max_attendees - event.current_attendees_count
+    ? Math.max(0, event.max_attendees - event.current_attendees_count)
     : null;
+  const soldOut = remainingSeats !== null && remainingSeats <= 0;
 
   const defaultImage =
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=500&fit=crop";
@@ -390,9 +413,17 @@ const EventDetail = () => {
 
               {/* Seats remaining */}
               {remainingSeats !== null && (
-                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-xl py-2.5">
+                <div
+                  className={`flex items-center justify-center gap-2 text-xs rounded-xl py-2.5 ${
+                    soldOut
+                      ? "text-destructive bg-destructive/10 font-bold"
+                      : "text-muted-foreground bg-muted/50"
+                  }`}
+                >
                   <Users className="w-3.5 h-3.5" />
-                  متبقي {remainingSeats} مقعد
+                  {soldOut
+                    ? "نفدت المقاعد (Sold Out)"
+                    : `${remainingSeats} مقعدًا متبقيًا من أصل ${event.max_attendees}`}
                 </div>
               )}
 
@@ -403,14 +434,16 @@ const EventDetail = () => {
                   <Button
                     className="w-full rounded-full h-12 text-base font-bold"
                     size="lg"
-                    disabled={submitting || !hasSellable}
+                    disabled={submitting || !hasSellable || soldOut}
                     onClick={() =>
                       user
                         ? handleRegister()
                         : toast.error("يرجى تسجيل الدخول أولاً")
                     }
                   >
-                    {!hasSellable
+                    {soldOut
+                      ? "نفدت المقاعد (Sold Out)"
+                      : !hasSellable
                       ? "الحجز غير متاح حالياً"
                       : submitting
                       ? "جارٍ التسجيل..."
