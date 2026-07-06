@@ -8,8 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
 import {
-  Calendar, MapPin, Users, Clock, Ticket, CheckCircle, Info, ChevronLeft, Mail, Phone, User as UserIcon, Download,
+  Calendar, MapPin, Users, Clock, Ticket, CheckCircle, Info, ChevronLeft, Mail, Phone, User as UserIcon, Download, Heart,
 } from "lucide-react";
+import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
 import SmartMatch from "@/components/SmartMatch";
 
 interface EventData {
@@ -67,7 +68,19 @@ const EventDetail = () => {
   const [selectedTicket, setSelectedTicket] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registeredTicket, setRegisteredTicket] = useState<TicketData | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (id) setIsFavorite(isEventFavorite(id, user?.id));
+  }, [id, user?.id]);
+
+  const handleToggleFavorite = () => {
+    if (!id) return;
+    const nowFavorite = toggleEventFavorite(id, user?.id);
+    setIsFavorite(nowFavorite);
+    toast.success(nowFavorite ? "أُضيفت الفعالية إلى المفضلة ❤️" : "أُزيلت الفعالية من المفضلة");
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -249,8 +262,22 @@ const EventDetail = () => {
           <span className="inline-block bg-primary/10 text-primary text-xs font-bold rounded-full px-3 py-1">
             {categoryLabels[event.category] || event.category}
           </span>
-          <h1 className="text-2xl font-bold text-foreground leading-tight">
-            {event.title_ar}
+          <h1 className="text-2xl font-bold text-foreground leading-tight inline-flex items-center gap-2 max-w-full">
+            <span>{event.title_ar}</span>
+            <button
+              onClick={handleToggleFavorite}
+              aria-label={isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+              aria-pressed={isFavorite}
+              className="shrink-0 rounded-full p-1.5 hover:bg-muted transition-colors"
+            >
+              <Heart
+                className={`w-5 h-5 transition-colors ${
+                  isFavorite
+                    ? "fill-red-500 text-red-500"
+                    : "text-muted-foreground hover:text-red-500"
+                }`}
+              />
+            </button>
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
