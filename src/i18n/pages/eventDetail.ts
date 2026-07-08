@@ -17,7 +17,7 @@ export const eventDetailDict = {
     categoryOther: "أخرى",
 
     // Favorites
-    favoriteAdded: "أُضيفت الفعالية إلى المفضلة 💜",
+    favoriteAdded: "أُضيفت الفعالية إلى المفضلة",
     favoriteRemoved: "أُزيلت الفعالية من المفضلة",
     addToFavorites: "إضافة إلى المفضلة",
     removeFromFavorites: "إزالة من المفضلة",
@@ -102,7 +102,7 @@ export const eventDetailDict = {
     categoryOther: "Other",
 
     // Favorites
-    favoriteAdded: "Event added to favorites 💜",
+    favoriteAdded: "Event added to favorites",
     favoriteRemoved: "Event removed from favorites",
     addToFavorites: "Add to favorites",
     removeFromFavorites: "Remove from favorites",
