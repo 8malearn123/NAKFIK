@@ -32,6 +32,11 @@ export const eventDetailDict = {
     waitlistError: "تعذر الانضمام لقائمة الانتظار، حاول مرة أخرى",
     waitlistHint: "سنرسل لك إشعاراً فور توفر مقعد بسبب إلغاء أحد الحجوزات",
 
+    // Location map
+    locationTitle: "موقع الفعالية",
+    openInMaps: "فتح في الخرائط",
+    mapFrameTitle: "خريطة موقع الفعالية",
+
     // Share
     shareEvent: "مشاركة الفعالية",
     linkCopied: "تم نسخ رابط الفعالية",
@@ -150,6 +155,11 @@ export const eventDetailDict = {
     leaveWaitlistHint: "We'll notify you when a seat opens — tap again to leave the list",
     waitlistError: "Couldn't join the waitlist, please try again",
     waitlistHint: "We'll notify you as soon as a seat becomes available due to a cancellation",
+
+    // Location map
+    locationTitle: "Event Location",
+    openInMaps: "Open in Maps",
+    mapFrameTitle: "Event location map",
 
     // Share
     shareEvent: "Share event",

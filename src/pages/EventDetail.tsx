@@ -42,6 +42,8 @@ interface EventData {
   cover_image_url: string | null;
   is_online: boolean;
   created_at?: string | null;
+  venue_address?: string | null;
+  venue_map_url?: string | null;
 }
 
 interface SessionData {
@@ -380,6 +382,50 @@ const EventDetail = () => {
             </span>
           </div>
         </motion.div>
+
+        {/* Location map */}
+        {!event.is_online && (event.venue_name || event.venue_address || event.venue_map_url) && (() => {
+          const mapQuery = [event.venue_name, event.venue_address].filter(Boolean).join("، ");
+          const openUrl =
+            event.venue_map_url ||
+            `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+              className="bg-background rounded-2xl border border-border/50 p-5 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <h2 className="font-bold text-foreground">{t("pgEventDetail.locationTitle")}</h2>
+                </div>
+                <Button variant="outline" size="sm" className="rounded-full" asChild>
+                  <a href={openUrl} target="_blank" rel="noopener noreferrer">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {t("pgEventDetail.openInMaps")}
+                  </a>
+                </Button>
+              </div>
+              {(event.venue_name || event.venue_address) && (
+                <p className="text-sm text-muted-foreground">{mapQuery}</p>
+              )}
+              {mapQuery && (
+                <div className="rounded-xl overflow-hidden border border-border/50">
+                  <iframe
+                    title={t("pgEventDetail.mapFrameTitle")}
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed&hl=${lang}`}
+                    className="w-full h-56 border-0"
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    allowFullScreen
+                  />
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
 
         {/* About section */}
         {event.description_ar && (
