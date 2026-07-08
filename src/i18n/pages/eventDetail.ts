@@ -24,7 +24,7 @@ export const eventDetailDict = {
 
     // Waitlist
     joinWaitlist: "الانضمام إلى قائمة الانتظار",
-    onWaitlist: "أنت في قائمة الانتظار ✓",
+    onWaitlist: "تم الانضمام إلى قائمة الانتظار ✓",
     waitlistJoined: "انضممت لقائمة الانتظار — سنخطرك فور توفر مقعد",
     waitlistLeft: "غادرت قائمة الانتظار",
     leaveWaitlist: "مغادرة قائمة الانتظار",
@@ -125,7 +125,7 @@ export const eventDetailDict = {
 
     // Waitlist
     joinWaitlist: "Join the Waitlist",
-    onWaitlist: "You're on the waitlist ✓",
+    onWaitlist: "Joined the Waitlist ✓",
     waitlistJoined: "You joined the waitlist — we'll notify you when a seat opens up",
     waitlistLeft: "You left the waitlist",
     leaveWaitlist: "Leave the waitlist",

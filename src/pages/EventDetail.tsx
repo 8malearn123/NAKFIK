@@ -11,6 +11,7 @@ import {
   Calendar, MapPin, Users, Clock, Ticket, CheckCircle, Info, ChevronLeft, Mail, Phone, User as UserIcon, Download, Heart,
 } from "lucide-react";
 import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
+import { isOnWaitlist, toggleWaitlist } from "@/lib/waitlist";
 import SmartMatch from "@/components/SmartMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
@@ -86,51 +87,18 @@ const EventDetail = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [showCalendarDialog, setShowCalendarDialog] = useState(false);
   const [onWaitlist, setOnWaitlist] = useState(false);
-  const [waitlistBusy, setWaitlistBusy] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // هل المستخدم في قائمة الانتظار؟
+  // هل المستخدم في قائمة الانتظار؟ (نموذج واجهة أمامية — تخزين محلي)
   useEffect(() => {
-    if (!id || !user) return;
-    supabase
-      .from("event_waitlist" as any)
-      .select("id")
-      .eq("event_id", id)
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setOnWaitlist(!!data));
-  }, [id, user]);
+    if (id) setOnWaitlist(isOnWaitlist(id, user?.id));
+  }, [id, user?.id]);
 
-  const handleJoinWaitlist = async () => {
-    if (!user) {
-      toast.error(t("pgEventDetail.loginFirst"));
-      return;
-    }
+  const handleJoinWaitlist = () => {
     if (!id) return;
-    setWaitlistBusy(true);
-    try {
-      if (onWaitlist) {
-        const { error } = await supabase
-          .from("event_waitlist" as any)
-          .delete()
-          .eq("event_id", id)
-          .eq("user_id", user.id);
-        if (error) throw error;
-        setOnWaitlist(false);
-        toast.success(t("pgEventDetail.waitlistLeft"));
-      } else {
-        const { error } = await supabase
-          .from("event_waitlist" as any)
-          .insert({ event_id: id, user_id: user.id } as any);
-        if (error && !error.message?.includes("duplicate")) throw error;
-        setOnWaitlist(true);
-        toast.success(t("pgEventDetail.waitlistJoined"));
-      }
-    } catch {
-      toast.error(t("pgEventDetail.waitlistError"));
-    } finally {
-      setWaitlistBusy(false);
-    }
+    const joined = toggleWaitlist(id, user?.id);
+    setOnWaitlist(joined);
+    toast.success(joined ? t("pgEventDetail.waitlistJoined") : t("pgEventDetail.waitlistLeft"));
   };
 
   const handleAddToCalendar = () => {
@@ -574,7 +542,7 @@ const EventDetail = () => {
                   <Button
                     variant="outline"
                     className="w-full rounded-full h-11 font-bold border-primary/40 text-primary hover:bg-primary/5"
-                    disabled={waitlistBusy}
+
                     onClick={handleJoinWaitlist}
                   >
                     <BellRing className="w-4 h-4" />
