@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -13,13 +14,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
-const LOOKING_FOR_LABELS: Record<string, string> = {
-  partnerships: "شراكات تجارية",
-  funding: "تمويل وإستثمار",
-  career: "تطوير مهني",
-  jobs: "فرص توظيف",
-  learning: "تعلم وتبادل خبرات",
-};
+const LOOKING_FOR_KEYS = ["partnerships", "funding", "career", "jobs", "learning"];
 
 function buildVCard(p: any) {
   const lines = ["BEGIN:VCARD", "VERSION:3.0"];
@@ -37,6 +32,7 @@ function buildVCard(p: any) {
 export default function ConnectCard() {
   const { code } = useParams();
   const { user } = useAuth();
+  const { t, dir } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [owner, setOwner] = useState<any>(null);
@@ -55,10 +51,10 @@ export default function ConnectCard() {
       a.href = dataUrl;
       a.download = `${owner?.full_name || "contact"}.png`;
       a.click();
-      toast.success("تم تنزيل بطاقة التواصل");
+      toast.success(t("pgNetworking.card.downloadedCard"));
     } catch (e) {
       console.error(e);
-      toast.error("تعذّر إنشاء الصورة");
+      toast.error(t("pgNetworking.card.imageFailed"));
     }
   };
 
@@ -91,7 +87,7 @@ export default function ConnectCard() {
     a.download = `${owner?.full_name || "contact"}.vcf`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("تم تحميل جهة الاتصال");
+    toast.success(t("pgNetworking.card.vcardDownloaded"));
   };
 
   const saveContact = async () => {
@@ -100,7 +96,7 @@ export default function ConnectCard() {
       return;
     }
     if (user.id === owner?.id) {
-      toast.info("هذه بطاقتك الخاصة");
+      toast.info(t("pgNetworking.card.ownCard"));
       return;
     }
     setSaving(true);
@@ -110,19 +106,19 @@ export default function ConnectCard() {
     });
     if (error && !error.message.includes("duplicate")) {
       setSaving(false);
-      toast.error("فشل الحفظ");
+      toast.error(t("pgNetworking.card.saveFailed"));
       return;
     }
     const { data: scannerProfile } = await supabase
       .from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     await supabase.from("in_app_notifications").insert({
       user_id: owner.id,
-      title: "تواصل جديد",
-      body: `${scannerProfile?.full_name || "أحدهم"} حفظ معلوماتك`,
+      title: t("pgNetworking.card.newConnection"),
+      body: `${scannerProfile?.full_name || t("pgNetworking.card.someone")} ${t("pgNetworking.card.savedYourInfo")}`,
       link: "/my/connections",
     });
     setSaving(false);
-    toast.success("تم حفظ جهة الاتصال في شبكتك");
+    toast.success(t("pgNetworking.card.savedToNetwork"));
   };
 
   const openWhatsApp = () => {
@@ -137,7 +133,7 @@ export default function ConnectCard() {
       try { await navigator.share({ title: owner?.full_name, url }); } catch {}
     } else {
       navigator.clipboard.writeText(url);
-      toast.success("تم نسخ رابط البطاقة");
+      toast.success(t("pgNetworking.card.linkCopied"));
     }
   };
 
@@ -152,8 +148,8 @@ export default function ConnectCard() {
   if (!profile || !owner) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
-        <p className="text-muted-foreground mb-4">البطاقة غير موجودة</p>
-        <Button asChild><Link to="/">العودة للرئيسية</Link></Button>
+        <p className="text-muted-foreground mb-4">{t("pgNetworking.card.notFound")}</p>
+        <Button asChild><Link to="/">{t("pgNetworking.card.backHome")}</Link></Button>
       </div>
     );
   }
@@ -175,19 +171,19 @@ export default function ConnectCard() {
     },
     profile.instagram_handle && { icon: Instagram, label: profile.instagram_handle, href: `https://instagram.com/${profile.instagram_handle.replace("@", "")}`, color: "text-pink-500" },
     profile.snapchat_handle && { icon: Ghost, label: profile.snapchat_handle, href: `https://snapchat.com/add/${profile.snapchat_handle.replace("@", "")}`, color: "text-yellow-500" },
-    profile.website_url && { icon: Globe, label: "الموقع الإلكتروني", href: profile.website_url, color: "text-primary" },
+    profile.website_url && { icon: Globe, label: t("pgNetworking.card.website"), href: profile.website_url, color: "text-primary" },
   ].filter(Boolean) as any[];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background" dir={dir}>
       {/* Top bar */}
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="نكفيك" className="h-8" />
+            <img src={logo} alt={t("pgNetworking.card.brand")} className="h-8" />
           </Link>
           <Button variant="ghost" size="sm" onClick={sharePage}>
-            <Share2 className="w-4 h-4 ms-2" /> مشاركة
+            <Share2 className="w-4 h-4 ms-2" /> {t("pgNetworking.card.share")}
           </Button>
         </div>
       </header>
@@ -238,7 +234,7 @@ export default function ConnectCard() {
             </div>
 
             {profile.bio && (
-              <p className="mt-5 text-foreground/80 leading-relaxed text-sm border-r-2 border-primary ps-3 pe-3 py-2 bg-muted/40 rounded">
+              <p className="mt-5 text-foreground/80 leading-relaxed text-sm border-s-2 border-primary ps-3 pe-3 py-2 bg-muted/40 rounded">
                 {profile.bio}
               </p>
             )}
@@ -254,12 +250,12 @@ export default function ConnectCard() {
             className="w-full"
           >
             {saving ? <Loader2 className="w-4 h-4 ms-2 animate-spin" /> : <Save className="w-4 h-4 ms-2" />}
-            احفظ معلومات التواصل
+            {t("pgNetworking.card.saveContactInfo")}
           </Button>
           {profile.whatsapp && (
             <Button onClick={openWhatsApp} size="lg" variant="outline"
               className="w-full bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400">
-              <MessageCircle className="w-4 h-4 ms-2" /> تواصل عبر واتساب
+              <MessageCircle className="w-4 h-4 ms-2" /> {t("pgNetworking.card.whatsappContact")}
             </Button>
           )}
         </div>
@@ -271,7 +267,7 @@ export default function ConnectCard() {
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="w-4 h-4 text-primary" />
-                  <h2 className="font-semibold">مجالات الخبرة</h2>
+                  <h2 className="font-semibold">{t("pgNetworking.card.expertiseTitle")}</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {expertise.map((t, i) => (
@@ -284,12 +280,12 @@ export default function ConnectCard() {
               <Card className="p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Target className="w-4 h-4 text-accent" />
-                  <h2 className="font-semibold">يبحث عن</h2>
+                  <h2 className="font-semibold">{t("pgNetworking.card.lookingForTitle")}</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {lookingFor.map((t, i) => (
+                  {lookingFor.map((item, i) => (
                     <Badge key={i} variant="outline" className="rounded-full">
-                      {LOOKING_FOR_LABELS[t] || t}
+                      {LOOKING_FOR_KEYS.includes(item) ? t(`pgNetworking.card.lf.${item}`) : item}
                     </Badge>
                   ))}
                 </div>
@@ -301,7 +297,7 @@ export default function ConnectCard() {
         {/* Contact info */}
         {(profile.email_public || profile.whatsapp) && (
           <Card className="p-5">
-            <h2 className="font-semibold mb-3">معلومات التواصل</h2>
+            <h2 className="font-semibold mb-3">{t("pgNetworking.card.contactInfoTitle")}</h2>
             <div className="space-y-2">
               {profile.email_public && (
                 <a href={`mailto:${profile.email_public}`}
@@ -310,7 +306,7 @@ export default function ConnectCard() {
                     <Mail className="w-4 h-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">البريد الإلكتروني</p>
+                    <p className="text-xs text-muted-foreground">{t("pgNetworking.card.emailLabel")}</p>
                     <p className="text-sm font-medium truncate">{profile.email_public}</p>
                   </div>
                 </a>
@@ -322,7 +318,7 @@ export default function ConnectCard() {
                     <Phone className="w-4 h-4 text-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">الجوال / واتساب</p>
+                    <p className="text-xs text-muted-foreground">{t("pgNetworking.card.phoneLabel")}</p>
                     <p className="text-sm font-medium truncate text-start" dir="ltr">{profile.whatsapp}</p>
                   </div>
                 </a>
@@ -334,7 +330,7 @@ export default function ConnectCard() {
         {/* Social links */}
         {socials.length > 0 && (
           <Card className="p-5">
-            <h2 className="font-semibold mb-3">الحسابات الاجتماعية</h2>
+            <h2 className="font-semibold mb-3">{t("pgNetworking.card.socialsTitle")}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {socials.map((s, i) => (
                 <a key={i} href={s.href} target="_blank" rel="noreferrer"
@@ -350,12 +346,12 @@ export default function ConnectCard() {
 
         {user && (
           <Button onClick={downloadVCard} variant="ghost" className="w-full">
-            <Save className="w-4 h-4 ms-2" /> حفظ في جهات الاتصال (vCard)
+            <Save className="w-4 h-4 ms-2" /> {t("pgNetworking.card.saveVcard")}
           </Button>
         )}
 
         <p className="text-xs text-muted-foreground text-center pt-4">
-          منصة <Link to="/" className="text-brand-gold font-bold">نكفيك</Link> لإدارة الفعاليات
+          {t("pgNetworking.card.footerPrefix")} <Link to="/" className="text-brand-gold font-bold">{t("pgNetworking.card.brand")}</Link> {t("pgNetworking.card.footerSuffix")}
         </p>
       </main>
     </div>

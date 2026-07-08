@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ interface ConnectionRow {
 
 export default function MyConnections() {
   const { user } = useAuth();
+  const { t, lang, dir } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ConnectionRow[]>([]);
   const [query, setQuery] = useState("");
@@ -100,10 +102,10 @@ export default function MyConnections() {
   const events = useMemo(() => {
     const set = new Map<string, string>();
     rows.forEach((r) => {
-      if (r.event_id) set.set(r.event_id, r.event_title || "فعالية");
+      if (r.event_id) set.set(r.event_id, r.event_title || t("pgNetworking.connections.eventFallback"));
     });
     return Array.from(set.entries());
-  }, [rows]);
+  }, [rows, t]);
 
   const companies = useMemo(
     () => new Set(rows.map((r) => r.contact.company).filter(Boolean)).size,
@@ -127,22 +129,22 @@ export default function MyConnections() {
     }
     out = [...out];
     if (sort === "name")
-      out.sort((a, b) => (a.contact.full_name || "").localeCompare(b.contact.full_name || "", "ar"));
+      out.sort((a, b) => (a.contact.full_name || "").localeCompare(b.contact.full_name || "", lang));
     else if (sort === "company")
-      out.sort((a, b) => (a.contact.company || "").localeCompare(b.contact.company || "", "ar"));
+      out.sort((a, b) => (a.contact.company || "").localeCompare(b.contact.company || "", lang));
     else out.sort((a, b) => +new Date(b.scanned_at) - +new Date(a.scanned_at));
     return out;
-  }, [rows, query, eventFilter, sort]);
+  }, [rows, query, eventFilter, sort, lang]);
 
   const exportCsv = () => {
     const data = filtered.map((r) => ({
-      الاسم: r.contact.full_name,
-      المسمى: r.contact.job_title,
-      الشركة: r.contact.company,
-      واتساب: r.contact.whatsapp,
-      البريد: r.contact.email_public,
-      الفعالية: r.event_title,
-      التاريخ: new Date(r.scanned_at).toLocaleDateString("ar-SA"),
+      [t("pgNetworking.connections.csvName")]: r.contact.full_name,
+      [t("pgNetworking.connections.csvJobTitle")]: r.contact.job_title,
+      [t("pgNetworking.connections.csvCompany")]: r.contact.company,
+      [t("pgNetworking.connections.csvWhatsapp")]: r.contact.whatsapp,
+      [t("pgNetworking.connections.csvEmail")]: r.contact.email_public,
+      [t("pgNetworking.connections.csvEvent")]: r.event_title,
+      [t("pgNetworking.connections.csvDate")]: new Date(r.scanned_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US"),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -157,7 +159,7 @@ export default function MyConnections() {
   };
 
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
+    <div className="min-h-screen bg-background" dir={dir}>
       <Navbar />
       <div className="container mx-auto pt-24 pb-12 px-4 max-w-5xl">
         {/* Hero */}
@@ -165,21 +167,21 @@ export default function MyConnections() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold font-cairo flex items-center gap-2">
-                <Users className="w-7 h-7" /> اتصالاتي
+                <Users className="w-7 h-7" /> {t("pgNetworking.connections.title")}
               </h1>
               <p className="opacity-90 mt-1 text-sm">
-                كل من تعرفت عليه في فعالياتك في مكان واحد
+                {t("pgNetworking.connections.subtitle")}
               </p>
             </div>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" asChild>
                 <Link to="/my/profile/networking">
-                  <QrCode className="w-4 h-4 ms-2" /> بطاقتي
+                  <QrCode className="w-4 h-4 ms-2" /> {t("pgNetworking.connections.myCard")}
                 </Link>
               </Button>
               <Button variant="secondary" size="sm" asChild>
                 <Link to="/my/notifications">
-                  <Bell className="w-4 h-4 ms-2" /> الإشعارات
+                  <Bell className="w-4 h-4 ms-2" /> {t("pgNetworking.connections.notifications")}
                 </Link>
               </Button>
             </div>
@@ -188,15 +190,15 @@ export default function MyConnections() {
           <div className="grid grid-cols-3 gap-3 mt-6">
             <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
               <p className="text-2xl font-bold">{rows.length}</p>
-              <p className="text-xs opacity-80">جهة اتصال</p>
+              <p className="text-xs opacity-80">{t("pgNetworking.connections.statContacts")}</p>
             </div>
             <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
               <p className="text-2xl font-bold">{events.length}</p>
-              <p className="text-xs opacity-80">فعالية</p>
+              <p className="text-xs opacity-80">{t("pgNetworking.connections.statEvents")}</p>
             </div>
             <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
               <p className="text-2xl font-bold">{companies}</p>
-              <p className="text-xs opacity-80">جهة عمل</p>
+              <p className="text-xs opacity-80">{t("pgNetworking.connections.statCompanies")}</p>
             </div>
           </div>
         </div>
@@ -204,9 +206,9 @@ export default function MyConnections() {
         {/* Toolbar */}
         <Card className="p-4 mb-6 flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[220px]">
-            <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="ابحث بالاسم، الشركة، أو البريد…"
+              placeholder={t("pgNetworking.connections.searchPlaceholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="ps-3 pe-9"
@@ -214,16 +216,16 @@ export default function MyConnections() {
           </div>
           <Select value={eventFilter} onValueChange={setEventFilter}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="كل الفعاليات" />
+              <SelectValue placeholder={t("pgNetworking.connections.allEvents")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">كل الفعاليات</SelectItem>
+              <SelectItem value="all">{t("pgNetworking.connections.allEvents")}</SelectItem>
               {events.map(([id, name]) => (
                 <SelectItem key={id} value={id}>
                   {name}
                 </SelectItem>
               ))}
-              <SelectItem value="none">بدون فعالية</SelectItem>
+              <SelectItem value="none">{t("pgNetworking.connections.noEvent")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sort} onValueChange={(v: any) => setSort(v)}>
@@ -231,14 +233,14 @@ export default function MyConnections() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="recent">الأحدث</SelectItem>
-              <SelectItem value="name">الاسم</SelectItem>
-              <SelectItem value="company">الشركة</SelectItem>
+              <SelectItem value="recent">{t("pgNetworking.connections.sortRecent")}</SelectItem>
+              <SelectItem value="name">{t("pgNetworking.connections.sortName")}</SelectItem>
+              <SelectItem value="company">{t("pgNetworking.connections.sortCompany")}</SelectItem>
             </SelectContent>
           </Select>
           {filtered.length > 0 && (
             <Button onClick={exportCsv} variant="outline" size="sm">
-              <Download className="w-4 h-4 ms-2" /> تصدير Excel
+              <Download className="w-4 h-4 ms-2" /> {t("pgNetworking.connections.exportExcel")}
             </Button>
           )}
         </Card>
@@ -251,14 +253,14 @@ export default function MyConnections() {
         ) : rows.length === 0 ? (
           <Card className="p-12 text-center">
             <Users className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground mb-4">لم تقم بمسح أي بطاقة بعد</p>
+            <p className="text-muted-foreground mb-4">{t("pgNetworking.connections.emptyState")}</p>
             <Button asChild>
-              <Link to="/events">تصفح الفعاليات</Link>
+              <Link to="/events">{t("pgNetworking.connections.browseEvents")}</Link>
             </Button>
           </Card>
         ) : filtered.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">
-            لا نتائج مطابقة لبحثك
+            {t("pgNetworking.connections.noResults")}
           </Card>
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
@@ -267,7 +269,7 @@ export default function MyConnections() {
               return (
                 <Card
                   key={r.id}
-                  className="p-4 hover:shadow-elegant transition-all border-l-4 border-l-primary/40"
+                  className="p-4 hover:shadow-elegant transition-all border-s-4 border-s-primary/40"
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-brand-mauve flex items-center justify-center font-bold text-primary-foreground overflow-hidden shrink-0">
@@ -282,7 +284,7 @@ export default function MyConnections() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{r.contact.full_name || "بدون اسم"}</p>
+                      <p className="font-semibold truncate">{r.contact.full_name || t("pgNetworking.connections.noName")}</p>
                       {r.contact.job_title && (
                         <p className="text-sm text-muted-foreground truncate">
                           {r.contact.job_title}
@@ -307,7 +309,7 @@ export default function MyConnections() {
                       <Button size="sm" variant="outline" className="h-8 px-2" asChild>
                         <a href={wa} target="_blank" rel="noreferrer">
                           <MessageCircle className="w-3.5 h-3.5 ms-1 text-brand-teal" />
-                          واتساب
+                          {t("pgNetworking.connections.whatsapp")}
                         </a>
                       </Button>
                     )}
@@ -315,7 +317,7 @@ export default function MyConnections() {
                       <Button size="sm" variant="outline" className="h-8 px-2" asChild>
                         <a href={`mailto:${r.contact.email_public}`}>
                           <Mail className="w-3.5 h-3.5 ms-1" />
-                          بريد
+                          {t("pgNetworking.connections.email")}
                         </a>
                       </Button>
                     )}
@@ -326,7 +328,7 @@ export default function MyConnections() {
                           target="_blank"
                         >
                           <ExternalLink className="w-3.5 h-3.5 ms-1" />
-                          البطاقة
+                          {t("pgNetworking.connections.card")}
                         </Link>
                       </Button>
                     )}

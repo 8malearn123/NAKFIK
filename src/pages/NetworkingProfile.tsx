@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,16 +20,9 @@ import {
   Instagram, Ghost, X as XIcon,
 } from "lucide-react";
 
-const LOOKING_FOR_OPTIONS = [
-  { value: "partnerships", label: "شراكات تجارية" },
-  { value: "funding", label: "تمويل وإستثمار" },
-  { value: "career", label: "تطوير مهني" },
-  { value: "jobs", label: "فرص توظيف" },
-  { value: "learning", label: "تعلم وتبادل خبرات" },
-];
-
 export default function NetworkingProfile() {
   const { user, profile } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -84,11 +78,11 @@ export default function NetworkingProfile() {
   }, [user]);
 
   const addTag = (field: "expertise" | "looking_for", value: string, max = 8) => {
-    const t = value.trim();
-    if (!t) return;
+    const v = value.trim();
+    if (!v) return;
     setData((d) => {
-      if (d[field].includes(t) || d[field].length >= max) return d;
-      return { ...d, [field]: [...d[field], t] };
+      if (d[field].includes(v) || d[field].length >= max) return d;
+      return { ...d, [field]: [...d[field], v] };
     });
   };
   const removeTag = (field: "expertise" | "looking_for", value: string) =>
@@ -107,7 +101,7 @@ export default function NetworkingProfile() {
   const handleSave = async () => {
     if (!user) return;
     if (data.bio.length > 150) {
-      toast.error("النبذة يجب أن تكون 150 حرف أو أقل");
+      toast.error(t("pgNetworking.profile.bioTooLong"));
       return;
     }
     setSaving(true);
@@ -135,13 +129,13 @@ export default function NetworkingProfile() {
     setSaving(false);
     if (error) {
       console.error("save error", error);
-      toast.error("فشل الحفظ: " + error.message);
+      toast.error(t("pgNetworking.profile.saveFailed") + ": " + error.message);
       return;
     }
     if (saved?.connect_code && saved.connect_code !== data.connect_code) {
       setData((d) => ({ ...d, connect_code: saved.connect_code }));
     }
-    toast.success("تم حفظ بطاقة التواصل");
+    toast.success(t("pgNetworking.profile.saveSuccess"));
   };
 
   const connectUrl = `${window.location.origin}/connect/${data.connect_code}`;
@@ -171,7 +165,7 @@ export default function NetworkingProfile() {
       a.click();
     } catch (e: any) {
       console.error(e);
-      toast.error("تعذّر إنشاء الصورة");
+      toast.error(t("pgNetworking.profile.imageFailed"));
     } finally {
       setDownloading(false);
     }
@@ -189,55 +183,55 @@ export default function NetworkingProfile() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container mx-auto pt-24 pb-12 px-4 max-w-6xl">
-        <h1 className="text-3xl font-bold font-cairo mb-2">بطاقة التواصل</h1>
+        <h1 className="text-3xl font-bold font-cairo mb-2">{t("pgNetworking.profile.title")}</h1>
         <p className="text-muted-foreground mb-8">
-          أنشئ بطاقتك الرقمية لتسهيل التواصل مع الحاضرين الآخرين
+          {t("pgNetworking.profile.subtitle")}
         </p>
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Form */}
           <Card>
             <CardHeader>
-              <CardTitle className="font-cairo">المعلومات</CardTitle>
+              <CardTitle className="font-cairo">{t("pgNetworking.profile.infoTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>المسمى الوظيفي</Label>
+                  <Label>{t("pgNetworking.profile.jobTitle")}</Label>
                   <Input value={data.job_title} onChange={(e) => setData({ ...data, job_title: e.target.value })} />
                 </div>
                 <div>
-                  <Label>الشركة أو الجهة</Label>
+                  <Label>{t("pgNetworking.profile.company")}</Label>
                   <Input value={data.company} onChange={(e) => setData({ ...data, company: e.target.value })} />
                 </div>
               </div>
 
               <div>
-                <Label>ماذا تقدم؟ ({data.bio.length}/150)</Label>
+                <Label>{t("pgNetworking.profile.bioLabel")} ({data.bio.length}/150)</Label>
                 <Textarea
                   value={data.bio}
                   maxLength={150}
                   rows={2}
-                  placeholder="مثال: متخصص في التسويق الرقمي وبناء العلامات التجارية"
+                  placeholder={t("pgNetworking.profile.bioPlaceholder")}
                   onChange={(e) => setData({ ...data, bio: e.target.value })}
                 />
               </div>
 
               <div>
-                <Label className="mb-2 block">تخصصاتك (اضغط Enter للإضافة)</Label>
+                <Label className="mb-2 block">{t("pgNetworking.profile.expertiseLabel")} {t("pgNetworking.profile.enterHint")}</Label>
                 <Input
                   value={expertiseInput}
                   onChange={(e) => setExpertiseInput(e.target.value)}
                   onKeyDown={(e) => onTagKey(e, addExpertise)}
                   onBlur={addExpertise}
-                  placeholder="مثال: تسويق رقمي، ريادة أعمال"
+                  placeholder={t("pgNetworking.profile.expertisePlaceholder")}
                 />
                 {data.expertise.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {data.expertise.map((t) => (
-                      <Badge key={t} variant="secondary" className="gap-1 pr-2">
-                        {t}
-                        <button onClick={() => removeTag("expertise", t)} className="hover:text-destructive">
+                    {data.expertise.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1 pe-2">
+                        {tag}
+                        <button onClick={() => removeTag("expertise", tag)} className="hover:text-destructive">
                           <XIcon className="w-3 h-3" />
                         </button>
                       </Badge>
@@ -247,20 +241,20 @@ export default function NetworkingProfile() {
               </div>
 
               <div>
-                <Label className="mb-2 block">ما تبحث عنه (اضغط Enter للإضافة)</Label>
+                <Label className="mb-2 block">{t("pgNetworking.profile.lookingForLabel")} {t("pgNetworking.profile.enterHint")}</Label>
                 <Input
                   value={lookingForInput}
                   onChange={(e) => setLookingForInput(e.target.value)}
                   onKeyDown={(e) => onTagKey(e, addLookingFor)}
                   onBlur={addLookingFor}
-                  placeholder="مثال: شراكات تجارية، تمويل، فرص توظيف"
+                  placeholder={t("pgNetworking.profile.lookingForPlaceholder")}
                 />
                 {data.looking_for.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {data.looking_for.map((t) => (
-                      <Badge key={t} className="gap-1 pr-2 bg-accent/20 text-accent-foreground hover:bg-accent/30">
-                        {t}
-                        <button onClick={() => removeTag("looking_for", t)} className="hover:text-destructive">
+                    {data.looking_for.map((tag) => (
+                      <Badge key={tag} className="gap-1 pe-2 bg-accent/20 text-accent-foreground hover:bg-accent/30">
+                        {tag}
+                        <button onClick={() => removeTag("looking_for", tag)} className="hover:text-destructive">
                           <XIcon className="w-3 h-3" />
                         </button>
                       </Badge>
@@ -270,33 +264,33 @@ export default function NetworkingProfile() {
               </div>
 
               <div className="space-y-3">
-                <Label className="block">وسائل التواصل</Label>
+                <Label className="block">{t("pgNetworking.profile.socialsLabel")}</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <Input value={data.linkedin_url} onChange={(e) => setData({ ...data, linkedin_url: e.target.value })} placeholder="LinkedIn URL" />
-                  <Input value={data.twitter_handle} onChange={(e) => setData({ ...data, twitter_handle: e.target.value })} placeholder="X / تويتر @handle" />
-                  <Input value={data.snapchat_handle} onChange={(e) => setData({ ...data, snapchat_handle: e.target.value })} placeholder="سناب شات @handle" />
-                  <Input value={data.instagram_handle} onChange={(e) => setData({ ...data, instagram_handle: e.target.value })} placeholder="انستقرام @handle" />
-                  <Input value={data.whatsapp} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder="واتساب +9665..." />
-                  <Input value={data.email_public} type="email" onChange={(e) => setData({ ...data, email_public: e.target.value })} placeholder="البريد العام" />
-                  <Input className="col-span-2" value={data.website_url} onChange={(e) => setData({ ...data, website_url: e.target.value })} placeholder="الموقع https://..." />
+                  <Input value={data.twitter_handle} onChange={(e) => setData({ ...data, twitter_handle: e.target.value })} placeholder={t("pgNetworking.profile.twitterPlaceholder")} />
+                  <Input value={data.snapchat_handle} onChange={(e) => setData({ ...data, snapchat_handle: e.target.value })} placeholder={t("pgNetworking.profile.snapchatPlaceholder")} />
+                  <Input value={data.instagram_handle} onChange={(e) => setData({ ...data, instagram_handle: e.target.value })} placeholder={t("pgNetworking.profile.instagramPlaceholder")} />
+                  <Input value={data.whatsapp} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder={t("pgNetworking.profile.whatsappPlaceholder")} />
+                  <Input value={data.email_public} type="email" onChange={(e) => setData({ ...data, email_public: e.target.value })} placeholder={t("pgNetworking.profile.emailPlaceholder")} />
+                  <Input className="col-span-2" value={data.website_url} onChange={(e) => setData({ ...data, website_url: e.target.value })} placeholder={t("pgNetworking.profile.websitePlaceholder")} />
                 </div>
               </div>
 
               <div>
-                <Label>من يمكنه رؤية بياناتي؟</Label>
+                <Label>{t("pgNetworking.profile.privacyLabel")}</Label>
                 <Select value={data.privacy_level} onValueChange={(v) => setData({ ...data, privacy_level: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="event_only">حضور نفس الفعالية فقط</SelectItem>
-                    <SelectItem value="nakfeek_users">جميع مستخدمي نكفيك</SelectItem>
-                    <SelectItem value="public">عام (أي شخص يملك الرابط)</SelectItem>
+                    <SelectItem value="event_only">{t("pgNetworking.profile.privacyEventOnly")}</SelectItem>
+                    <SelectItem value="nakfeek_users">{t("pgNetworking.profile.privacyNakfeekUsers")}</SelectItem>
+                    <SelectItem value="public">{t("pgNetworking.profile.privacyPublic")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <Button onClick={handleSave} disabled={saving} className="w-full">
                 {saving && <Loader2 className="w-4 h-4 ms-2 animate-spin" />}
-                حفظ البروفايل
+                {t("pgNetworking.profile.saveButton")}
               </Button>
             </CardContent>
           </Card>
@@ -315,7 +309,7 @@ export default function NetworkingProfile() {
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      profile?.full_name?.[0] || "؟"
+                      profile?.full_name?.[0] || t("pgNetworking.profile.avatarFallback")
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -331,10 +325,10 @@ export default function NetworkingProfile() {
 
                 {data.expertise.length > 0 && (
                   <div className="mb-2">
-                    <p className="text-[10px] text-brand-gold mb-1.5 font-semibold">🎯 تخصصاتي</p>
+                    <p className="text-[10px] text-brand-gold mb-1.5 font-semibold">{t("pgNetworking.profile.myExpertise")}</p>
                     <div className="flex flex-wrap gap-1">
-                      {data.expertise.map((t) => (
-                        <span key={t} className="text-[10px] bg-white/15 backdrop-blur px-2 py-0.5 rounded-full">{t}</span>
+                      {data.expertise.map((tag) => (
+                        <span key={tag} className="text-[10px] bg-white/15 backdrop-blur px-2 py-0.5 rounded-full">{tag}</span>
                       ))}
                     </div>
                   </div>
@@ -342,7 +336,7 @@ export default function NetworkingProfile() {
 
                 {data.looking_for.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-[10px] text-brand-gold mb-1.5 font-semibold">🤝 أبحث عن</p>
+                    <p className="text-[10px] text-brand-gold mb-1.5 font-semibold">{t("pgNetworking.profile.lookingFor")}</p>
                     <div className="flex flex-wrap gap-1">
                       {data.looking_for.map((lf) => (
                         <span key={lf} className="text-[10px] bg-brand-gold/30 backdrop-blur px-2 py-0.5 rounded-full">{lf}</span>
@@ -367,7 +361,7 @@ export default function NetworkingProfile() {
                       <QRCodeSVG value={connectUrl} size={130} level="M" fgColor="#492C5A" />
                     )}
                   </div>
-                  <p className="text-[11px] text-white/90 mt-2">امسح للتواصل معي</p>
+                  <p className="text-[11px] text-white/90 mt-2">{t("pgNetworking.profile.scanToConnect")}</p>
                   <p className="text-[10px] text-white/60 mt-0.5 font-mono" dir="ltr">
                     nakfeek.sa/connect/{data.connect_code?.slice(0, 10)}…
                   </p>
@@ -378,17 +372,17 @@ export default function NetworkingProfile() {
             <div className="flex gap-2">
               <Button variant="outline" onClick={downloadPng} disabled={downloading} className="flex-1">
                 {downloading ? <Loader2 className="w-4 h-4 ms-2 animate-spin" /> : <Download className="w-4 h-4 ms-2" />}
-                تحميل البطاقة PNG
+                {t("pgNetworking.profile.downloadPng")}
               </Button>
               <Button variant="outline" asChild className="flex-1">
                 <Link to={`/connect/${data.connect_code}`} target="_blank">
-                  <Maximize2 className="w-4 h-4 ms-2" /> ملء الشاشة
+                  <Maximize2 className="w-4 h-4 ms-2" /> {t("pgNetworking.profile.fullScreen")}
                 </Link>
               </Button>
             </div>
 
             <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">رابط بطاقتك:</p>
+              <p className="text-xs text-muted-foreground mb-1">{t("pgNetworking.profile.cardLink")}</p>
               <code className="text-xs break-all" dir="ltr">{connectUrl}</code>
             </div>
           </div>
