@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarDays, MapPin, Users, Ticket, MessageCircle, Mail, Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
 
 interface OrganizerInfo {
   id?: string;
@@ -22,6 +23,8 @@ interface EventData {
   isFree: boolean;
   image: string;
   attendees: number;
+  maxAttendees?: number | null;
+  createdAt?: string | null;
   organizer?: OrganizerInfo | null;
 }
 
@@ -40,6 +43,11 @@ const buildWaLink = (phone: string, message: string) => {
 
 const EventCard = ({ event, index }: { event: EventData; index: number }) => {
   const { t } = useLanguage();
+  const statusBadges = getEventBadges({
+    created_at: event.createdAt,
+    max_attendees: event.maxAttendees,
+    current_attendees_count: event.attendees,
+  });
 
   return (
     <motion.div
@@ -62,10 +70,15 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
             {categoryLabelKeys[event.category] ? t(categoryLabelKeys[event.category]) : event.category}
           </span>
         </div>
-        <div className="absolute top-3 start-3">
+        <div className="absolute top-3 start-3 flex flex-col items-start gap-1.5">
           <span className={`text-xs font-cairo font-bold rounded-full px-3 py-1 ${event.isFree ? "bg-teal text-teal-foreground" : "bg-accent text-accent-foreground"}`}>
             {event.price}
           </span>
+          {statusBadges.map((b) => (
+            <span key={b} className={`text-[11px] font-cairo font-bold rounded-full px-2.5 py-0.5 shadow-sm ${badgeStyles[b]}`}>
+              {t(`badges.${b}`)}
+            </span>
+          ))}
         </div>
       </div>
 

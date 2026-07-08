@@ -47,7 +47,7 @@ const EventsMarketplace = () => {
     const load = async () => {
       const { data } = await supabase
         .from("events")
-        .select("id, title_ar, start_date, venue_name, category, is_free, cover_image_url, current_attendees_count, is_online, organization_id, organizations(id, name, logo_url, phone, public_email)")
+        .select("id, title_ar, start_date, venue_name, category, is_free, cover_image_url, current_attendees_count, max_attendees, created_at, is_online, organization_id, organizations(id, name, logo_url, phone, public_email)")
         .eq("status", "published")
         .eq("type", "public")
         .order("start_date", { ascending: true });
@@ -108,6 +108,8 @@ const EventsMarketplace = () => {
                   isFree: event.is_free,
                   image: event.cover_image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=340&fit=crop",
                   attendees: event.current_attendees_count,
+                  maxAttendees: (event as any).max_attendees,
+                  createdAt: (event as any).created_at,
                   organizer: event.organizations ? {
                     id: event.organizations.id,
                     name: event.organizations.name,

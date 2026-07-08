@@ -52,7 +52,7 @@ const OrganizerProfile = () => {
     (async () => {
       const [{ data: orgData }, { data: eventsData }] = await Promise.all([
         supabase.from("organizations").select("id, name, description, logo_url, cover_image_url, phone, public_email, website, address, linkedin_url, twitter_url, instagram_url").eq("id", id).maybeSingle(),
-        supabase.from("events").select("id, title_ar, start_date, venue_name, category, is_free, cover_image_url, current_attendees_count, is_online").eq("organization_id", id).eq("status", "published").eq("type", "public").order("start_date", { ascending: true }),
+        supabase.from("events").select("id, title_ar, start_date, venue_name, category, is_free, cover_image_url, current_attendees_count, max_attendees, created_at, is_online").eq("organization_id", id).eq("status", "published").eq("type", "public").order("start_date", { ascending: true }),
       ]);
       setOrg(orgData as Organization | null);
       setEvents((eventsData || []) as EventRow[]);
@@ -164,6 +164,8 @@ const OrganizerProfile = () => {
                       isFree: event.is_free,
                       image: event.cover_image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=340&fit=crop",
                       attendees: event.current_attendees_count,
+                      maxAttendees: (event as any).max_attendees,
+                      createdAt: (event as any).created_at,
                       organizer: null,
                     }} index={i} />
                   ))}

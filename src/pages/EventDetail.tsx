@@ -14,6 +14,7 @@ import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
 import SmartMatch from "@/components/SmartMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
+import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
 
 interface EventData {
   id: string;
@@ -28,6 +29,7 @@ interface EventData {
   current_attendees_count: number;
   cover_image_url: string | null;
   is_online: boolean;
+  created_at?: string | null;
 }
 
 interface SessionData {
@@ -221,6 +223,7 @@ const EventDetail = () => {
     ? Math.max(0, event.max_attendees - event.current_attendees_count)
     : null;
   const soldOut = remainingSeats !== null && remainingSeats <= 0;
+  const statusBadges = getEventBadges(event);
 
   const defaultImage =
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=500&fit=crop";
@@ -262,9 +265,21 @@ const EventDetail = () => {
           transition={{ delay: 0.05 }}
           className="text-center space-y-3"
         >
-          <span className="inline-block bg-primary/10 text-primary text-xs font-bold rounded-full px-3 py-1">
-            {categoryLabels[event.category] || event.category}
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-1.5">
+            <span className="inline-block bg-primary/10 text-primary text-xs font-bold rounded-full px-3 py-1">
+              {categoryLabels[event.category] || event.category}
+            </span>
+            {event.is_free && (
+              <span className="inline-block bg-teal text-teal-foreground text-xs font-bold rounded-full px-3 py-1">
+                {t("badges.free")}
+              </span>
+            )}
+            {statusBadges.map((b) => (
+              <span key={b} className={`inline-block text-xs font-bold rounded-full px-3 py-1 ${badgeStyles[b]}`}>
+                {t(`badges.${b}`)}
+              </span>
+            ))}
+          </div>
           <h1 className="text-2xl font-bold text-foreground leading-tight inline-flex items-center gap-2 max-w-full">
             <span>{event.title_ar}</span>
             <button

@@ -61,6 +61,13 @@ export const ar = {
     notifications: "الإشعارات",
     logout: "تسجيل الخروج",
   },
+  badges: {
+    new: "جديد",
+    trending: "الأكثر رواجاً",
+    almostFull: "المقاعد توشك على النفاد",
+    soldOut: "نفدت التذاكر",
+    free: "مجاني",
+  },
   inbox: {
     emptyTitle: "صندوق الوارد فارغ",
     emptyDesc: "ستظهر هنا الإشعارات الواردة",

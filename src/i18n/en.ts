@@ -61,6 +61,13 @@ export const en = {
     notifications: "Notifications",
     logout: "Logout",
   },
+  badges: {
+    new: "New",
+    trending: "Trending",
+    almostFull: "Almost Full",
+    soldOut: "Sold Out",
+    free: "Free",
+  },
   inbox: {
     emptyTitle: "Your inbox is empty",
     emptyDesc: "Incoming notifications will appear here",
