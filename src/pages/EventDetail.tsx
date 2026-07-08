@@ -416,7 +416,7 @@ const EventDetail = () => {
                   <iframe
                     title={t("pgEventDetail.mapFrameTitle")}
                     src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed&hl=${lang}`}
-                    className="w-full h-56 border-0"
+                    className="w-full h-48 border-0"
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     allowFullScreen
