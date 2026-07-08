@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarPlus } from "lucide-react";
+import { BellRing, CalendarPlus } from "lucide-react";
 
 interface EventData {
   id: string;
@@ -85,7 +85,53 @@ const EventDetail = () => {
   const [registeredTicket, setRegisteredTicket] = useState<TicketData | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [showCalendarDialog, setShowCalendarDialog] = useState(false);
+  const [onWaitlist, setOnWaitlist] = useState(false);
+  const [waitlistBusy, setWaitlistBusy] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  // هل المستخدم في قائمة الانتظار؟
+  useEffect(() => {
+    if (!id || !user) return;
+    supabase
+      .from("event_waitlist" as any)
+      .select("id")
+      .eq("event_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setOnWaitlist(!!data));
+  }, [id, user]);
+
+  const handleJoinWaitlist = async () => {
+    if (!user) {
+      toast.error(t("pgEventDetail.loginFirst"));
+      return;
+    }
+    if (!id) return;
+    setWaitlistBusy(true);
+    try {
+      if (onWaitlist) {
+        const { error } = await supabase
+          .from("event_waitlist" as any)
+          .delete()
+          .eq("event_id", id)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        setOnWaitlist(false);
+        toast.success(t("pgEventDetail.waitlistLeft"));
+      } else {
+        const { error } = await supabase
+          .from("event_waitlist" as any)
+          .insert({ event_id: id, user_id: user.id } as any);
+        if (error && !error.message?.includes("duplicate")) throw error;
+        setOnWaitlist(true);
+        toast.success(t("pgEventDetail.waitlistJoined"));
+      }
+    } catch {
+      toast.error(t("pgEventDetail.waitlistError"));
+    } finally {
+      setWaitlistBusy(false);
+    }
+  };
 
   const handleAddToCalendar = () => {
     if (event) {
@@ -521,6 +567,28 @@ const EventDetail = () => {
                   </Button>
                 );
               })()}
+
+              {/* Waitlist when sold out */}
+              {soldOut && (
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-full h-11 font-bold border-primary/40 text-primary hover:bg-primary/5"
+                    disabled={waitlistBusy}
+                    onClick={handleJoinWaitlist}
+                  >
+                    <BellRing className="w-4 h-4" />
+                    {onWaitlist
+                      ? t("pgEventDetail.onWaitlist")
+                      : t("pgEventDetail.joinWaitlist")}
+                  </Button>
+                  <p className="text-center text-[11px] text-muted-foreground">
+                    {onWaitlist
+                      ? t("pgEventDetail.leaveWaitlistHint")
+                      : t("pgEventDetail.waitlistHint")}
+                  </p>
+                </div>
+              )}
 
               {!user && (
                 <p className="text-center text-xs text-muted-foreground">

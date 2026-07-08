@@ -22,6 +22,16 @@ export const eventDetailDict = {
     addToFavorites: "إضافة إلى المفضلة",
     removeFromFavorites: "إزالة من المفضلة",
 
+    // Waitlist
+    joinWaitlist: "الانضمام إلى قائمة الانتظار",
+    onWaitlist: "أنت في قائمة الانتظار ✓",
+    waitlistJoined: "انضممت لقائمة الانتظار — سنخطرك فور توفر مقعد",
+    waitlistLeft: "غادرت قائمة الانتظار",
+    leaveWaitlist: "مغادرة قائمة الانتظار",
+    leaveWaitlistHint: "سنخطرك فور توفر مقعد — اضغط الزر مرة أخرى لمغادرة القائمة",
+    waitlistError: "تعذر الانضمام لقائمة الانتظار، حاول مرة أخرى",
+    waitlistHint: "سنرسل لك إشعاراً فور توفر مقعد بسبب إلغاء أحد الحجوزات",
+
     // Calendar
     calendarTitle: "أضف الفعالية إلى تقويمك",
     calendarDesc: "حتى لا يفوتك الموعد، أضف الفعالية إلى تقويم جهازك بضغطة واحدة.",
@@ -112,6 +122,16 @@ export const eventDetailDict = {
     favoriteRemoved: "Event removed from favorites",
     addToFavorites: "Add to favorites",
     removeFromFavorites: "Remove from favorites",
+
+    // Waitlist
+    joinWaitlist: "Join the Waitlist",
+    onWaitlist: "You're on the waitlist ✓",
+    waitlistJoined: "You joined the waitlist — we'll notify you when a seat opens up",
+    waitlistLeft: "You left the waitlist",
+    leaveWaitlist: "Leave the waitlist",
+    leaveWaitlistHint: "We'll notify you when a seat opens — tap again to leave the list",
+    waitlistError: "Couldn't join the waitlist, please try again",
+    waitlistHint: "We'll notify you as soon as a seat becomes available due to a cancellation",
 
     // Calendar
     calendarTitle: "Add this event to your calendar",
