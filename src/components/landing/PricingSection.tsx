@@ -5,6 +5,7 @@ import { Check, Sparkles, Calendar, Users, ChevronRight, ChevronLeft } from "luc
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
+import { translateContent } from "@/lib/contentTranslations";
 
 interface Plan {
   id: string;
@@ -229,7 +230,7 @@ const PricingSection = () => {
                           {plan.features.map((f, fi) => (
                             <li key={`f${fi}`} className="flex items-start gap-2.5 text-sm font-cairo text-foreground/80">
                               <Check className="w-4 h-4 text-teal flex-shrink-0 mt-0.5" />
-                              <span>{f}</span>
+                              <span>{translateContent(f, lang)}</span>
                             </li>
                           ))}
                         </ul>

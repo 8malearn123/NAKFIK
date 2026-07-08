@@ -13,6 +13,7 @@ import {
 import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
 import SmartMatch from "@/components/SmartMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { translateContent } from "@/lib/contentTranslations";
 
 interface EventData {
   id: string;
@@ -411,7 +412,7 @@ const EventDetail = () => {
                         </div>
                         <div>
                           <div className="font-bold text-foreground text-sm flex items-center gap-2">
-                            {ticket.name_ar}
+                            {translateContent(ticket.name_ar, lang)}
                             {!sellable && (
                               <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-semibold">
                                 {t("pgEventDetail.displayOnly")}
@@ -515,7 +516,7 @@ const EventDetail = () => {
                   </div>
                   {registeredTicket && (
                     <span className="text-[10px] font-bold bg-primary-foreground/15 px-2.5 py-1 rounded-full">
-                      {registeredTicket.name_ar}
+                      {translateContent(registeredTicket.name_ar, lang)}
                     </span>
                   )}
                 </div>
