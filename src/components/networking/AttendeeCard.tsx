@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface AttendeeCardData {
   full_name?: string | null;
@@ -22,7 +23,8 @@ const TAG_COLORS = ["#F4C95D", "#7DD3C0", "#F08C7D", "#C4A5E0", "#FFB4A2"];
 
 const AttendeeCard = forwardRef<HTMLDivElement, { data: AttendeeCardData; className?: string }>(
   ({ data, className = "" }, ref) => {
-    const initial = (data.full_name || "؟").trim().charAt(0);
+    const { t, dir } = useLanguage();
+    const initial = (data.full_name || t("pgProfile.card.initialFallback")).trim().charAt(0);
     const tier = (data.tier_label || data.tier || "GUEST").toUpperCase();
     const subtitle = [data.job_title, data.company].filter(Boolean).join(" · ");
     const ring = data.ring_color || "#CC8E3D";
@@ -32,7 +34,7 @@ const AttendeeCard = forwardRef<HTMLDivElement, { data: AttendeeCardData; classN
     return (
       <div
         ref={ref}
-        dir="rtl"
+        dir={dir}
         className={`relative w-[340px] rounded-[32px] overflow-hidden text-white font-cairo ${className}`}
         style={{
           background:
@@ -150,16 +152,16 @@ const AttendeeCard = forwardRef<HTMLDivElement, { data: AttendeeCardData; classN
               <QRCodeSVG value={data.qr_value} size={84} level="M" fgColor={bgFrom} />
             ) : (
               <div className="w-[84px] h-[84px] flex items-center justify-center text-[10px] text-muted-foreground text-center px-1">
-                احفظ ملفك
+                {t("pgProfile.card.saveYourProfile")}
               </div>
             )}
           </div>
-          <div className="flex-1 min-w-0 text-right">
+          <div className="flex-1 min-w-0 text-start">
             <p className="text-[11px] font-bold leading-tight" style={{ color: bgFrom }}>
-              {data.qr_label || "امسح للتواصل معي"}
+              {data.qr_label || t("pgProfile.card.scanToConnect")}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1 leading-snug">
-              بطاقتي الرقمية
+              {t("pgProfile.card.myDigitalCard")}
             </p>
             <div className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-bold" style={{ color: ring }}>
               <span className="w-1 h-1 rounded-full" style={{ background: ring }} />

@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { ZoomIn, RotateCw, Loader2 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Props {
   open: boolean;
@@ -49,6 +50,7 @@ async function getCroppedBlob(src: string, area: Area, rotation: number): Promis
 }
 
 export default function AvatarCropDialog({ open, imageSrc, onClose, onCropped }: Props) {
+  const { t, dir } = useLanguage();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -75,9 +77,9 @@ export default function AvatarCropDialog({ open, imageSrc, onClose, onCropped }:
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !saving && onClose()}>
-      <DialogContent className="max-w-md font-cairo" dir="rtl">
+      <DialogContent className="max-w-md font-cairo" dir={dir}>
         <DialogHeader>
-          <DialogTitle>اقتطاع صورة البطاقة</DialogTitle>
+          <DialogTitle>{t("pgProfile.crop.title")}</DialogTitle>
         </DialogHeader>
         <div className="relative w-full h-72 bg-muted rounded-xl overflow-hidden">
           {imageSrc && (
@@ -106,10 +108,10 @@ export default function AvatarCropDialog({ open, imageSrc, onClose, onCropped }:
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="outline" onClick={onClose} disabled={saving}>إلغاء</Button>
+          <Button variant="outline" onClick={onClose} disabled={saving}>{t("pgProfile.crop.cancel")}</Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 ms-2 animate-spin" /> : null}
-            حفظ الصورة
+            {t("pgProfile.crop.save")}
           </Button>
         </DialogFooter>
       </DialogContent>
