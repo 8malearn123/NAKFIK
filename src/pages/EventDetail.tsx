@@ -13,6 +13,7 @@ import {
 import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
 import { isOnWaitlist, toggleWaitlist } from "@/lib/waitlist";
 import SmartMatch from "@/components/SmartMatch";
+import EventRatingSection from "@/components/events/EventRating";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
@@ -80,6 +81,7 @@ const EventDetail = () => {
   const [tickets, setTickets] = useState<TicketData[]>([]);
   const [loading, setLoading] = useState(true);
   const [registered, setRegistered] = useState(false);
+  const [attended, setAttended] = useState(false);
   const [registrationQR, setRegistrationQR] = useState("");
   const [selectedTicket, setSelectedTicket] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -144,12 +146,13 @@ const EventDetail = () => {
       if (user) {
         const { data: reg } = await supabase
           .from("registrations")
-          .select("qr_code, ticket_id")
+          .select("qr_code, ticket_id, status, checked_in_at")
           .eq("event_id", id)
           .eq("attendee_id", user.id)
           .maybeSingle();
         if (reg) {
           setRegistered(true);
+          setAttended((reg as any).status === "checked_in" || !!(reg as any).checked_in_at);
           setRegistrationQR((reg as any).qr_code);
           const tkId = (reg as any).ticket_id;
           if (tkId) {
@@ -678,6 +681,9 @@ const EventDetail = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Event rating */}
+        <EventRatingSection eventId={event.id} attended={attended} userId={user?.id} />
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground py-4">

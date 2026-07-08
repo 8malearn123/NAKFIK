@@ -32,6 +32,19 @@ export const eventDetailDict = {
     waitlistError: "تعذر الانضمام لقائمة الانتظار، حاول مرة أخرى",
     waitlistHint: "سنرسل لك إشعاراً فور توفر مقعد بسبب إلغاء أحد الحجوزات",
 
+    // Rating
+    ratingTitle: "تقييم الفعالية",
+    noRatingsYet: "لا توجد تقييمات بعد — كن أول من يقيّم بعد حضورك",
+    yourRating: "تقييمك",
+    commentPlaceholder: "شاركنا تجربتك في الفعالية (اختياري)...",
+    submitRating: "إرسال التقييم",
+    updateRating: "تحديث التقييم",
+    editRating: "تعديل",
+    ratingSaved: "شكراً لك! تم حفظ تقييمك",
+    ratingUpdated: "تم تحديث تقييمك",
+    selectStars: "اختر عدد النجوم أولاً",
+    attendeesOnly: "التقييم متاح فقط لمن حضر الفعالية",
+
     // Calendar
     calendarTitle: "أضف الفعالية إلى تقويمك",
     calendarDesc: "حتى لا يفوتك الموعد، أضف الفعالية إلى تقويم جهازك بضغطة واحدة.",
@@ -132,6 +145,19 @@ export const eventDetailDict = {
     leaveWaitlistHint: "We'll notify you when a seat opens — tap again to leave the list",
     waitlistError: "Couldn't join the waitlist, please try again",
     waitlistHint: "We'll notify you as soon as a seat becomes available due to a cancellation",
+
+    // Rating
+    ratingTitle: "Event Rating",
+    noRatingsYet: "No ratings yet — be the first to rate after attending",
+    yourRating: "Your rating",
+    commentPlaceholder: "Tell us about your experience (optional)...",
+    submitRating: "Submit Rating",
+    updateRating: "Update Rating",
+    editRating: "Edit",
+    ratingSaved: "Thank you! Your rating was saved",
+    ratingUpdated: "Your rating was updated",
+    selectStars: "Please select a star rating first",
+    attendeesOnly: "Rating is available only to attendees of this event",
 
     // Calendar
     calendarTitle: "Add this event to your calendar",
