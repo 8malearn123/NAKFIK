@@ -32,6 +32,11 @@ export const eventDetailDict = {
     waitlistError: "تعذر الانضمام لقائمة الانتظار، حاول مرة أخرى",
     waitlistHint: "سنرسل لك إشعاراً فور توفر مقعد بسبب إلغاء أحد الحجوزات",
 
+    // Share
+    shareEvent: "مشاركة الفعالية",
+    linkCopied: "تم نسخ رابط الفعالية",
+    copyFailed: "تعذّر نسخ الرابط",
+
     // Rating
     ratingTitle: "تقييم الفعالية",
     noRatingsYet: "لا توجد تقييمات بعد — كن أول من يقيّم بعد حضورك",
@@ -145,6 +150,11 @@ export const eventDetailDict = {
     leaveWaitlistHint: "We'll notify you when a seat opens — tap again to leave the list",
     waitlistError: "Couldn't join the waitlist, please try again",
     waitlistHint: "We'll notify you as soon as a seat becomes available due to a cancellation",
+
+    // Share
+    shareEvent: "Share event",
+    linkCopied: "Event link copied",
+    copyFailed: "Couldn't copy the link",
 
     // Rating
     ratingTitle: "Event Rating",

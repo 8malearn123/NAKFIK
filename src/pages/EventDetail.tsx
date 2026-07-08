@@ -26,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { BellRing, CalendarPlus } from "lucide-react";
+import { BellRing, CalendarPlus, Share2 } from "lucide-react";
 
 interface EventData {
   id: string;
@@ -101,6 +101,25 @@ const EventDetail = () => {
     const joined = toggleWaitlist(id, user?.id);
     setOnWaitlist(joined);
     toast.success(joined ? t("pgEventDetail.waitlistJoined") : t("pgEventDetail.waitlistLeft"));
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    // واجهة مشاركة المتصفح إن كانت مدعومة، وإلا نسخ الرابط
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event?.title_ar, url });
+        return;
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") return; // المستخدم أغلق نافذة المشاركة
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t("pgEventDetail.linkCopied"));
+    } catch {
+      toast.error(t("pgEventDetail.copyFailed"));
+    }
   };
 
   const handleAddToCalendar = () => {
@@ -337,6 +356,13 @@ const EventDetail = () => {
                     : "text-muted-foreground hover:text-primary"
                 }`}
               />
+            </button>
+            <button
+              onClick={handleShare}
+              aria-label={t("pgEventDetail.shareEvent")}
+              className="shrink-0 rounded-full p-1.5 hover:bg-muted transition-colors"
+            >
+              <Share2 className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
             </button>
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
