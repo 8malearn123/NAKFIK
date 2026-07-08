@@ -48,7 +48,7 @@ const Stars = ({
       >
         <Star
           className={`${size} transition-colors ${
-            s <= value ? "fill-accent text-accent" : "text-muted-foreground/30"
+            s <= value ? "fill-primary text-primary" : "text-muted-foreground/30"
           }`}
         />
       </button>
