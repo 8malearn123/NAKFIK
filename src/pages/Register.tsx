@@ -201,16 +201,16 @@ const Register = () => {
               <div className="space-y-2">
                 <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
                 <div className="relative">
-                  <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="email" name="email" type="email" placeholder="example@email.com" value={formData.email} onChange={handleChange} className="pe-10" dir="ltr" required />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="email" name="email" type="email" placeholder="example@email.com" value={formData.email} onChange={handleChange} className="pl-10" dir="ltr" required />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">{t("pgAuth.register.phone")}</Label>
                 <div className="relative">
-                  <Phone className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pe-10" dir="ltr" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pl-10" dir="ltr" />
                 </div>
               </div>
 

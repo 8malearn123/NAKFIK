@@ -209,7 +209,7 @@ const PricingSection = () => {
                           <span className="font-cairo font-extrabold text-5xl text-foreground">
                             {plan.price === 0 ? (isAr ? "مجاناً" : "Free") : plan.price.toLocaleString()}
                           </span>
-                          {plan.price > 0 && <span className="text-muted-foreground font-cairo mr-1 text-sm">{currency}</span>}
+                          {plan.price > 0 && <span className="text-muted-foreground font-cairo ms-1 text-sm">{currency}</span>}
                         </div>
                         <p className="text-xs text-muted-foreground font-cairo mb-6">
                           {plan.max_events != null
