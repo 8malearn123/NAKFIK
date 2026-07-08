@@ -6,9 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { UserSquare2, ExternalLink } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function MyTicketConnectQR() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState<string | null>(null);
 
@@ -30,21 +32,21 @@ export default function MyTicketConnectQR() {
       <Button
         size="sm" variant="ghost" className="rounded-full text-xs"
         onClick={() => setOpen(true)}
-        title="بطاقتي للتواصل"
+        title={t("pgTickets.myCardTooltip")}
       >
-        <UserSquare2 className="w-3.5 h-3.5" /> بطاقتي
+        <UserSquare2 className="w-3.5 h-3.5" /> {t("pgTickets.myCard")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
-          <DialogTitle className="text-center font-cairo">بطاقة التواصل الخاصة بي</DialogTitle>
+          <DialogTitle className="text-center font-cairo">{t("pgTickets.connectCardTitle")}</DialogTitle>
           <div className="flex flex-col items-center gap-3 py-4">
             <div className="bg-white p-5 rounded-2xl shadow-md">
               <QRCodeSVG value={url} size={240} level="H" fgColor="#492C5A" />
             </div>
-            <p className="text-sm text-muted-foreground text-center">شاركها أو دعهم يمسحونها للحصول على بياناتك</p>
+            <p className="text-sm text-muted-foreground text-center">{t("pgTickets.connectCardHint")}</p>
             <Button asChild variant="outline" className="w-full">
               <Link to={`/connect/${code}`} target="_blank">
-                <ExternalLink className="w-4 h-4 ms-2" /> فتح صفحة البطاقة
+                <ExternalLink className="w-4 h-4 ms-2" /> {t("pgTickets.openCardPage")}
               </Link>
             </Button>
           </div>

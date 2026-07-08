@@ -8,9 +8,11 @@ import logo from "@/assets/logo.png";
 import { Mail, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,9 +29,9 @@ const Login = () => {
 
       if (error) {
         if (error.message.includes("Email not confirmed")) {
-          toast.error("يرجى تأكيد بريدك الإلكتروني أولاً");
+          toast.error(t("pgAuth.login.toastConfirmEmail"));
         } else if (error.message.includes("Invalid login credentials")) {
-          toast.error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+          toast.error(t("pgAuth.login.toastInvalidCredentials"));
         } else {
           toast.error(error.message);
         }
@@ -46,7 +48,7 @@ const Login = () => {
           .maybeSingle();
 
         if (adminRole) {
-          toast.success("مرحباً مدير النظام!");
+          toast.success(t("pgAuth.login.toastWelcomeAdmin"));
           // Use replace to avoid race condition with ProtectedRoute
           window.location.href = "/admin";
           return;
@@ -59,7 +61,7 @@ const Login = () => {
           .eq("id", data.user.id)
           .maybeSingle();
 
-        toast.success("تم تسجيل الدخول بنجاح!");
+        toast.success(t("pgAuth.login.toastSuccess"));
 
         const accountType = profile?.account_type || "attendee";
         if (accountType === "organizer") {
@@ -69,7 +71,7 @@ const Login = () => {
         }
       }
     } catch (err: any) {
-      toast.error("حدث خطأ غير متوقع");
+      toast.error(t("pgAuth.common.errorUnexpected"));
     } finally {
       setLoading(false);
     }
@@ -84,10 +86,10 @@ const Login = () => {
         <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
 
         <div className="text-center relative z-10">
-          <img src={logo} alt="نكفيك تيكت" className="h-24 w-auto mx-auto mb-8" />
-          <h2 className="text-primary-foreground font-bold text-3xl mb-4">مرحباً بعودتك!</h2>
+          <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-24 w-auto mx-auto mb-8" />
+          <h2 className="text-primary-foreground font-bold text-3xl mb-4">{t("pgAuth.login.brandTitle")}</h2>
           <p className="text-primary-foreground/70 text-lg max-w-md">
-            سجّل دخولك لإدارة فعالياتك ومتابعة تذاكرك
+            {t("pgAuth.login.brandSubtitle")}
           </p>
         </div>
       </div>
@@ -101,32 +103,32 @@ const Login = () => {
         >
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/">
-              <img src={logo} alt="نكفيك تيكت" className="h-16 w-auto" />
+              <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
             </Link>
           </div>
 
           <div className="mb-8">
-            <h1 className="font-bold text-2xl text-foreground mb-2">تسجيل الدخول</h1>
+            <h1 className="font-bold text-2xl text-foreground mb-2">{t("pgAuth.login.title")}</h1>
             <p className="text-muted-foreground text-sm">
-              ليس لديك حساب؟{" "}
+              {t("pgAuth.login.noAccount")}{" "}
               <Link to="/register" className="text-primary font-semibold hover:underline">
-                أنشئ حساباً جديداً
+                {t("pgAuth.login.createAccountLink")}
               </Link>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
               <div className="relative">
-                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pr-10"
+                  className="pe-10"
                   dir="ltr"
                   required
                 />
@@ -135,44 +137,44 @@ const Login = () => {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">كلمة المرور</Label>
+                <Label htmlFor="password">{t("pgAuth.common.password")}</Label>
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-                  نسيت كلمة المرور؟
+                  {t("pgAuth.login.forgotPassword")}
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Lock className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type="password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pr-10"
+                  className="pe-10"
                   required
                 />
               </div>
             </div>
 
             <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
-              {loading ? "جارٍ تسجيل الدخول..." : "تسجيل الدخول"}
+              {loading ? t("pgAuth.login.submitting") : t("pgAuth.login.submit")}
             </Button>
           </form>
 
           {/* Demo Accounts */}
           <div className="mt-6 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5">
-            <p className="text-xs text-muted-foreground mb-3 text-center font-semibold">حسابات تجريبية (للاختبار)</p>
+            <p className="text-xs text-muted-foreground mb-3 text-center font-semibold">{t("pgAuth.login.demoTitle")}</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "🛡️ سوبر أدمن", email: "admin@nakfeek.sa" },
-                { label: "🎪 منظّم فعاليات", email: "org1@nakfeek.sa" },
-                { label: "👤 حاضر", email: "attendee1@nakfeek.sa" },
+                { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
+                { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
+                { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
               ].map((demo) => (
                 <button
                   key={demo.email}
                   type="button"
                   onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
-                  className="text-xs px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent/10 hover:border-primary/50 transition-all text-right truncate"
+                  className="text-xs px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent/10 hover:border-primary/50 transition-all text-start truncate"
                 >
                   <span className="block font-semibold">{demo.label}</span>
                   <span className="text-muted-foreground text-[10px]" dir="ltr">{demo.email}</span>
@@ -184,7 +186,7 @@ const Login = () => {
 
           <div className="mt-4 text-center">
             <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              ← العودة للصفحة الرئيسية
+              {t("pgAuth.common.backHome")}
             </Link>
           </div>
         </motion.div>

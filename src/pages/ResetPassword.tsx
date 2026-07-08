@@ -8,9 +8,11 @@ import logo from "@/assets/logo.png";
 import { Lock, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,12 +40,12 @@ const ResetPassword = () => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast.error("كلمتا المرور غير متطابقتين");
+      toast.error(t("pgAuth.common.passwordMismatch"));
       return;
     }
 
     if (password.length < 6) {
-      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      toast.error(t("pgAuth.common.passwordMinLength"));
       return;
     }
 
@@ -56,11 +58,11 @@ const ResetPassword = () => {
         toast.error(error.message);
       } else {
         setSuccess(true);
-        toast.success("تم تغيير كلمة المرور بنجاح!");
+        toast.success(t("pgAuth.reset.toastSuccess"));
         setTimeout(() => navigate("/login"), 3000);
       }
     } catch {
-      toast.error("حدث خطأ غير متوقع");
+      toast.error(t("pgAuth.common.errorUnexpected"));
     } finally {
       setLoading(false);
     }
@@ -75,7 +77,7 @@ const ResetPassword = () => {
       >
         <div className="flex justify-center mb-8">
           <Link to="/">
-            <img src={logo} alt="نكفيك تيكت" className="h-16 w-auto" />
+            <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
           </Link>
         </div>
 
@@ -84,42 +86,42 @@ const ResetPassword = () => {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h1 className="font-bold text-2xl text-foreground">تم تغيير كلمة المرور!</h1>
+            <h1 className="font-bold text-2xl text-foreground">{t("pgAuth.reset.successTitle")}</h1>
             <p className="text-muted-foreground text-sm">
-              سيتم توجيهك لصفحة تسجيل الدخول خلال ثوانٍ...
+              {t("pgAuth.reset.successDesc")}
             </p>
           </div>
         ) : !isRecovery ? (
           <div className="text-center space-y-4">
-            <h1 className="font-bold text-2xl text-foreground">رابط غير صالح</h1>
+            <h1 className="font-bold text-2xl text-foreground">{t("pgAuth.reset.invalidTitle")}</h1>
             <p className="text-muted-foreground text-sm">
-              يبدو أن رابط إعادة التعيين غير صالح أو انتهت صلاحيته
+              {t("pgAuth.reset.invalidDesc")}
             </p>
             <Link to="/forgot-password">
-              <Button variant="outline" className="mt-4">طلب رابط جديد</Button>
+              <Button variant="outline" className="mt-4">{t("pgAuth.reset.requestNew")}</Button>
             </Link>
           </div>
         ) : (
           <>
             <div className="mb-8 text-center">
-              <h1 className="font-bold text-2xl text-foreground mb-2">تعيين كلمة مرور جديدة</h1>
+              <h1 className="font-bold text-2xl text-foreground mb-2">{t("pgAuth.reset.title")}</h1>
               <p className="text-muted-foreground text-sm">
-                أدخل كلمة المرور الجديدة لحسابك
+                {t("pgAuth.reset.subtitle")}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور الجديدة</Label>
+                <Label htmlFor="password">{t("pgAuth.reset.newPassword")}</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Lock className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pr-10"
+                    className="pe-10"
                     required
                     minLength={6}
                   />
@@ -127,16 +129,16 @@ const ResetPassword = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
+                <Label htmlFor="confirmPassword">{t("pgAuth.common.confirmPassword")}</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Lock className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="confirmPassword"
                     type="password"
                     placeholder="••••••••"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pr-10"
+                    className="pe-10"
                     required
                     minLength={6}
                   />
@@ -144,7 +146,7 @@ const ResetPassword = () => {
               </div>
 
               <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
-                {loading ? "جارٍ التحديث..." : "تحديث كلمة المرور"}
+                {loading ? t("pgAuth.reset.submitting") : t("pgAuth.reset.submit")}
               </Button>
             </form>
           </>
@@ -152,7 +154,7 @@ const ResetPassword = () => {
 
         <div className="mt-6 text-center">
           <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            ← العودة لتسجيل الدخول
+            {t("pgAuth.reset.backToLogin")}
           </Link>
         </div>
       </motion.div>

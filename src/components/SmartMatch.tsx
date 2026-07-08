@@ -7,11 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Sparkles, ExternalLink, MessageCircle } from "lucide-react";
-
-const LOOKING_FOR_LABELS: Record<string, string> = {
-  partnerships: "شراكات تجارية", funding: "تمويل وإستثمار",
-  career: "تطوير مهني", jobs: "فرص توظيف", learning: "تعلم وتبادل خبرات",
-};
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Match {
   user_id: string;
@@ -28,6 +24,14 @@ interface Match {
 
 export default function SmartMatch({ eventId }: { eventId: string }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
+  const LOOKING_FOR_LABELS: Record<string, string> = {
+    partnerships: t("pgEventDetail.lookingForPartnerships"),
+    funding: t("pgEventDetail.lookingForFunding"),
+    career: t("pgEventDetail.lookingForCareer"),
+    jobs: t("pgEventDetail.lookingForJobs"),
+    learning: t("pgEventDetail.lookingForLearning"),
+  };
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -103,9 +107,9 @@ export default function SmartMatch({ eventId }: { eventId: string }) {
     >
       <h2 className="font-bold text-foreground mb-1 flex items-center gap-2 font-cairo">
         <Sparkles className="w-5 h-5 text-accent" />
-        قد تهمك معرفتهم في هذه الفعالية
+        {t("pgEventDetail.matchTitle")}
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">حضور آخرون تتشابه اهتماماتكم</p>
+      <p className="text-xs text-muted-foreground mb-4">{t("pgEventDetail.matchSubtitle")}</p>
       <div className="space-y-3">
         {matches.map((m) => {
           const dots = Math.min(5, Math.max(1, Math.round((m.score / maxScore) * 5)));
@@ -114,7 +118,7 @@ export default function SmartMatch({ eventId }: { eventId: string }) {
               <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center font-bold overflow-hidden flex-shrink-0">
                 {m.avatar_url ? (
                   <img src={m.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (m.full_name?.[0] || "؟")}
+                ) : (m.full_name?.[0] || t("pgEventDetail.avatarFallback"))}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold truncate">{m.full_name}</p>
@@ -130,11 +134,11 @@ export default function SmartMatch({ eventId }: { eventId: string }) {
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-0.5 mt-1.5" title={`تشابه ${m.score}`}>
+                <div className="flex items-center gap-0.5 mt-1.5" title={`${t("pgEventDetail.matchSimilarity")} ${m.score}`}>
                   {Array.from({ length: 5 }).map((_, i) => (
                     <span key={i} className={`w-1.5 h-1.5 rounded-full ${i < dots ? "bg-accent" : "bg-muted"}`} />
                   ))}
-                  <span className="text-[10px] text-muted-foreground ms-1">تشابه</span>
+                  <span className="text-[10px] text-muted-foreground ms-1">{t("pgEventDetail.matchSimilarity")}</span>
                 </div>
               </div>
               <div className="flex gap-1.5">
@@ -145,7 +149,7 @@ export default function SmartMatch({ eventId }: { eventId: string }) {
                 )}
                 <Button size="sm" variant="outline" asChild>
                   <Link to={`/connect/${m.connect_code}`} target="_blank">
-                    <ExternalLink className="w-3.5 h-3.5 ms-1" /> البطاقة
+                    <ExternalLink className="w-3.5 h-3.5 ms-1" /> {t("pgEventDetail.matchCard")}
                   </Link>
                 </Button>
               </div>

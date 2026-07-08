@@ -6,13 +6,14 @@ import EventCard from "@/components/events/EventCard";
 import { Button } from "@/components/ui/button";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const categories = [
-  { id: "all", label: "الكل" },
-  { id: "conference", label: "مؤتمرات" },
-  { id: "workshop", label: "ورش عمل" },
-  { id: "seminar", label: "ندوات" },
-  { id: "meetup", label: "لقاءات" },
+  { id: "all", labelKey: "pgMarketplace.catAll" },
+  { id: "conference", labelKey: "pgMarketplace.catConference" },
+  { id: "workshop", labelKey: "pgMarketplace.catWorkshop" },
+  { id: "seminar", labelKey: "pgMarketplace.catSeminar" },
+  { id: "meetup", labelKey: "pgMarketplace.catMeetup" },
 ];
 
 interface EventRow {
@@ -36,6 +37,7 @@ interface EventRow {
 }
 
 const EventsMarketplace = () => {
+  const { t, lang } = useLanguage();
   const [activeCategory, setActiveCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -68,11 +70,11 @@ const EventsMarketplace = () => {
       <section className="gradient-hero pt-24 pb-12">
         <div className="container mx-auto px-4 pt-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-            <h1 className="font-cairo font-bold text-3xl md:text-4xl text-primary-foreground mb-3">استكشف الفعاليات</h1>
-            <p className="text-primary-foreground/70 font-cairo mb-8">تصفح أحدث المؤتمرات والورش والندوات في المملكة</p>
+            <h1 className="font-cairo font-bold text-3xl md:text-4xl text-primary-foreground mb-3">{t("pgMarketplace.title")}</h1>
+            <p className="text-primary-foreground/70 font-cairo mb-8">{t("pgMarketplace.subtitle")}</p>
             <div className="max-w-xl mx-auto relative">
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input type="text" placeholder="ابحث عن فعالية..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-12 pr-12 pl-4 rounded-full bg-card text-foreground font-cairo text-sm border border-border/50 focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-lg" />
+              <Search className="absolute end-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <input type="text" placeholder={t("pgMarketplace.searchPlaceholder")} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full h-12 pe-12 ps-4 rounded-full bg-card text-foreground font-cairo text-sm border border-border/50 focus:outline-none focus:ring-2 focus:ring-primary/50 shadow-lg" />
             </div>
           </motion.div>
         </div>
@@ -84,7 +86,7 @@ const EventsMarketplace = () => {
             <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
             {categories.map((cat) => (
               <Button key={cat.id} variant={activeCategory === cat.id ? "default" : "secondary"} size="sm" className="rounded-full" onClick={() => setActiveCategory(cat.id)}>
-                {cat.label}
+                {t(cat.labelKey)}
               </Button>
             ))}
           </div>
@@ -99,10 +101,10 @@ const EventsMarketplace = () => {
                 <EventCard key={event.id} event={{
                   id: event.id,
                   title: event.title_ar,
-                  date: new Date(event.start_date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }),
-                  location: event.is_online ? "أونلاين" : (event.venue_name || "غير محدد"),
+                  date: new Date(event.start_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { year: "numeric", month: "long", day: "numeric" }),
+                  location: event.is_online ? t("pgMarketplace.online") : (event.venue_name || t("pgMarketplace.locationTbd")),
                   category: event.category,
-                  price: event.is_free ? "مجاني" : "مدفوع",
+                  price: event.is_free ? t("pgMarketplace.free") : t("pgMarketplace.paid"),
                   isFree: event.is_free,
                   image: event.cover_image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=340&fit=crop",
                   attendees: event.current_attendees_count,
@@ -120,7 +122,7 @@ const EventsMarketplace = () => {
 
           {!loading && filtered.length === 0 && (
             <div className="text-center py-20">
-              <p className="text-muted-foreground font-cairo text-lg">لا توجد فعاليات مطابقة للبحث</p>
+              <p className="text-muted-foreground font-cairo text-lg">{t("pgMarketplace.emptyState")}</p>
             </div>
           )}
         </div>

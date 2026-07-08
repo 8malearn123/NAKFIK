@@ -8,8 +8,10 @@ import logo from "@/assets/logo.png";
 import { Mail, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const ForgotPassword = () => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -27,10 +29,10 @@ const ForgotPassword = () => {
         toast.error(error.message);
       } else {
         setSent(true);
-        toast.success("تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني");
+        toast.success(t("pgAuth.forgot.toastSent"));
       }
     } catch {
-      toast.error("حدث خطأ غير متوقع");
+      toast.error(t("pgAuth.common.errorUnexpected"));
     } finally {
       setLoading(false);
     }
@@ -45,7 +47,7 @@ const ForgotPassword = () => {
       >
         <div className="flex justify-center mb-8">
           <Link to="/">
-            <img src={logo} alt="نكفيك تيكت" className="h-16 w-auto" />
+            <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
           </Link>
         </div>
 
@@ -54,38 +56,38 @@ const ForgotPassword = () => {
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
               <Mail className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="font-bold text-2xl text-foreground">تحقق من بريدك الإلكتروني</h1>
+            <h1 className="font-bold text-2xl text-foreground">{t("pgAuth.forgot.sentTitle")}</h1>
             <p className="text-muted-foreground text-sm">
-              أرسلنا رابط إعادة تعيين كلمة المرور إلى <strong dir="ltr">{email}</strong>
+              {t("pgAuth.forgot.sentDescPrefix")} <strong dir="ltr">{email}</strong>
             </p>
             <p className="text-muted-foreground text-xs">
-              لم تستلم الرسالة؟ تحقق من مجلد البريد غير المرغوب فيه
+              {t("pgAuth.forgot.spamNote")}
             </p>
             <Button variant="outline" onClick={() => setSent(false)} className="mt-4">
-              إرسال مرة أخرى
+              {t("pgAuth.forgot.resend")}
             </Button>
           </div>
         ) : (
           <>
             <div className="mb-8 text-center">
-              <h1 className="font-bold text-2xl text-foreground mb-2">نسيت كلمة المرور؟</h1>
+              <h1 className="font-bold text-2xl text-foreground mb-2">{t("pgAuth.forgot.title")}</h1>
               <p className="text-muted-foreground text-sm">
-                أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
+                {t("pgAuth.forgot.subtitle")}
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
                 <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="example@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pr-10"
+                    className="pe-10"
                     dir="ltr"
                     required
                   />
@@ -93,7 +95,7 @@ const ForgotPassword = () => {
               </div>
 
               <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
-                {loading ? "جارٍ الإرسال..." : "إرسال رابط إعادة التعيين"}
+                {loading ? t("pgAuth.forgot.submitting") : t("pgAuth.forgot.submit")}
               </Button>
             </form>
           </>
@@ -102,7 +104,7 @@ const ForgotPassword = () => {
         <div className="mt-6 text-center">
           <Link to="/login" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
             <ArrowRight className="w-4 h-4" />
-            العودة لتسجيل الدخول
+            {t("pgAuth.forgot.backToLogin")}
           </Link>
         </div>
       </motion.div>

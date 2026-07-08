@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, Inbox } from "lucide-react";
 
@@ -13,6 +14,7 @@ interface InAppNotif {
 }
 
 const InAppNotifications = () => {
+  const { t, lang } = useLanguage();
   const [notifications, setNotifications] = useState<InAppNotif[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,7 +61,7 @@ const InAppNotifications = () => {
     return (
       <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
-        <p className="text-muted-foreground text-sm mt-3">جارٍ التحميل...</p>
+        <p className="text-muted-foreground text-sm mt-3">{t("common.loading")}</p>
       </div>
     );
   }
@@ -68,8 +70,8 @@ const InAppNotifications = () => {
     return (
       <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
         <Inbox className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-        <h3 className="font-semibold text-foreground">صندوق الوارد فارغ</h3>
-        <p className="text-sm text-muted-foreground mt-1">ستظهر هنا الإشعارات الواردة</p>
+        <h3 className="font-semibold text-foreground">{t("inbox.emptyTitle")}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{t("inbox.emptyDesc")}</p>
       </div>
     );
   }
@@ -79,7 +81,7 @@ const InAppNotifications = () => {
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-foreground flex items-center gap-2">
           <Bell className="w-4 h-4 text-primary" />
-          الإشعارات الواردة
+          {t("inbox.title")}
           {unreadCount > 0 && (
             <span className="bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full font-bold">
               {unreadCount}
@@ -89,7 +91,7 @@ const InAppNotifications = () => {
         {unreadCount > 0 && (
           <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs">
             <Check className="w-3.5 h-3.5" />
-            تعيين الكل كمقروء
+            {t("inbox.markAllRead")}
           </Button>
         )}
       </div>
@@ -113,8 +115,8 @@ const InAppNotifications = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">{notif.body}</p>
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap mr-3">
-                {new Date(notif.created_at).toLocaleDateString("ar-SA", {
+              <span className="text-xs text-muted-foreground whitespace-nowrap ms-3">
+                {new Date(notif.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", {
                   day: "numeric",
                   month: "short",
                   hour: "2-digit",

@@ -65,32 +65,32 @@ const Navbar = () => {
                 <DropdownMenuSeparator />
                 {profile?.account_type === "organizer" && (
                   <DropdownMenuItem asChild>
-                    <Link to="/dashboard"><LayoutDashboard className="w-4 h-4 ms-2" /> لوحة التحكم</Link>
+                    <Link to="/dashboard"><LayoutDashboard className="w-4 h-4 ms-2" /> {t("navbar.dashboard")}</Link>
                   </DropdownMenuItem>
                 )}
                 {isSuperAdmin && (
                   <DropdownMenuItem asChild>
-                    <Link to="/admin"><Shield className="w-4 h-4 ms-2" /> لوحة الأدمن</Link>
+                    <Link to="/admin"><Shield className="w-4 h-4 ms-2" /> {t("navbar.adminPanel")}</Link>
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem asChild>
-                  <Link to="/my/profile"><User className="w-4 h-4 ms-2" /> ملفي</Link>
+                  <Link to="/my/profile"><User className="w-4 h-4 ms-2" /> {t("navbar.myProfile")}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/my-tickets"><Ticket className="w-4 h-4 ms-2" /> تذاكري</Link>
+                  <Link to="/my-tickets"><Ticket className="w-4 h-4 ms-2" /> {t("navbar.myTickets")}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/my/profile/networking"><IdCard className="w-4 h-4 ms-2" /> بطاقة التواصل</Link>
+                  <Link to="/my/profile/networking"><IdCard className="w-4 h-4 ms-2" /> {t("navbar.connectCard")}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/my/connections"><Users className="w-4 h-4 ms-2" /> شبكتي</Link>
+                  <Link to="/my/connections"><Users className="w-4 h-4 ms-2" /> {t("navbar.myNetwork")}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> الإشعارات</Link>
+                  <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> {t("navbar.notifications")}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                  <LogOut className="w-4 h-4 ms-2" /> تسجيل الخروج
+                  <LogOut className="w-4 h-4 ms-2" /> {t("navbar.logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

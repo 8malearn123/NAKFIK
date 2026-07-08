@@ -1,3 +1,11 @@
+import { marketplaceDict } from "./pages/marketplace";
+import { eventDetailDict } from "./pages/eventDetail";
+import { authDict } from "./pages/auth";
+import { myTicketsDict } from "./pages/myTickets";
+import { favoritesDict, myNotificationsDict } from "./pages/favorites";
+import { myProfileDict } from "./pages/myProfile";
+import { settingsDict } from "./pages/settings";
+
 export const en = {
   // Common
   common: {
@@ -43,6 +51,25 @@ export const en = {
     pricing: "Pricing",
     login: "Login",
     startFree: "Start Free",
+    dashboard: "Dashboard",
+    adminPanel: "Admin Panel",
+    myProfile: "My Profile",
+    myTickets: "My Tickets",
+    connectCard: "Connect Card",
+    myNetwork: "My Network",
+    notifications: "Notifications",
+    logout: "Logout",
+  },
+  inbox: {
+    emptyTitle: "Your inbox is empty",
+    emptyDesc: "Incoming notifications will appear here",
+    title: "Inbox",
+    markAllRead: "Mark all as read",
+  },
+  notFound: {
+    title: "Page Not Found",
+    description: "Sorry, the page you are looking for doesn't exist or has been moved",
+    backHome: "Back to Home",
   },
 
   // Hero Section
@@ -491,5 +518,13 @@ export const en = {
     alreadyConfirmed: "Already confirmed ✓",
     alreadyConfirmedDesc: "You have already confirmed your attendance for this event",
   },
+  // قواميس الصفحات (التعريب/الترجمة الشاملة)
+  pgMarketplace: marketplaceDict.en,
+  pgEventDetail: eventDetailDict.en,
+  pgAuth: authDict.en,
+  pgTickets: myTicketsDict.en,
+  pgFavorites: favoritesDict.en,
+  pgMyNotifications: myNotificationsDict.en,
+  pgProfile: myProfileDict.en,
+  pgSettings: settingsDict.en,
 };
-

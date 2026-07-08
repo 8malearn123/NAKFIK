@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import MyTicketConnectQR from "@/components/MyTicketConnectQR";
 import EventFeaturedCardsView from "@/components/EventFeaturedCardsView";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface RegistrationRow {
   id: string;
@@ -36,6 +37,8 @@ interface RegistrationRow {
 const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
   const [expanded, setExpanded] = useState(false);
   const { profile } = useAuth();
+  const { t, lang } = useLanguage();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const isPast = new Date(reg.event.start_date) < new Date();
 
   return (
@@ -45,7 +48,7 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
           <img src={reg.event.cover_image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=200&fit=crop"} alt={reg.event.title_ar} className="w-full h-full object-cover" />
           {isPast && (
             <div className="absolute inset-0 bg-foreground/40 flex items-center justify-center">
-              <span className="bg-muted text-muted-foreground text-xs font-semibold px-3 py-1 rounded-full">انتهت</span>
+              <span className="bg-muted text-muted-foreground text-xs font-semibold px-3 py-1 rounded-full">{t("pgTickets.ended")}</span>
             </div>
           )}
         </div>
@@ -54,15 +57,15 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
             <div>
               <h3 className="font-bold text-foreground text-lg">{reg.event.title_ar}</h3>
               <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
-                <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(reg.event.start_date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}</span>
-                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{reg.event.is_online ? "أونلاين" : (reg.event.venue_name || "غير محدد")}</span>
+                <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{new Date(reg.event.start_date).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" })}</span>
+                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{reg.event.is_online ? t("pgTickets.online") : (reg.event.venue_name || t("pgTickets.notSpecified"))}</span>
               </div>
               {reg.ticket && (
                 <div className="flex items-center gap-2 mt-3">
                   <span className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
                     <Ticket className="w-3 h-3" />{reg.ticket.name_ar}
                   </span>
-                  <span className="text-xs font-bold text-accent">{reg.ticket.price === 0 ? "مجاني" : `${reg.ticket.price} ر.س`}</span>
+                  <span className="text-xs font-bold text-accent">{reg.ticket.price === 0 ? t("pgTickets.free") : `${reg.ticket.price} ${t("pgTickets.currency")}`}</span>
                 </div>
               )}
             </div>
@@ -76,12 +79,12 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
             {!isPast && (
               <Button size="sm" variant="outline" className="rounded-full text-xs" onClick={() => setExpanded(!expanded)}>
                 {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {expanded ? "إخفاء التفاصيل" : "عرض التذكرة"}
+                {expanded ? t("pgTickets.hideDetails") : t("pgTickets.viewTicket")}
               </Button>
             )}
             <Button size="sm" variant="ghost" className="rounded-full text-xs" asChild>
               <Link to={`/events/${reg.event.id}`}>
-                <ExternalLink className="w-3 h-3" /> صفحة الفعالية
+                <ExternalLink className="w-3 h-3" /> {t("pgTickets.eventPage")}
               </Link>
             </Button>
             {!isPast && <MyTicketConnectQR />}
@@ -95,7 +98,7 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
               <div className="w-12 h-12 rounded-full bg-primary-foreground/15 flex items-center justify-center overflow-hidden border-2 border-primary-foreground/30 flex-shrink-0">
                 {profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : <span className="text-lg font-bold">{profile?.full_name?.[0] || "؟"}</span>}
+                ) : <span className="text-lg font-bold">{profile?.full_name?.[0] || t("pgTickets.avatarFallback")}</span>}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-bold text-sm truncate">{profile?.full_name || "—"}</p>
@@ -110,12 +113,12 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
             <div className="space-y-1 text-[11px] text-primary-foreground/80">
               {profile?.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3" /><span dir="ltr">{profile.phone}</span></div>}
               {profile?.email && <div className="flex items-center gap-1.5"><Mail className="w-3 h-3" /><span dir="ltr" className="truncate">{profile.email}</span></div>}
-              <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /><span>{new Date(reg.event.start_date).toLocaleDateString("ar-SA", { dateStyle: "medium" })}</span></div>
+              <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /><span>{new Date(reg.event.start_date).toLocaleDateString(locale, { dateStyle: "medium" })}</span></div>
               {reg.event.venue_name && <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /><span className="truncate">{reg.event.venue_name}</span></div>}
             </div>
             <p className="text-[8px] font-mono text-primary-foreground/40 text-center mt-3 pt-3 border-t border-primary-foreground/20" dir="ltr">{reg.qr_code}</p>
           </div>
-          <p className="text-xs text-muted-foreground mt-3 text-center">أظهر هذه البطاقة عند الدخول</p>
+          <p className="text-xs text-muted-foreground mt-3 text-center">{t("pgTickets.showCardAtEntry")}</p>
           <EventFeaturedCardsView eventId={reg.event.id} />
         </motion.div>
       )}
@@ -125,6 +128,7 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
 
 const MyTickets = () => {
   const { user } = useAuth();
+  const { t, dir } = useLanguage();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -165,11 +169,11 @@ const MyTickets = () => {
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="font-bold text-3xl text-foreground">تذاكري</h1>
-              <p className="text-muted-foreground mt-1">جميع تذاكرك وأكواد الدخول في مكان واحد</p>
+              <h1 className="font-bold text-3xl text-foreground">{t("pgTickets.pageTitle")}</h1>
+              <p className="text-muted-foreground mt-1">{t("pgTickets.pageSubtitle")}</p>
             </div>
             <Button variant="outline" size="sm" className="rounded-full" asChild>
-              <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> الإشعارات</Link>
+              <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> {t("pgTickets.notifications")}</Link>
             </Button>
           </div>
 
@@ -178,10 +182,10 @@ const MyTickets = () => {
               {[1, 2].map(i => <div key={i} className="animate-pulse bg-card rounded-2xl h-40 border border-border/50" />)}
             </div>
           ) : (
-            <Tabs defaultValue="upcoming" dir="rtl">
+            <Tabs defaultValue="upcoming" dir={dir}>
               <TabsList className="mb-6">
-                <TabsTrigger value="upcoming">القادمة ({upcoming.length})</TabsTrigger>
-                <TabsTrigger value="past">السابقة ({past.length})</TabsTrigger>
+                <TabsTrigger value="upcoming">{t("pgTickets.upcoming")} ({upcoming.length})</TabsTrigger>
+                <TabsTrigger value="past">{t("pgTickets.past")} ({past.length})</TabsTrigger>
               </TabsList>
               <TabsContent value="upcoming" className="space-y-4">
                 {upcoming.length > 0 ? (
@@ -189,9 +193,9 @@ const MyTickets = () => {
                 ) : (
                   <div className="text-center py-16">
                     <Ticket className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">لا توجد تذاكر قادمة</p>
+                    <p className="text-muted-foreground">{t("pgTickets.noUpcoming")}</p>
                     <Button className="mt-4 rounded-full" asChild>
-                      <Link to="/events">تصفح الفعاليات</Link>
+                      <Link to="/events">{t("pgTickets.browseEvents")}</Link>
                     </Button>
                   </div>
                 )}
@@ -201,7 +205,7 @@ const MyTickets = () => {
                   past.map(reg => <TicketCard key={reg.id} reg={reg} />)
                 ) : (
                   <div className="text-center py-16">
-                    <p className="text-muted-foreground">لا توجد تذاكر سابقة</p>
+                    <p className="text-muted-foreground">{t("pgTickets.noPast")}</p>
                   </div>
                 )}
               </TabsContent>

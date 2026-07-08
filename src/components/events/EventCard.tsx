@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, MapPin, Users, Ticket, MessageCircle, Mail, Building2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface OrganizerInfo {
   id?: string;
@@ -24,20 +25,22 @@ interface EventData {
   organizer?: OrganizerInfo | null;
 }
 
-const categoryLabels: Record<string, string> = {
-  conference: "مؤتمر",
-  workshop: "ورشة عمل",
-  seminar: "ندوة",
-  meetup: "لقاء",
+const categoryLabelKeys: Record<string, string> = {
+  conference: "pgMarketplace.catConferenceSingle",
+  workshop: "pgMarketplace.catWorkshopSingle",
+  seminar: "pgMarketplace.catSeminarSingle",
+  meetup: "pgMarketplace.catMeetupSingle",
 };
 
-const buildWaLink = (phone: string, title: string) => {
+const buildWaLink = (phone: string, message: string) => {
   const digits = phone.replace(/[^\d]/g, "");
-  const text = encodeURIComponent(`السلام عليكم، عندي استفسار بخصوص فعالية: ${title}`);
+  const text = encodeURIComponent(message);
   return `https://wa.me/${digits}?text=${text}`;
 };
 
 const EventCard = ({ event, index }: { event: EventData; index: number }) => {
+  const { t } = useLanguage();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -54,12 +57,12 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
         />
-        <div className="absolute top-3 right-3 flex gap-2">
+        <div className="absolute top-3 end-3 flex gap-2">
           <span className="bg-card/90 backdrop-blur-sm text-foreground text-xs font-cairo font-semibold rounded-full px-3 py-1">
-            {categoryLabels[event.category] || event.category}
+            {categoryLabelKeys[event.category] ? t(categoryLabelKeys[event.category]) : event.category}
           </span>
         </div>
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 start-3">
           <span className={`text-xs font-cairo font-bold rounded-full px-3 py-1 ${event.isFree ? "bg-teal text-teal-foreground" : "bg-accent text-accent-foreground"}`}>
             {event.price}
           </span>
@@ -83,7 +86,7 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
           </div>
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Users className="w-4 h-4 flex-shrink-0" />
-            <span className="font-cairo">{event.attendees} مسجّل</span>
+            <span className="font-cairo">{event.attendees} {t("pgMarketplace.registered")}</span>
           </div>
         </div>
 
@@ -99,7 +102,7 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground font-cairo leading-none mb-0.5">المنظّم</p>
+                  <p className="text-[10px] text-muted-foreground font-cairo leading-none mb-0.5">{t("pgMarketplace.organizer")}</p>
                   <p className="text-xs font-cairo font-semibold text-foreground truncate group-hover/org:text-primary transition-colors">{event.organizer.name}</p>
                 </div>
               </Link>
@@ -113,7 +116,7 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground font-cairo leading-none mb-0.5">المنظّم</p>
+                  <p className="text-[10px] text-muted-foreground font-cairo leading-none mb-0.5">{t("pgMarketplace.organizer")}</p>
                   <p className="text-xs font-cairo font-semibold text-foreground truncate">{event.organizer.name}</p>
                 </div>
               </div>
@@ -121,11 +124,11 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
             <div className="flex items-center gap-1 flex-shrink-0">
               {event.organizer.phone && (
                 <a
-                  href={buildWaLink(event.organizer.phone, event.title)}
+                  href={buildWaLink(event.organizer.phone, `${t("pgMarketplace.waMessagePrefix")} ${event.title}`)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  aria-label="تواصل واتساب"
+                  aria-label={t("pgMarketplace.ariaWhatsapp")}
                   className="w-8 h-8 rounded-full bg-teal/10 hover:bg-teal hover:text-white text-teal flex items-center justify-center transition-colors"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -133,9 +136,9 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
               )}
               {event.organizer.email && (
                 <a
-                  href={`mailto:${event.organizer.email}?subject=${encodeURIComponent("استفسار عن: " + event.title)}`}
+                  href={`mailto:${event.organizer.email}?subject=${encodeURIComponent(t("pgMarketplace.emailSubjectPrefix") + " " + event.title)}`}
                   onClick={(e) => e.stopPropagation()}
-                  aria-label="تواصل بريد"
+                  aria-label={t("pgMarketplace.ariaEmail")}
                   className="w-8 h-8 rounded-full bg-primary/10 hover:bg-primary hover:text-primary-foreground text-primary flex items-center justify-center transition-colors"
                 >
                   <Mail className="w-4 h-4" />
@@ -148,7 +151,7 @@ const EventCard = ({ event, index }: { event: EventData; index: number }) => {
         <Button variant="default" className="w-full rounded-full" size="sm" asChild>
           <Link to={`/events/${event.id}`}>
             <Ticket className="w-4 h-4" />
-            سجّل الآن
+            {t("pgMarketplace.registerNow")}
           </Link>
         </Button>
       </div>

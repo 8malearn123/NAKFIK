@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
 import SmartMatch from "@/components/SmartMatch";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface EventData {
   id: string;
@@ -47,17 +48,18 @@ interface TicketData {
   visibility?: string;
 }
 
-const categoryLabels: Record<string, string> = {
-  conference: "مؤتمر",
-  workshop: "ورشة عمل",
-  seminar: "ندوة",
-  meetup: "لقاء",
-  other: "أخرى",
-};
-
 const EventDetail = () => {
   const { id } = useParams();
   const { user, profile } = useAuth();
+  const { t, lang, dir } = useLanguage();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const categoryLabels: Record<string, string> = {
+    conference: t("pgEventDetail.categoryConference"),
+    workshop: t("pgEventDetail.categoryWorkshop"),
+    seminar: t("pgEventDetail.categorySeminar"),
+    meetup: t("pgEventDetail.categoryMeetup"),
+    other: t("pgEventDetail.categoryOther"),
+  };
   const navigate = useNavigate();
   const [event, setEvent] = useState<EventData | null>(null);
   const [sessions, setSessions] = useState<SessionData[]>([]);
@@ -79,7 +81,7 @@ const EventDetail = () => {
     if (!id) return;
     const nowFavorite = toggleEventFavorite(id, user?.id);
     setIsFavorite(nowFavorite);
-    toast.success(nowFavorite ? "أُضيفت الفعالية إلى المفضلة 💜" : "أُزيلت الفعالية من المفضلة");
+    toast.success(nowFavorite ? t("pgEventDetail.favoriteAdded") : t("pgEventDetail.favoriteRemoved"));
   };
 
   useEffect(() => {
@@ -126,18 +128,18 @@ const EventDetail = () => {
 
   const handleRegister = async () => {
     if (!user || !event) {
-      toast.error("يرجى تسجيل الدخول أولاً");
+      toast.error(t("pgEventDetail.loginFirst"));
       return;
     }
     // Profile completion guard
     if (!profile?.profile_completed) {
-      toast.info("أكمل ملفك الشخصي أولاً عشان تطلع بياناتك في بطاقة الدخول");
+      toast.info(t("pgEventDetail.completeProfileFirst"));
       navigate(`/my/profile?required=1&return=${encodeURIComponent(`/events/${event.id}`)}`);
       return;
     }
     // لا تسجيل بعد نفاد المقاعد
     if (event.max_attendees && event.current_attendees_count >= event.max_attendees) {
-      toast.error("نفدت المقاعد");
+      toast.error(t("pgEventDetail.soldOutToast"));
       return;
     }
     setSubmitting(true);
@@ -155,7 +157,7 @@ const EventDetail = () => {
       setRegistrationQR((reg as any).qr_code);
       const chosen = tickets.find(t => t.id === selectedTicket);
       if (chosen) setRegisteredTicket(chosen);
-      toast.success("تم التسجيل بنجاح!");
+      toast.success(t("pgEventDetail.registerSuccess"));
       // حدّث عدد المقاعد المتبقية فوراً ثم زامنه مع العدد الفعلي في قاعدة البيانات
       setEvent(prev =>
         prev ? { ...prev, current_attendees_count: prev.current_attendees_count + 1 } : prev,
@@ -175,9 +177,9 @@ const EventDetail = () => {
         });
     } catch (err: any) {
       if (err.message?.includes("duplicate")) {
-        toast.error("أنت مسجل في هذه الفعالية مسبقاً");
+        toast.error(t("pgEventDetail.alreadyRegistered"));
       } else {
-        toast.error("خطأ في التسجيل");
+        toast.error(t("pgEventDetail.registerError"));
       }
     } finally {
       setSubmitting(false);
@@ -195,22 +197,22 @@ const EventDetail = () => {
   if (!event) {
     return (
       <div className="min-h-screen bg-muted/30 font-cairo flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground text-xl">الفعالية غير موجودة</p>
+        <p className="text-muted-foreground text-xl">{t("pgEventDetail.notFound")}</p>
         <Button className="rounded-full" asChild>
-          <Link to="/events">تصفح الفعاليات</Link>
+          <Link to="/events">{t("pgEventDetail.browseEvents")}</Link>
         </Button>
       </div>
     );
   }
 
   const eventDate = new Date(event.start_date);
-  const formattedDate = eventDate.toLocaleDateString("ar-SA", {
+  const formattedDate = eventDate.toLocaleDateString(locale, {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
   });
-  const formattedTime = eventDate.toLocaleTimeString("ar-SA", {
+  const formattedTime = eventDate.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -223,7 +225,7 @@ const EventDetail = () => {
     "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=500&fit=crop";
 
   return (
-    <div className="min-h-screen bg-muted/30 font-cairo" dir="rtl">
+    <div className="min-h-screen bg-muted/30 font-cairo" dir={dir}>
       {/* Minimal header */}
       <div className="bg-background border-b border-border/50 sticky top-0 z-50">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -231,10 +233,10 @@ const EventDetail = () => {
             to="/events"
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ChevronLeft className="w-4 h-4 rotate-180" />
-            العودة
+            <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+            {t("pgEventDetail.back")}
           </Link>
-          <span className="text-sm font-bold text-primary">نكفيك تيكت</span>
+          <span className="text-sm font-bold text-primary">{t("pgEventDetail.brand")}</span>
         </div>
       </div>
 
@@ -266,7 +268,7 @@ const EventDetail = () => {
             <span>{event.title_ar}</span>
             <button
               onClick={handleToggleFavorite}
-              aria-label={isFavorite ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+              aria-label={isFavorite ? t("pgEventDetail.removeFromFavorites") : t("pgEventDetail.addToFavorites")}
               aria-pressed={isFavorite}
               className="shrink-0 rounded-full p-1.5 hover:bg-muted transition-colors"
             >
@@ -290,7 +292,7 @@ const EventDetail = () => {
             </span>
             <span className="flex items-center gap-1.5">
               <MapPin className="w-4 h-4" />
-              {event.is_online ? "أونلاين" : event.venue_name || "غير محدد"}
+              {event.is_online ? t("pgEventDetail.online") : event.venue_name || t("pgEventDetail.unspecified")}
             </span>
           </div>
         </motion.div>
@@ -305,7 +307,7 @@ const EventDetail = () => {
           >
             <div className="flex items-center gap-2 mb-3">
               <Info className="w-4 h-4 text-primary" />
-              <h2 className="font-bold text-foreground">عن الفعالية</h2>
+              <h2 className="font-bold text-foreground">{t("pgEventDetail.about")}</h2>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
               {event.description_ar}
@@ -321,7 +323,7 @@ const EventDetail = () => {
             transition={{ delay: 0.15 }}
             className="bg-background rounded-2xl border border-border/50 p-5"
           >
-            <h2 className="font-bold text-foreground mb-4">جدول الجلسات</h2>
+            <h2 className="font-bold text-foreground mb-4">{t("pgEventDetail.sessionsSchedule")}</h2>
             <div className="space-y-3">
               {sessions.map((session, i) => (
                 <div
@@ -332,7 +334,7 @@ const EventDetail = () => {
                     <Clock className="w-3.5 h-3.5 text-primary mb-0.5" />
                     {session.start_time && (
                       <span className="text-[10px] text-primary font-bold">
-                        {new Date(session.start_time).toLocaleTimeString("ar-SA", {
+                        {new Date(session.start_time).toLocaleTimeString(locale, {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
@@ -372,14 +374,14 @@ const EventDetail = () => {
               className="bg-background rounded-2xl border border-border/50 p-5 space-y-5"
             >
               <h2 className="font-bold text-lg text-foreground text-center">
-                التسجيل في الفعالية
+                {t("pgEventDetail.registerTitle")}
               </h2>
 
               {/* Ticket selection */}
               {tickets.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-muted-foreground">
-                    اختر نوع التذكرة
+                    {t("pgEventDetail.chooseTicketType")}
                   </h3>
                   {tickets.map((ticket) => {
                     const sellable = ticket.is_for_sale !== false;
@@ -389,7 +391,7 @@ const EventDetail = () => {
                       key={ticket.id}
                       onClick={() => sellable && setSelectedTicket(ticket.id)}
                       disabled={!sellable}
-                      className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-right ${
+                      className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-start ${
                         !sellable
                           ? "border-border bg-muted/40 opacity-70 cursor-not-allowed"
                           : selected
@@ -412,16 +414,16 @@ const EventDetail = () => {
                             {ticket.name_ar}
                             {!sellable && (
                               <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-semibold">
-                                للعرض فقط
+                                {t("pgEventDetail.displayOnly")}
                               </span>
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {!sellable
-                              ? "غير متاحة للحجز"
+                              ? t("pgEventDetail.notAvailableForBooking")
                               : ticket.type === "vip"
-                              ? "وصول مميز + هدايا"
-                              : "وصول لجميع الجلسات"}
+                              ? t("pgEventDetail.vipDesc")
+                              : t("pgEventDetail.regularDesc")}
                           </div>
                         </div>
                       </div>
@@ -430,7 +432,7 @@ const EventDetail = () => {
                           selected && sellable ? "text-primary" : "text-foreground"
                         }`}
                       >
-                        {ticket.price === 0 ? "مجاني" : `${ticket.price} ر.س`}
+                        {ticket.price === 0 ? t("pgEventDetail.free") : `${ticket.price} ${t("pgEventDetail.currency")}`}
                       </span>
                     </button>
                     );
@@ -449,8 +451,8 @@ const EventDetail = () => {
                 >
                   <Users className="w-3.5 h-3.5" />
                   {soldOut
-                    ? "نفدت المقاعد (Sold Out)"
-                    : `${remainingSeats} مقعدًا متبقيًا من أصل ${event.max_attendees}`}
+                    ? t("pgEventDetail.soldOutFull")
+                    : `${remainingSeats} ${t("pgEventDetail.seatsRemainingOf")} ${event.max_attendees}`}
                 </div>
               )}
 
@@ -465,27 +467,27 @@ const EventDetail = () => {
                     onClick={() =>
                       user
                         ? handleRegister()
-                        : toast.error("يرجى تسجيل الدخول أولاً")
+                        : toast.error(t("pgEventDetail.loginFirst"))
                     }
                   >
                     {soldOut
-                      ? "نفدت المقاعد (Sold Out)"
+                      ? t("pgEventDetail.soldOutFull")
                       : !hasSellable
-                      ? "الحجز غير متاح حالياً"
+                      ? t("pgEventDetail.bookingUnavailable")
                       : submitting
-                      ? "جارٍ التسجيل..."
-                      : "تأكيد التسجيل →"}
+                      ? t("pgEventDetail.registering")
+                      : t("pgEventDetail.confirmRegister")}
                   </Button>
                 );
               })()}
 
               {!user && (
                 <p className="text-center text-xs text-muted-foreground">
-                  يجب{" "}
+                  {t("pgEventDetail.mustPrefix")}{" "}
                   <Link to="/login" className="text-primary font-bold hover:underline">
-                    تسجيل الدخول
+                    {t("pgEventDetail.loginLink")}
                   </Link>{" "}
-                  للتسجيل في الفعالية
+                  {t("pgEventDetail.mustSuffix")}
                 </p>
               )}
             </motion.div>
@@ -500,15 +502,15 @@ const EventDetail = () => {
                 <div className="w-14 h-14 rounded-full bg-brand-teal/10 flex items-center justify-center mx-auto mb-3">
                   <CheckCircle className="w-8 h-8 text-brand-teal" />
                 </div>
-                <h3 className="font-bold text-lg text-foreground">تم التسجيل بنجاح! 🎉</h3>
-                <p className="text-sm text-muted-foreground mt-1">أظهر هذه البطاقة عند الحضور</p>
+                <h3 className="font-bold text-lg text-foreground">{t("pgEventDetail.successTitle")}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{t("pgEventDetail.showCardAtEntry")}</p>
               </div>
 
               {/* Identification card */}
               <div ref={cardRef} className="bg-gradient-to-br from-primary to-brand-purple rounded-2xl p-5 text-primary-foreground shadow-xl">
                 <div className="flex items-center justify-between mb-3 pb-3 border-b border-primary-foreground/20">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary-foreground/60">بطاقة دخول</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-primary-foreground/60">{t("pgEventDetail.entryCard")}</p>
                     <p className="text-sm font-bold mt-0.5 line-clamp-1">{event?.title_ar}</p>
                   </div>
                   {registeredTicket && (
@@ -524,7 +526,7 @@ const EventDetail = () => {
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-xl font-bold">{profile?.full_name?.[0] || "؟"}</span>
+                      <span className="text-xl font-bold">{profile?.full_name?.[0] || t("pgEventDetail.avatarFallback")}</span>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -554,7 +556,7 @@ const EventDetail = () => {
                   {event?.start_date && (
                     <div className="flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5 text-primary-foreground/60 flex-shrink-0" />
-                      <span>{new Date(event.start_date).toLocaleDateString("ar-SA", { dateStyle: "medium" })}</span>
+                      <span>{new Date(event.start_date).toLocaleDateString(locale, { dateStyle: "medium" })}</span>
                     </div>
                   )}
                   {event?.venue_name && !event.is_online && (
@@ -587,13 +589,13 @@ const EventDetail = () => {
                     a.href = dataUrl;
                     a.download = `ticket-${(event?.title_ar || "event").replace(/\s+/g, "-")}.png`;
                     a.click();
-                    toast.success("تم تنزيل البطاقة");
-                  } catch { toast.error("تعذّر التنزيل"); }
+                    toast.success(t("pgEventDetail.cardDownloaded"));
+                  } catch { toast.error(t("pgEventDetail.downloadFailed")); }
                 }}>
-                  <Download className="w-4 h-4" /> تنزيل
+                  <Download className="w-4 h-4" /> {t("pgEventDetail.download")}
                 </Button>
                 <Button variant="outline" className="rounded-full" asChild>
-                  <Link to="/my-tickets">تذاكري</Link>
+                  <Link to="/my-tickets">{t("pgEventDetail.myTickets")}</Link>
                 </Button>
               </div>
             </motion.div>
@@ -602,7 +604,7 @@ const EventDetail = () => {
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground py-4">
-          نكفيك تيكت © {new Date().getFullYear()}
+          {t("pgEventDetail.brand")} © {new Date().getFullYear()}
         </div>
       </div>
     </div>

@@ -8,11 +8,13 @@ import logo from "@/assets/logo.png";
 import { User, Building2, Mail, Lock, Phone, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type AccountType = "attendee" | "organizer" | null;
 
 const Register = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [accountType, setAccountType] = useState<AccountType>(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -32,12 +34,12 @@ const Register = () => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error("كلمتا المرور غير متطابقتين");
+      toast.error(t("pgAuth.common.passwordMismatch"));
       return;
     }
 
     if (formData.password.length < 6) {
-      toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
+      toast.error(t("pgAuth.common.passwordMinLength"));
       return;
     }
 
@@ -57,7 +59,7 @@ const Register = () => {
 
       if (error) {
         if (error.message.includes("already registered")) {
-          toast.error("هذا البريد الإلكتروني مسجل مسبقاً");
+          toast.error(t("pgAuth.register.toastEmailRegistered"));
         } else {
           toast.error(error.message);
         }
@@ -80,19 +82,19 @@ const Register = () => {
         }
 
         if (data.session) {
-          toast.success("تم إنشاء الحساب بنجاح!");
+          toast.success(t("pgAuth.register.toastSuccess"));
           if (accountType === "organizer") {
             navigate("/dashboard");
           } else {
             navigate("/my/profile");
           }
         } else {
-          toast.success("تم إنشاء الحساب! يرجى تأكيد بريدك الإلكتروني للمتابعة");
+          toast.success(t("pgAuth.register.toastSuccessConfirm"));
           navigate("/login");
         }
       }
     } catch (err: any) {
-      toast.error("حدث خطأ غير متوقع");
+      toast.error(t("pgAuth.common.errorUnexpected"));
     } finally {
       setLoading(false);
     }
@@ -107,10 +109,10 @@ const Register = () => {
         <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
 
         <div className="text-center relative z-10">
-          <img src={logo} alt="نكفيك تيكت" className="h-24 w-auto mx-auto mb-8" />
-          <h2 className="text-primary-foreground font-bold text-3xl mb-4">انضم إلى نكفيك تيكت</h2>
+          <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-24 w-auto mx-auto mb-8" />
+          <h2 className="text-primary-foreground font-bold text-3xl mb-4">{t("pgAuth.register.brandTitle")}</h2>
           <p className="text-primary-foreground/70 text-lg max-w-md">
-            المنصة الأولى في المملكة لإدارة الفعاليات والمؤتمرات
+            {t("pgAuth.register.brandSubtitle")}
           </p>
         </div>
       </div>
@@ -124,16 +126,16 @@ const Register = () => {
         >
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/">
-              <img src={logo} alt="نكفيك تيكت" className="h-16 w-auto" />
+              <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
             </Link>
           </div>
 
           <div className="mb-8">
-            <h1 className="font-bold text-2xl text-foreground mb-2">إنشاء حساب جديد</h1>
+            <h1 className="font-bold text-2xl text-foreground mb-2">{t("pgAuth.register.title")}</h1>
             <p className="text-muted-foreground text-sm">
-              لديك حساب بالفعل؟{" "}
+              {t("pgAuth.register.haveAccount")}{" "}
               <Link to="/login" className="text-primary font-semibold hover:underline">
-                تسجيل الدخول
+                {t("pgAuth.register.loginLink")}
               </Link>
             </p>
           </div>
@@ -141,29 +143,29 @@ const Register = () => {
           {/* Account type selection */}
           {!accountType ? (
             <div className="space-y-4">
-              <p className="text-foreground font-semibold mb-4">اختر نوع الحساب:</p>
+              <p className="text-foreground font-semibold mb-4">{t("pgAuth.register.chooseType")}</p>
               <button
                 onClick={() => setAccountType("attendee")}
-                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-border hover:border-primary bg-card hover:shadow-lg transition-all duration-200 text-right"
+                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-border hover:border-primary bg-card hover:shadow-lg transition-all duration-200 text-start"
               >
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <User className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">حاضر / زائر</h3>
-                  <p className="text-muted-foreground text-sm">سجّل في الفعاليات واحصل على تذاكرك</p>
+                  <h3 className="font-bold text-foreground">{t("pgAuth.register.attendeeTitle")}</h3>
+                  <p className="text-muted-foreground text-sm">{t("pgAuth.register.attendeeDesc")}</p>
                 </div>
               </button>
               <button
                 onClick={() => setAccountType("organizer")}
-                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-border hover:border-accent bg-card hover:shadow-lg transition-all duration-200 text-right"
+                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-border hover:border-accent bg-card hover:shadow-lg transition-all duration-200 text-start"
               >
                 <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
                   <Building2 className="w-6 h-6 text-accent" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">منظّم فعاليات</h3>
-                  <p className="text-muted-foreground text-sm">أنشئ وأدِر فعالياتك ومؤتمراتك</p>
+                  <h3 className="font-bold text-foreground">{t("pgAuth.register.organizerTitle")}</h3>
+                  <p className="text-muted-foreground text-sm">{t("pgAuth.register.organizerDesc")}</p>
                 </div>
               </button>
             </div>
@@ -175,76 +177,76 @@ const Register = () => {
                 className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                تغيير نوع الحساب
+                {t("pgAuth.register.changeType")}
               </button>
 
               <div className="space-y-2">
-                <Label htmlFor="fullName">الاسم الكامل</Label>
+                <Label htmlFor="fullName">{t("pgAuth.register.fullName")}</Label>
                 <div className="relative">
-                  <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="fullName" name="fullName" placeholder="محمد أحمد" value={formData.fullName} onChange={handleChange} className="pr-10" required />
+                  <User className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="fullName" name="fullName" placeholder={t("pgAuth.register.fullNamePlaceholder")} value={formData.fullName} onChange={handleChange} className="pe-10" required />
                 </div>
               </div>
 
               {accountType === "organizer" && (
                 <div className="space-y-2">
-                  <Label htmlFor="orgName">اسم المنظمة</Label>
+                  <Label htmlFor="orgName">{t("pgAuth.register.orgName")}</Label>
                   <div className="relative">
-                    <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input id="orgName" name="orgName" placeholder="اسم مؤسستك أو شركتك" value={formData.orgName} onChange={handleChange} className="pr-10" required />
+                    <Building2 className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input id="orgName" name="orgName" placeholder={t("pgAuth.register.orgNamePlaceholder")} value={formData.orgName} onChange={handleChange} className="pe-10" required />
                   </div>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
                 <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="email" name="email" type="email" placeholder="example@email.com" value={formData.email} onChange={handleChange} className="pr-10" dir="ltr" required />
+                  <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="email" name="email" type="email" placeholder="example@email.com" value={formData.email} onChange={handleChange} className="pe-10" dir="ltr" required />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">رقم الجوال</Label>
+                <Label htmlFor="phone">{t("pgAuth.register.phone")}</Label>
                 <div className="relative">
-                  <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pr-10" dir="ltr" />
+                  <Phone className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pe-10" dir="ltr" />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
+                <Label htmlFor="password">{t("pgAuth.common.password")}</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="password" name="password" type="password" placeholder="••••••••" value={formData.password} onChange={handleChange} className="pr-10" required />
+                  <Lock className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="password" name="password" type="password" placeholder="••••••••" value={formData.password} onChange={handleChange} className="pe-10" required />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
+                <Label htmlFor="confirmPassword">{t("pgAuth.common.confirmPassword")}</Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="confirmPassword" name="confirmPassword" type="password" placeholder="••••••••" value={formData.confirmPassword} onChange={handleChange} className="pr-10" required />
+                  <Lock className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="confirmPassword" name="confirmPassword" type="password" placeholder="••••••••" value={formData.confirmPassword} onChange={handleChange} className="pe-10" required />
                 </div>
               </div>
 
               <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
-                {loading ? "جارٍ إنشاء الحساب..." : 
-                 accountType === "organizer" ? "إنشاء حساب منظّم" : "إنشاء حساب"}
+                {loading ? t("pgAuth.register.submitting") :
+                 accountType === "organizer" ? t("pgAuth.register.submitOrganizer") : t("pgAuth.register.submit")}
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
-                بإنشاء حسابك فإنك توافق على{" "}
-                <a href="#" className="text-primary hover:underline">الشروط والأحكام</a>
-                {" "}و{" "}
-                <a href="#" className="text-primary hover:underline">سياسة الخصوصية</a>
+                {t("pgAuth.register.termsPrefix")}{" "}
+                <a href="#" className="text-primary hover:underline">{t("pgAuth.register.termsLink")}</a>
+                {" "}{t("pgAuth.register.termsAnd")}{" "}
+                <a href="#" className="text-primary hover:underline">{t("pgAuth.register.privacyLink")}</a>
               </p>
             </form>
           )}
 
           <div className="mt-6 text-center">
             <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              ← العودة للصفحة الرئيسية
+              {t("pgAuth.common.backHome")}
             </Link>
           </div>
         </motion.div>

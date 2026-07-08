@@ -1,3 +1,11 @@
+import { marketplaceDict } from "./pages/marketplace";
+import { eventDetailDict } from "./pages/eventDetail";
+import { authDict } from "./pages/auth";
+import { myTicketsDict } from "./pages/myTickets";
+import { favoritesDict, myNotificationsDict } from "./pages/favorites";
+import { myProfileDict } from "./pages/myProfile";
+import { settingsDict } from "./pages/settings";
+
 export const ar = {
   // Common
   common: {
@@ -43,6 +51,25 @@ export const ar = {
     pricing: "الأسعار",
     login: "تسجيل الدخول",
     startFree: "ابدأ مجاناً",
+    dashboard: "لوحة التحكم",
+    adminPanel: "لوحة الأدمن",
+    myProfile: "ملفي",
+    myTickets: "تذاكري",
+    connectCard: "بطاقة التواصل",
+    myNetwork: "شبكتي",
+    notifications: "الإشعارات",
+    logout: "تسجيل الخروج",
+  },
+  inbox: {
+    emptyTitle: "صندوق الوارد فارغ",
+    emptyDesc: "ستظهر هنا الإشعارات الواردة",
+    title: "الإشعارات الواردة",
+    markAllRead: "تعيين الكل كمقروء",
+  },
+  notFound: {
+    title: "الصفحة غير موجودة",
+    description: "عذراً، الصفحة التي تبحث عنها غير موجودة أو تم نقلها",
+    backHome: "العودة للصفحة الرئيسية",
   },
 
   // Hero Section
@@ -492,5 +519,13 @@ export const ar = {
     alreadyConfirmedDesc: "لقد أكدت حضورك مسبقاً لهذه الفعالية",
   },
 
+  // قواميس الصفحات (التعريب/الترجمة الشاملة)
+  pgMarketplace: marketplaceDict.ar,
+  pgEventDetail: eventDetailDict.ar,
+  pgAuth: authDict.ar,
+  pgTickets: myTicketsDict.ar,
+  pgFavorites: favoritesDict.ar,
+  pgMyNotifications: myNotificationsDict.ar,
+  pgProfile: myProfileDict.ar,
+  pgSettings: settingsDict.ar,
 };
-

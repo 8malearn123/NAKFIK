@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { getFavoriteEventIds } from "@/lib/favorites";
 
 interface EventRow {
@@ -31,6 +32,7 @@ interface EventRow {
 }
 
 const Favorites = () => {
+  const { t, lang } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,8 +65,8 @@ const Favorites = () => {
       <section className="gradient-hero pt-24 pb-12">
         <div className="container mx-auto px-4 pt-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
-            <h1 className="font-cairo font-bold text-3xl md:text-4xl text-primary-foreground mb-3">المفضلة</h1>
-            <p className="text-primary-foreground/70 font-cairo">الفعاليات التي حفظتها للرجوع إليها لاحقاً</p>
+            <h1 className="font-cairo font-bold text-3xl md:text-4xl text-primary-foreground mb-3">{t("pgFavorites.title")}</h1>
+            <p className="text-primary-foreground/70 font-cairo">{t("pgFavorites.subtitle")}</p>
           </motion.div>
         </div>
       </section>
@@ -81,10 +83,10 @@ const Favorites = () => {
                 <EventCard key={event.id} event={{
                   id: event.id,
                   title: event.title_ar,
-                  date: new Date(event.start_date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }),
-                  location: event.is_online ? "أونلاين" : (event.venue_name || "غير محدد"),
+                  date: new Date(event.start_date).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { year: "numeric", month: "long", day: "numeric" }),
+                  location: event.is_online ? t("pgFavorites.online") : (event.venue_name || t("pgFavorites.unspecified")),
                   category: event.category,
-                  price: event.is_free ? "مجاني" : "مدفوع",
+                  price: event.is_free ? t("pgFavorites.free") : t("pgFavorites.paid"),
                   isFree: event.is_free,
                   image: event.cover_image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&h=340&fit=crop",
                   attendees: event.current_attendees_count,
@@ -103,9 +105,9 @@ const Favorites = () => {
               <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                 <Heart className="w-7 h-7 text-primary" />
               </div>
-              <p className="text-muted-foreground font-cairo text-lg">لا توجد فعاليات في المفضلة حتى الآن</p>
+              <p className="text-muted-foreground font-cairo text-lg">{t("pgFavorites.empty")}</p>
               <Button className="rounded-full" asChild>
-                <Link to="/events">تصفح الفعاليات</Link>
+                <Link to="/events">{t("pgFavorites.browseEvents")}</Link>
               </Button>
             </div>
           )}
