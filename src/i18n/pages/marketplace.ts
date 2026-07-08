@@ -31,6 +31,20 @@ export const marketplaceDict = {
     ariaEmail: "تواصل بريد",
     // Empty state
     emptyState: "لا توجد فعاليات مطابقة للبحث",
+    // Advanced filters
+    filters: "فلاتر",
+    cityLabel: "المدينة",
+    allCities: "كل المدن",
+    dateFromLabel: "من تاريخ",
+    dateToLabel: "إلى تاريخ",
+    priceLabel: "السعر",
+    allPrices: "كل الأسعار",
+    priceFree: "مجاني",
+    priceLt100: "أقل من 100 ر.س",
+    price100to500: "100 – 500 ر.س",
+    priceGt500: "أكثر من 500 ر.س",
+    clearFilters: "مسح الفلاتر",
+    resultsPrefix: "النتائج:",
   },
   en: {
     // Hero
@@ -63,5 +77,19 @@ export const marketplaceDict = {
     ariaEmail: "Contact via email",
     // Empty state
     emptyState: "No events match your search",
+    // Advanced filters
+    filters: "Filters",
+    cityLabel: "City",
+    allCities: "All cities",
+    dateFromLabel: "From date",
+    dateToLabel: "To date",
+    priceLabel: "Price",
+    allPrices: "All prices",
+    priceFree: "Free",
+    priceLt100: "Under 100 SAR",
+    price100to500: "100 – 500 SAR",
+    priceGt500: "Over 500 SAR",
+    clearFilters: "Clear filters",
+    resultsPrefix: "Results:",
   },
 };
