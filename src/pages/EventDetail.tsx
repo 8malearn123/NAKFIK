@@ -411,18 +411,6 @@ const EventDetail = () => {
               {(event.venue_name || event.venue_address) && (
                 <p className="text-sm text-muted-foreground">{mapQuery}</p>
               )}
-              {mapQuery && (
-                <div className="rounded-xl overflow-hidden border border-border/50">
-                  <iframe
-                    title={t("pgEventDetail.mapFrameTitle")}
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed&hl=${lang}`}
-                    className="w-full h-48 border-0"
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    allowFullScreen
-                  />
-                </div>
-              )}
             </motion.div>
           );
         })()}
