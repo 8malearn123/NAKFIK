@@ -15,6 +15,16 @@ import SmartMatch from "@/components/SmartMatch";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
+import { downloadIcs } from "@/lib/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { CalendarPlus } from "lucide-react";
 
 interface EventData {
   id: string;
@@ -74,7 +84,21 @@ const EventDetail = () => {
   const [submitting, setSubmitting] = useState(false);
   const [registeredTicket, setRegisteredTicket] = useState<TicketData | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showCalendarDialog, setShowCalendarDialog] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleAddToCalendar = () => {
+    if (event) {
+      downloadIcs({
+        title: event.title_ar,
+        description: event.description_ar,
+        location: event.is_online ? t("pgEventDetail.online") : event.venue_name,
+        start: new Date(event.start_date),
+        end: event.end_date ? new Date(event.end_date) : null,
+      });
+    }
+    setShowCalendarDialog(false);
+  };
 
   useEffect(() => {
     if (id) setIsFavorite(isEventFavorite(id, user?.id));
@@ -161,6 +185,7 @@ const EventDetail = () => {
       const chosen = tickets.find(t => t.id === selectedTicket);
       if (chosen) setRegisteredTicket(chosen);
       toast.success(t("pgEventDetail.registerSuccess"));
+      setShowCalendarDialog(true);
       // حدّث عدد المقاعد المتبقية فوراً ثم زامنه مع العدد الفعلي في قاعدة البيانات
       setEvent(prev =>
         prev ? { ...prev, current_attendees_count: prev.current_attendees_count + 1 } : prev,
@@ -623,6 +648,32 @@ const EventDetail = () => {
           {t("pgEventDetail.brand")} © {new Date().getFullYear()}
         </div>
       </div>
+
+      {/* Add-to-calendar prompt after successful registration */}
+      <Dialog open={showCalendarDialog} onOpenChange={setShowCalendarDialog}>
+        <DialogContent dir={dir} className="max-w-sm rounded-2xl font-cairo">
+          <DialogHeader className="text-center sm:text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <CalendarPlus className="w-7 h-7 text-primary" />
+            </div>
+            <DialogTitle>{t("pgEventDetail.calendarTitle")}</DialogTitle>
+            <DialogDescription>{t("pgEventDetail.calendarDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-col gap-2">
+            <Button className="w-full rounded-full" onClick={handleAddToCalendar}>
+              <CalendarPlus className="w-4 h-4" />
+              {t("pgEventDetail.addToCalendar")}
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full rounded-full"
+              onClick={() => setShowCalendarDialog(false)}
+            >
+              {t("pgEventDetail.notNow")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -22,6 +22,12 @@ export const eventDetailDict = {
     addToFavorites: "إضافة إلى المفضلة",
     removeFromFavorites: "إزالة من المفضلة",
 
+    // Calendar
+    calendarTitle: "أضف الفعالية إلى تقويمك",
+    calendarDesc: "حتى لا يفوتك الموعد، أضف الفعالية إلى تقويم جهازك بضغطة واحدة.",
+    addToCalendar: "إضافة إلى التقويم",
+    notNow: "ليس الآن",
+
     // Meta
     online: "أونلاين",
     unspecified: "غير محدد",
@@ -106,6 +112,12 @@ export const eventDetailDict = {
     favoriteRemoved: "Event removed from favorites",
     addToFavorites: "Add to favorites",
     removeFromFavorites: "Remove from favorites",
+
+    // Calendar
+    calendarTitle: "Add this event to your calendar",
+    calendarDesc: "Never miss it — add the event to your device calendar in one tap.",
+    addToCalendar: "Add to Calendar",
+    notNow: "Not Now",
 
     // Meta
     online: "Online",
