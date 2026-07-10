@@ -64,6 +64,8 @@ const Footer = () => {
             <a href="#" className="hover:text-primary-foreground/60 transition-colors">{t("footer.privacy")}</a>
             <span>•</span>
             <a href="#" className="hover:text-primary-foreground/60 transition-colors">{t("footer.terms")}</a>
+            <span>•</span>
+            <span dir="ltr" title="Build version">v-{__BUILD_VERSION__}</span>
           </div>
         </div>
       </div>
