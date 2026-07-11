@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useEffectiveUser } from "@/hooks/useEffectiveUser";
@@ -46,6 +46,7 @@ interface EventRow {
 const MyEvents = () => {
   const { effectiveOrganization: organization } = useEffectiveUser();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialStatus = (searchParams.get("status") as EventStatus | null) || "all";
   const [events, setEvents] = useState<EventRow[]>([]);
   const [filter, setFilter] = useState<EventStatus | "all">(initialStatus);
@@ -140,8 +141,21 @@ const MyEvents = () => {
 
       setEvents((prev) => [newEvt as EventRow, ...prev]);
       toast.success("تم إنشاء نسخة من الفعالية كمسودة — راجعها وعدّلها قبل النشر");
-    } catch {
-      toast.error("تعذر نسخ الفعالية، حاول مرة أخرى");
+    } catch (err: any) {
+      // النسخ يستهلك فعالية من رصيد الباقة — نعرض السبب الحقيقي عند الرفض
+      const msg: string = err?.message || "";
+      if (msg.includes("QUOTA_EXCEEDED")) {
+        toast.error("لقد استنفدت رصيدك من الفعاليات — النسخ يحتاج فعالية من باقتك. يرجى الترقية.");
+        setTimeout(() => navigate("/dashboard/subscription"), 1500);
+      } else if (msg.includes("SUBSCRIPTION_EXPIRED")) {
+        toast.error("انتهت صلاحية باقتك. يرجى التجديد للاستمرار.");
+        setTimeout(() => navigate("/dashboard/subscription"), 1500);
+      } else if (msg.includes("NO_ACTIVE_SUBSCRIPTION")) {
+        toast.error("لا يوجد اشتراك نشط. يرجى الاشتراك في باقة أولاً.");
+        setTimeout(() => navigate("/dashboard/subscription"), 1500);
+      } else {
+        toast.error("تعذر نسخ الفعالية، حاول مرة أخرى");
+      }
     } finally {
       setDuplicating(null);
     }
