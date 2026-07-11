@@ -9,8 +9,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Users, TrendingUp, Search, Edit2, Save, X, Plus,
-  Check, ToggleLeft, ToggleRight, Package, Trash2,
+  Check, ToggleLeft, ToggleRight, Package, Trash2, Gift,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface PlanEdit {
   name_ar: string;
@@ -58,6 +64,75 @@ const Subscriptions = () => {
 
   const activeSubs = subscriptions.filter(s => s.status === "active");
   const totalRevenue = activeSubs.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+
+  // ===== منح باقة لمنظّم =====
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [grantOrgs, setGrantOrgs] = useState<any[]>([]);
+  const [grantOrgId, setGrantOrgId] = useState("");
+  const [grantPlanId, setGrantPlanId] = useState("");
+  const [grantMonths, setGrantMonths] = useState(1);
+  const [granting, setGranting] = useState(false);
+
+  const openGrant = async () => {
+    setGrantOpen(true);
+    if (grantOrgs.length === 0) {
+      const { data } = await supabase
+        .from("organizations")
+        .select("id, name, owner_id")
+        .order("name");
+      setGrantOrgs(data || []);
+    }
+  };
+
+  const handleGrant = async () => {
+    const org = grantOrgs.find(o => o.id === grantOrgId);
+    const plan = plans.find(p => p.id === grantPlanId);
+    if (!org || !plan) {
+      toast.error("اختر المنظّم والباقة أولاً");
+      return;
+    }
+    setGranting(true);
+    try {
+      const months = grantMonths || plan.validity_months || 1;
+      const start = new Date();
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + months);
+
+      // إلغاء أي اشتراك نشط سابق حتى لا تتزاحم الاشتراكات
+      await supabase
+        .from("account_subscriptions")
+        .update({ status: "cancelled", cancelled_at: start.toISOString() } as any)
+        .eq("account_id", org.owner_id)
+        .eq("status", "active");
+
+      const { error } = await supabase.from("account_subscriptions").insert({
+        account_id: org.owner_id,
+        account_type: "organizer",
+        plan_id: plan.id,
+        status: "active",
+        billing_cycle: "monthly",
+        current_period_start: start.toISOString(),
+        current_period_end: end.toISOString(),
+        expires_at: end.toISOString(),
+        amount: 0, // منحة إدارية — لا تُحتسب في الإيرادات
+        currency: "SAR",
+        events_quota: plan.max_events ?? 0, // 0 = بلا حد
+        events_used: 0,
+      } as any);
+      if (error) throw error;
+
+      toast.success(`تم منح باقة «${plan.name_ar}» لـ«${org.name}» لمدة ${months} شهر`);
+      setGrantOpen(false);
+      setGrantOrgId("");
+      setGrantPlanId("");
+      setGrantMonths(1);
+      reload();
+    } catch {
+      toast.error("تعذر منح الباقة، حاول مرة أخرى");
+    } finally {
+      setGranting(false);
+    }
+  };
 
   const togglePlanActive = async (planId: string, currentState: boolean) => {
     const { error } = await supabase.from("subscription_plans").update({ is_active: !currentState } as any).eq("id", planId);
@@ -194,11 +269,87 @@ const Subscriptions = () => {
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-2xl text-foreground">إدارة الاشتراكات</h1>
           {!isFormOpen && (
-            <Button onClick={startCreate} className="bg-primary hover:bg-primary/90">
-              <Plus className="w-4 h-4 ml-2" /> إضافة خطة جديدة
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={openGrant}>
+                <Gift className="w-4 h-4 ml-2" /> منح باقة لمنظّم
+              </Button>
+              <Button onClick={startCreate} className="bg-primary hover:bg-primary/90">
+                <Plus className="w-4 h-4 ml-2" /> إضافة خطة جديدة
+              </Button>
+            </div>
           )}
         </div>
+
+        {/* نافذة منح باقة */}
+        <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
+          <DialogContent dir="rtl" className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-primary" />
+                منح باقة لمنظّم
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-semibold">المنظّم</label>
+                <Select value={grantOrgId} onValueChange={setGrantOrgId}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="اختر المنظّم" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {grantOrgs.map(o => (
+                      <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-semibold">الباقة</label>
+                <Select
+                  value={grantPlanId}
+                  onValueChange={(v) => {
+                    setGrantPlanId(v);
+                    const p = plans.find(pl => pl.id === v);
+                    if (p?.validity_months) setGrantMonths(p.validity_months);
+                  }}
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="اختر الباقة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.filter(p => p.is_active).map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name_ar} — {p.max_events ? `${p.max_events} فعاليات` : "فعاليات غير محدودة"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground font-semibold">المدة (بالأشهر)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={36}
+                  value={grantMonths}
+                  onChange={(e) => setGrantMonths(Math.max(1, Number(e.target.value)))}
+                  className="rounded-xl"
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-xl p-3">
+                ستُمنح الباقة مجاناً (منحة إدارية لا تُحتسب في الإيرادات)، وسيُلغى أي اشتراك نشط سابق لهذا المنظّم.
+              </p>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button className="rounded-full flex-1" onClick={handleGrant} disabled={granting}>
+                {granting ? "جارٍ المنح..." : "منح الباقة"}
+              </Button>
+              <Button variant="ghost" className="rounded-full" onClick={() => setGrantOpen(false)}>
+                إلغاء
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
