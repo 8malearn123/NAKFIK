@@ -7,7 +7,7 @@ import { useEffectiveUser } from "@/hooks/useEffectiveUser";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard,
+  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy,
 } from "lucide-react";
 
 type EventStatus = "draft" | "pending_review" | "approved" | "published" | "rejected" | "completed" | "cancelled";
@@ -79,6 +79,71 @@ const MyEvents = () => {
     } else {
       setEvents(events.filter(e => e.id !== id));
       toast.success("تم حذف الفعالية");
+    }
+  };
+
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+
+  // نسخ الفعالية كاملة (البيانات + التذاكر + الجلسات) كمسودة جديدة
+  const handleDuplicate = async (id: string) => {
+    setDuplicating(id);
+    try {
+      const [{ data: src, error: srcErr }, { data: tix }, { data: sess }] = await Promise.all([
+        supabase.from("events").select("*").eq("id", id).single(),
+        supabase.from("tickets").select("*").eq("event_id", id),
+        supabase.from("sessions").select("*").eq("event_id", id),
+      ]);
+      if (srcErr || !src) throw srcErr;
+
+      const copy: any = { ...src };
+      // حقول يولّدها النظام للنسخة الجديدة
+      delete copy.id;
+      delete copy.created_at;
+      delete copy.updated_at;
+      delete copy.private_link; // فريد لكل فعالية
+      copy.status = "draft";
+      copy.current_attendees_count = 0;
+      copy.title_ar = `${(src as any).title_ar} (نسخة)`;
+
+      const { data: newEvt, error: insErr } = await supabase
+        .from("events")
+        .insert(copy)
+        .select("id, title_ar, start_date, venue_name, status, type, current_attendees_count, max_attendees, cover_image_url, is_online")
+        .single();
+      if (insErr || !newEvt) throw insErr;
+
+      if (tix && tix.length) {
+        const ticketCopies = (tix as any[]).map((tk) => {
+          const c: any = { ...tk };
+          delete c.id;
+          delete c.created_at;
+          delete c.updated_at;
+          c.event_id = (newEvt as any).id;
+          c.quantity_sold = 0;
+          return c;
+        });
+        const { error } = await supabase.from("tickets").insert(ticketCopies);
+        if (error) throw error;
+      }
+
+      if (sess && sess.length) {
+        const sessionCopies = (sess as any[]).map((s) => {
+          const c: any = { ...s };
+          delete c.id;
+          delete c.created_at;
+          c.event_id = (newEvt as any).id;
+          return c;
+        });
+        const { error } = await supabase.from("sessions").insert(sessionCopies);
+        if (error) throw error;
+      }
+
+      setEvents((prev) => [newEvt as EventRow, ...prev]);
+      toast.success("تم إنشاء نسخة من الفعالية كمسودة — راجعها وعدّلها قبل النشر");
+    } catch {
+      toast.error("تعذر نسخ الفعالية، حاول مرة أخرى");
+    } finally {
+      setDuplicating(null);
     }
   };
 
@@ -190,6 +255,16 @@ const MyEvents = () => {
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" asChild title="تعديل">
                       <Link to={`/dashboard/events/${event.id}/edit`}><Pencil className="w-4 h-4" /></Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDuplicate(event.id)}
+                      disabled={duplicating === event.id}
+                      title="نسخ الفعالية"
+                    >
+                      <Copy className={`w-4 h-4 ${duplicating === event.id ? "animate-pulse" : ""}`} />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(event.id)} title="حذف">
                       <Trash2 className="w-4 h-4" />
