@@ -8,6 +8,7 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useEffectiveUser } from "@/hooks/useEffectiveUser";
 import { supabase } from "@/integrations/supabase/client";
 import SubscriptionUsageCard from "@/components/dashboard/SubscriptionUsageCard";
+import RecentActivity from "@/components/dashboard/RecentActivity";
 
 const statusLabels: Record<string, { label: string; className: string }> = {
   draft: { label: "مسودة", className: "bg-muted text-muted-foreground" },
@@ -186,6 +187,9 @@ const DashboardHome = () => {
             </div>
           )}
         </motion.div>
+
+        {/* Recent Activity */}
+        <RecentActivity />
 
         {!organization && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
