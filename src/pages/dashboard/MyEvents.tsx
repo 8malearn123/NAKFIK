@@ -7,7 +7,10 @@ import { useEffectiveUser } from "@/hooks/useEffectiveUser";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
-  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock,
 } from "lucide-react";
 
 type EventStatus = "draft" | "pending_review" | "approved" | "published" | "rejected" | "completed" | "cancelled";
@@ -84,24 +87,40 @@ const MyEvents = () => {
   };
 
   const [duplicating, setDuplicating] = useState<string | null>(null);
-  const [allowDuplicate, setAllowDuplicate] = useState(true);
+  // حالة صلاحية النسخ حسب الباقة: allowed | notInPlan | expired
+  const [dupAccess, setDupAccess] = useState<"allowed" | "notInPlan" | "expired">("allowed");
+  const [dupBlockOpen, setDupBlockOpen] = useState(false);
 
-  // هل باقة المنظّم الحالية تسمح بنسخ الفعاليات؟
   useEffect(() => {
     if (!organization) return;
     (async () => {
+      // آخر اشتراك للمنظّم أياً كانت حالته، مع صلاحية النسخ في باقته
       const { data } = await supabase
         .from("account_subscriptions" as any)
-        .select("subscription_plans(allow_duplicate_event)")
+        .select("status, expires_at, subscription_plans(allow_duplicate_event)")
         .eq("account_id", (organization as any).owner_id)
-        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1);
-      const flag = (data?.[0] as any)?.subscription_plans?.allow_duplicate_event;
-      // نخفي الزر فقط عندما تمنعه الباقة صراحةً
-      setAllowDuplicate(flag !== false);
+      const sub: any = data?.[0];
+      if (!sub) {
+        setDupAccess("notInPlan"); // لا اشتراك — الميزة ضمن الباقات المدفوعة
+        return;
+      }
+      const expired =
+        sub.status !== "active" || (sub.expires_at && new Date(sub.expires_at) <= new Date());
+      if (expired) setDupAccess("expired");
+      else if (sub.subscription_plans?.allow_duplicate_event === false) setDupAccess("notInPlan");
+      else setDupAccess("allowed");
     })();
   }, [organization]);
+
+  const onDuplicateClick = (id: string) => {
+    if (dupAccess !== "allowed") {
+      setDupBlockOpen(true);
+      return;
+    }
+    handleDuplicate(id);
+  };
 
   // نسخ الفعالية كاملة (البيانات + التذاكر + الجلسات) كمسودة جديدة
   const handleDuplicate = async (id: string) => {
@@ -288,18 +307,16 @@ const MyEvents = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" asChild title="تعديل">
                       <Link to={`/dashboard/events/${event.id}/edit`}><Pencil className="w-4 h-4" /></Link>
                     </Button>
-                    {allowDuplicate && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleDuplicate(event.id)}
-                        disabled={duplicating === event.id}
-                        title="نسخ الفعالية"
-                      >
-                        <Copy className={`w-4 h-4 ${duplicating === event.id ? "animate-pulse" : ""}`} />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => onDuplicateClick(event.id)}
+                      disabled={duplicating === event.id}
+                      title="نسخ الفعالية"
+                    >
+                      <Copy className={`w-4 h-4 ${duplicating === event.id ? "animate-pulse" : ""}`} />
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(event.id)} title="حذف">
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -319,6 +336,35 @@ const MyEvents = () => {
           )}
         </div>
       </div>
+
+      {/* نافذة توضيح عدم توفر ميزة النسخ */}
+      <Dialog open={dupBlockOpen} onOpenChange={setDupBlockOpen}>
+        <DialogContent dir="rtl" className="max-w-sm rounded-2xl">
+          <DialogHeader className="text-center sm:text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-brand-brick/10 flex items-center justify-center mx-auto">
+              <Lock className="w-7 h-7 text-brand-brick" />
+            </div>
+            <DialogTitle>
+              {dupAccess === "expired" ? "انتهى اشتراكك" : "ميزة غير متاحة في باقتك"}
+            </DialogTitle>
+            <DialogDescription>
+              {dupAccess === "expired"
+                ? "انتهى اشتراكك الحالي. يرجى تجديد الباقة للاستمرار في استخدام هذه الميزة."
+                : "ميزة نسخ الفعالية متاحة في الباقات المدفوعة فقط. قم بترقية باقتك للاستفادة منها."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-col gap-2">
+            <Button className="w-full rounded-full" asChild>
+              <Link to="/dashboard/subscription">
+                {dupAccess === "expired" ? "تجديد الباقة" : "ترقية الباقة"}
+              </Link>
+            </Button>
+            <Button variant="ghost" className="w-full rounded-full" onClick={() => setDupBlockOpen(false)}>
+              إغلاق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
