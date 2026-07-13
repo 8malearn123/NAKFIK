@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import {
   Users, TrendingUp, Search, Edit2, Save, X, Plus,
-  Check, ToggleLeft, ToggleRight, Package, Trash2, Gift,
+  Check, ToggleLeft, ToggleRight, Package, Trash2, Gift, Copy,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -31,6 +32,7 @@ interface PlanEdit {
   features: string[];
   badge_color: string;
   display_order: number;
+  allow_duplicate_event: boolean;
 }
 
 const emptyEdit: PlanEdit = {
@@ -38,6 +40,7 @@ const emptyEdit: PlanEdit = {
   price: 0, max_events: 1, validity_months: 1,
   max_attendees_per_event: null, max_total_attendees: null,
   whatsapp_quota: null, features: [], badge_color: "", display_order: 0,
+  allow_duplicate_event: true,
 };
 
 const Subscriptions = () => {
@@ -164,6 +167,7 @@ const Subscriptions = () => {
       features: Array.isArray(plan.features) ? plan.features : [],
       badge_color: plan.badge_color || "",
       display_order: plan.display_order || 0,
+      allow_duplicate_event: plan.allow_duplicate_event ?? true,
     });
     setNewFeature("");
   };
@@ -187,6 +191,7 @@ const Subscriptions = () => {
     features: editData.features,
     badge_color: editData.badge_color || null,
     display_order: editData.display_order,
+    allow_duplicate_event: editData.allow_duplicate_event,
   });
 
   const savePlan = async () => {
@@ -194,12 +199,23 @@ const Subscriptions = () => {
     const payload = buildPayload() as any;
 
     if (creating) {
-      const { data, error } = await supabase.from("subscription_plans").insert(payload).select().single();
+      let { data, error } = await supabase.from("subscription_plans").insert(payload).select().single();
+      // توافقية: إذا لم يُنفَّذ ملف SQL الخاص بحقل نسخ الفعالية بعد، نحفظ بدونه
+      if (error?.message?.includes("allow_duplicate_event")) {
+        delete payload.allow_duplicate_event;
+        ({ data, error } = await supabase.from("subscription_plans").insert(payload).select().single());
+        if (!error) toast.info("حُفظت الخطة بدون خيار نسخ الفعالية — نفّذ ملف SQL الخاص به أولاً");
+      }
       if (error) { toast.error("خطأ في إنشاء الخطة: " + error.message); return; }
       setPlans(prev => [...prev, data].sort((a, b) => (a.display_order || 0) - (b.display_order || 0)));
       toast.success("تم إنشاء الخطة بنجاح");
     } else if (editingPlan) {
-      const { error } = await supabase.from("subscription_plans").update(payload).eq("id", editingPlan);
+      let { error } = await supabase.from("subscription_plans").update(payload).eq("id", editingPlan);
+      if (error?.message?.includes("allow_duplicate_event")) {
+        delete payload.allow_duplicate_event;
+        ({ error } = await supabase.from("subscription_plans").update(payload).eq("id", editingPlan));
+        if (!error) toast.info("حُفظت الخطة بدون خيار نسخ الفعالية — نفّذ ملف SQL الخاص به أولاً");
+      }
       if (error) { toast.error("خطأ في الحفظ"); return; }
       setPlans(prev => prev.map(p => p.id === editingPlan ? { ...p, ...payload } : p)
         .sort((a, b) => (a.display_order || 0) - (b.display_order || 0)));
@@ -439,6 +455,20 @@ const Subscriptions = () => {
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between bg-muted/40 rounded-xl px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <Copy className="w-4 h-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">نسخ الفعالية</p>
+                      <p className="text-[11px] text-muted-foreground">السماح للمنظّم بنسخ فعالياته في هذه الباقة</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={editData.allow_duplicate_event}
+                    onCheckedChange={(v) => setEditData(d => ({ ...d, allow_duplicate_event: v }))}
+                  />
+                </div>
+
                 <div>
                   <label className="text-xs text-muted-foreground font-semibold mb-1 block">المميزات</label>
                   <div className="space-y-1.5 max-h-32 overflow-y-auto">
@@ -518,6 +548,12 @@ const Subscriptions = () => {
                       <div className="bg-muted/30 rounded-lg p-2">
                         <span className="text-muted-foreground">إجمالي الحضور</span>
                         <p className="font-bold text-foreground">{plan.max_total_attendees ?? "∞"}</p>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-2">
+                        <span className="text-muted-foreground">نسخ الفعالية</span>
+                        <p className={`font-bold ${(plan.allow_duplicate_event ?? true) ? "text-teal" : "text-destructive"}`}>
+                          {(plan.allow_duplicate_event ?? true) ? "مسموح" : "غير مسموح"}
+                        </p>
                       </div>
                     </div>
 

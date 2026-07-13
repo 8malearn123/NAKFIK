@@ -84,6 +84,24 @@ const MyEvents = () => {
   };
 
   const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [allowDuplicate, setAllowDuplicate] = useState(true);
+
+  // هل باقة المنظّم الحالية تسمح بنسخ الفعاليات؟
+  useEffect(() => {
+    if (!organization) return;
+    (async () => {
+      const { data } = await supabase
+        .from("account_subscriptions" as any)
+        .select("subscription_plans(allow_duplicate_event)")
+        .eq("account_id", (organization as any).owner_id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const flag = (data?.[0] as any)?.subscription_plans?.allow_duplicate_event;
+      // نخفي الزر فقط عندما تمنعه الباقة صراحةً
+      setAllowDuplicate(flag !== false);
+    })();
+  }, [organization]);
 
   // نسخ الفعالية كاملة (البيانات + التذاكر + الجلسات) كمسودة جديدة
   const handleDuplicate = async (id: string) => {
@@ -270,16 +288,18 @@ const MyEvents = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" asChild title="تعديل">
                       <Link to={`/dashboard/events/${event.id}/edit`}><Pencil className="w-4 h-4" /></Link>
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDuplicate(event.id)}
-                      disabled={duplicating === event.id}
-                      title="نسخ الفعالية"
-                    >
-                      <Copy className={`w-4 h-4 ${duplicating === event.id ? "animate-pulse" : ""}`} />
-                    </Button>
+                    {allowDuplicate && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleDuplicate(event.id)}
+                        disabled={duplicating === event.id}
+                        title="نسخ الفعالية"
+                      >
+                        <Copy className={`w-4 h-4 ${duplicating === event.id ? "animate-pulse" : ""}`} />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(event.id)} title="حذف">
                       <Trash2 className="w-4 h-4" />
                     </Button>
