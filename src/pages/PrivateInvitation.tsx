@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Calendar, MapPin, Shirt, Phone, Gift, CheckCircle2, X, Copy,
-  MessageCircle, Mail, ExternalLink,
+  MessageCircle, Mail, ExternalLink, HelpCircle,
 } from "lucide-react";
 import DesignPreview from "@/components/design/DesignPreview";
 import CustomTemplateRender from "@/components/design/CustomTemplateRender";
@@ -40,7 +40,7 @@ const PrivateInvitation = () => {
     if (inv) document.title = inv.title + " | دعوة خاصة";
   }, [inv]);
 
-  const confirm = async (status: "confirmed" | "declined") => {
+  const confirm = async (status: "confirmed" | "declined" | "maybe") => {
     if (!guest) return;
     setSubmitting(true);
     const { data, error } = await supabase.rpc("confirm_invitation_rsvp", {
@@ -50,7 +50,13 @@ const PrivateInvitation = () => {
     });
     setSubmitting(false);
     if (error || !data) return toast.error("تعذر حفظ ردك");
-    toast.success(status === "confirmed" ? "تم تأكيد حضورك ❤" : "تم تسجيل اعتذارك");
+    toast.success(
+      status === "confirmed"
+        ? "تم تأكيد حضورك ❤"
+        : status === "maybe"
+        ? "تم تسجيل ردك — نتمنى أن تشرفنا 🌷"
+        : "تم تسجيل اعتذارك",
+    );
     const result = data as any;
     setGuest({
       ...guest,
@@ -211,6 +217,21 @@ const PrivateInvitation = () => {
                   <p className="text-gray-600">تم تسجيل اعتذارك. نتمنى لقاءك في مناسبة قادمة.</p>
                   <Button variant="link" onClick={() => confirm("confirmed")} className="mt-2">تغيير ردي للحضور</Button>
                 </div>
+              ) : guest.rsvp_status === "maybe" ? (
+                <div className="text-center space-y-2">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold">
+                    <HelpCircle className="w-5 h-5" /> ربما — بانتظار تأكيدك النهائي
+                  </div>
+                  <p className="text-sm text-gray-600">متى ما استقر رأيك حدّث ردك:</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <Button size="sm" onClick={() => confirm("confirmed")} disabled={submitting} className="text-white" style={{ background: inv.theme_color }}>
+                      سأحضر
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => confirm("declined")} disabled={submitting}>
+                      لن أحضر
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div className="space-y-3">
                   <p className="text-center font-bold" style={{ color: inv.theme_color }}>هل ستشرفنا بحضورك؟</p>
@@ -226,17 +247,25 @@ const PrivateInvitation = () => {
                       />
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <Button
                       onClick={() => confirm("confirmed")}
                       disabled={submitting}
                       className="text-white"
                       style={{ background: inv.theme_color }}
                     >
-                      <CheckCircle2 className="w-4 h-4 ml-1" /> أؤكد حضوري
+                      <CheckCircle2 className="w-4 h-4 ml-1" /> سأحضر
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => confirm("maybe")}
+                      disabled={submitting}
+                      className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                    >
+                      <HelpCircle className="w-4 h-4 ml-1" /> ربما
                     </Button>
                     <Button variant="outline" onClick={() => confirm("declined")} disabled={submitting}>
-                      <X className="w-4 h-4 ml-1" /> أعتذر
+                      <X className="w-4 h-4 ml-1" /> لن أحضر
                     </Button>
                   </div>
                 </div>

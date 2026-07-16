@@ -300,6 +300,7 @@ const PrivateInvitations = () => {
       pending: { label: "بانتظار", cls: "bg-muted text-muted-foreground" },
       invited: { label: "تم الإرسال", cls: "bg-blue-500/10 text-blue-700" },
       confirmed: { label: "مؤكد", cls: "bg-green-500/10 text-green-700" },
+      maybe: { label: "ربما", cls: "bg-amber-100 text-amber-700" },
       declined: { label: "اعتذر", cls: "bg-destructive/10 text-destructive" },
     };
     const v = map[s] || map.pending;
@@ -730,9 +731,20 @@ const PrivateInvitations = () => {
                 {bulkSending ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Send className="w-4 h-4 ml-1" />}
                 إرسال للكل عبر واتساب
               </Button>
-              <span className="text-xs text-muted-foreground self-center mr-auto">
-                المجموع: {guests.length} · مؤكد: {guests.filter((g) => g.rsvp_status === "confirmed").length}
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap self-center mr-auto">
+                <span className="text-[11px] font-semibold bg-muted text-muted-foreground rounded-full px-2.5 py-1">
+                  المجموع: {guests.length}
+                </span>
+                <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
+                  مؤكد: {guests.filter((g) => g.rsvp_status === "confirmed").length}
+                </span>
+                <span className="text-[11px] font-semibold bg-amber-100 text-amber-700 rounded-full px-2.5 py-1">
+                  ربما: {guests.filter((g) => g.rsvp_status === "maybe").length}
+                </span>
+                <span className="text-[11px] font-semibold bg-destructive/10 text-destructive rounded-full px-2.5 py-1">
+                  اعتذر: {guests.filter((g) => g.rsvp_status === "declined").length}
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-muted/30 rounded-xl p-3 mb-3">
