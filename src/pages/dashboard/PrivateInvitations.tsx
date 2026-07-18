@@ -309,7 +309,6 @@ const PrivateInvitations = () => {
       pending: { label: "بانتظار", cls: "bg-muted text-muted-foreground" },
       invited: { label: "تم الإرسال", cls: "bg-blue-500/10 text-blue-700" },
       confirmed: { label: "مؤكد", cls: "bg-green-500/10 text-green-700" },
-      maybe: { label: "ربما", cls: "bg-amber-100 text-amber-700" },
       declined: { label: "اعتذر", cls: "bg-destructive/10 text-destructive" },
     };
     const v = map[s] || map.pending;
@@ -320,8 +319,6 @@ const PrivateInvitations = () => {
   const trackingState = (g: Guest): { label: string; cls: string; at: string | null } => {
     if (g.rsvp_status === "confirmed")
       return { label: "أكد الحضور", cls: "bg-green-500/10 text-green-700", at: g.confirmed_at };
-    if (g.rsvp_status === "maybe")
-      return { label: "ربما", cls: "bg-amber-100 text-amber-700", at: g.confirmed_at };
     if (g.rsvp_status === "declined")
       return { label: "اعتذر", cls: "bg-destructive/10 text-destructive", at: g.confirmed_at };
     if ((g as any).opened_at)
@@ -785,14 +782,11 @@ const PrivateInvitations = () => {
                 <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
                   مؤكد: {guests.filter((g) => g.rsvp_status === "confirmed").length}
                 </span>
-                <span className="text-[11px] font-semibold bg-amber-100 text-amber-700 rounded-full px-2.5 py-1">
-                  ربما: {guests.filter((g) => g.rsvp_status === "maybe").length}
-                </span>
                 <span className="text-[11px] font-semibold bg-destructive/10 text-destructive rounded-full px-2.5 py-1">
                   اعتذر: {guests.filter((g) => g.rsvp_status === "declined").length}
                 </span>
                 <span className="text-[11px] font-semibold bg-indigo-500/10 text-indigo-700 rounded-full px-2.5 py-1">
-                  لم يرد بعد: {guests.filter((g) => !["confirmed", "maybe", "declined"].includes(g.rsvp_status)).length}
+                  لم يرد بعد: {guests.filter((g) => !["confirmed", "declined"].includes(g.rsvp_status)).length}
                 </span>
               </div>
             </div>
