@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronDown, Sparkles, Layout, Frame, Type, Palette as PaletteIcon, Image as ImageIcon, Upload, Loader2, X, Check } from "lucide-react";
-import { TEMPLATES, FONTS, LAYOUTS, ORNAMENTS, type DesignTemplate } from "./templates";
+import { ChevronDown, Sparkles, Layout, Frame, Type, Palette as PaletteIcon, Image as ImageIcon, Upload, Loader2, X, Check, SlidersHorizontal } from "lucide-react";
+import { TEMPLATES, FONTS, LAYOUTS, ORNAMENTS, FRAMES, CORNERS, BG_STYLES, ALIGNMENTS, DEFAULT_EXTRAS, type DesignTemplate } from "./templates";
+import { Slider } from "@/components/ui/slider";
 import DesignPreview, { type DesignValue } from "./DesignPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,7 +48,7 @@ export default function DesignStudio({
     });
   };
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File, field: "background_image_url" | "logo_url" = "background_image_url") => {
     if (!user) return;
     if (!file.type.startsWith("image/")) return toast.error("الرجاء اختيار صورة");
     if (file.size > 5 * 1024 * 1024) return toast.error("الحد الأقصى 5MB");
@@ -58,7 +59,7 @@ export default function DesignStudio({
       const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
       if (error) throw error;
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      onChange({ background_image_url: data.publicUrl });
+      onChange({ [field]: data.publicUrl } as any);
       toast.success("تم رفع الصورة");
     } catch (e: any) {
       toast.error(e.message || "فشل الرفع");
@@ -72,10 +73,11 @@ export default function DesignStudio({
       {/* Left: controls */}
       <div className="space-y-5">
         <Tabs defaultValue="templates" className="w-full">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="templates"><Sparkles className="w-3.5 h-3.5 ml-1" /> القوالب</TabsTrigger>
             <TabsTrigger value="layout"><Layout className="w-3.5 h-3.5 ml-1" /> التخطيط</TabsTrigger>
             <TabsTrigger value="colors"><PaletteIcon className="w-3.5 h-3.5 ml-1" /> الألوان</TabsTrigger>
+            <TabsTrigger value="custom"><SlidersHorizontal className="w-3.5 h-3.5 ml-1" /> تخصيص</TabsTrigger>
             <TabsTrigger value="media"><ImageIcon className="w-3.5 h-3.5 ml-1" /> الوسائط</TabsTrigger>
           </TabsList>
 
@@ -196,6 +198,71 @@ export default function DesignStudio({
                 ))}
               </div>
             </div>
+            <div className="pt-3">
+              <Label className="text-xs">نمط الخلفية</Label>
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {BG_STYLES.map((b) => (
+                  <button key={b.key} type="button" onClick={() => onChange({ bg_style: b.key } as any)}
+                    className={`px-2 py-2 rounded-lg border text-xs transition ${(value.bg_style || "gradient") === b.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}>
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Customize — التخصيص المتقدم */}
+          <TabsContent value="custom" className="mt-4 space-y-5">
+            <div>
+              <Label className="mb-2 block"><Frame className="w-3 h-3 inline ml-1" /> إطار الدعوة</Label>
+              <div className="grid grid-cols-5 gap-2">
+                {FRAMES.map((fr) => (
+                  <button key={fr.key} type="button" onClick={() => onChange({ frame_style: fr.key } as any)}
+                    className={`p-2 rounded-lg border-2 text-center transition ${(value.frame_style || "none") === fr.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
+                    <FramePreview kind={fr.key} accent={value.accent_color} />
+                    <p className="text-[10px] font-semibold mt-1.5">{fr.label}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-2 block">شكل الزوايا</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {CORNERS.map((c) => (
+                  <button key={c.key} type="button" onClick={() => onChange({ corner_style: c.key } as any)}
+                    className={`px-2 py-2.5 rounded-lg border text-xs transition ${(value.corner_style || "rounded") === c.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}>
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-2 block">محاذاة النصوص</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {ALIGNMENTS.map((a) => (
+                  <button key={a.key} type="button" onClick={() => onChange({ text_align: a.key } as any)}
+                    className={`px-2 py-2.5 rounded-lg border text-xs transition ${(value.text_align || "center") === a.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <SliderRow label="حجم العنوان" value={value.heading_scale ?? 1} min={0.7} max={1.5} step={0.05}
+              onChange={(v) => onChange({ heading_scale: v } as any)} />
+            <SliderRow label="حجم النصوص" value={value.body_scale ?? 1} min={0.7} max={1.4} step={0.05}
+              onChange={(v) => onChange({ body_scale: v } as any)} />
+            <SliderRow label="المسافات بين العناصر" value={value.spacing_scale ?? 1} min={0.6} max={1.6} step={0.05}
+              onChange={(v) => onChange({ spacing_scale: v } as any)} />
+            <SliderRow label="شفافية المحتوى" value={value.content_opacity ?? 1} min={0.5} max={1} step={0.05} percent
+              onChange={(v) => onChange({ content_opacity: v } as any)} />
+
+            <button type="button" onClick={() => onChange({ ...DEFAULT_EXTRAS, logo_url: value.logo_url } as any)}
+              className="text-xs text-muted-foreground hover:text-primary underline">
+              إعادة ضبط التخصيص للوضع الافتراضي
+            </button>
           </TabsContent>
 
           {/* Media */}
@@ -219,6 +286,27 @@ export default function DesignStudio({
               <div className="flex-1 space-y-1">
                 <Input dir="ltr" value={value.background_image_url || ""} onChange={(e) => onChange({ background_image_url: e.target.value })} placeholder="أو الصق رابط https://..." className="text-xs" />
                 <p className="text-[11px] text-muted-foreground">سيتم وضع طبقة لون شفافة فوق الصورة لضمان قراءة النص.</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t">
+              <Label>الشعار أو الختم الخاص</Label>
+              <div className="flex gap-3 items-start mt-2">
+                {value.logo_url ? (
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden border shrink-0 group bg-muted/30">
+                    <img src={value.logo_url} alt="logo" className="w-full h-full object-contain" />
+                    <button type="button" onClick={() => onChange({ logo_url: null } as any)} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                      <X className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className={`w-20 h-20 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer shrink-0 transition ${uploading ? "opacity-50 pointer-events-none" : "hover:border-primary hover:bg-primary/5"}`}>
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Upload className="w-4 h-4 text-muted-foreground" />}
+                    <span className="text-[10px] text-muted-foreground mt-1">شعار</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { const fl = e.target.files?.[0]; if (fl) handleUpload(fl, "logo_url"); e.target.value = ""; }} />
+                  </label>
+                )}
+                <p className="text-[11px] text-muted-foreground flex-1">يظهر الشعار أعلى الدعوة — يفضّل صورة بخلفية شفافة (PNG).</p>
               </div>
             </div>
           </TabsContent>
@@ -293,3 +381,46 @@ const QUICK_PALETTES: [string, string][] = [
   ["#006962", "#7DD3FC"],
   ["#1E3A5F", "#C9A84C"],
 ];
+
+function SliderRow({ label, value, min, max, step, percent, onChange }: {
+  label: string; value: number; min: number; max: number; step: number; percent?: boolean; onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <Label className="text-xs">{label}</Label>
+        <span className="text-[11px] text-muted-foreground font-mono" dir="ltr">
+          {percent ? `${Math.round(value * 100)}%` : `${Math.round(value * 100)}%`}
+        </span>
+      </div>
+      <Slider value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0])} />
+    </div>
+  );
+}
+
+function FramePreview({ kind, accent }: { kind: string; accent: string }) {
+  const base = "w-full aspect-[3/4] rounded bg-muted/60 relative overflow-hidden";
+  if (kind === "none") return <div className={base} />;
+  if (kind === "simple") return (
+    <div className={base}><div className="absolute inset-1 border" style={{ borderColor: accent }} /></div>
+  );
+  if (kind === "gold") return (
+    <div className={base}>
+      <div className="absolute inset-1 border-2" style={{ borderColor: "#C9A84C" }} />
+      <div className="absolute inset-2 border" style={{ borderColor: "#E8D48B" }} />
+    </div>
+  );
+  if (kind === "silver") return (
+    <div className={base}>
+      <div className="absolute inset-1 border-2" style={{ borderColor: "#9BA6B2" }} />
+      <div className="absolute inset-2 border" style={{ borderColor: "#DDE3EA" }} />
+    </div>
+  );
+  return (
+    <div className={base}>
+      <div className="absolute inset-0.5 border-2" style={{ borderColor: accent }} />
+      <div className="absolute inset-1.5 border" style={{ borderColor: accent + "88" }} />
+      <div className="absolute inset-2.5 border" style={{ borderColor: accent + "44" }} />
+    </div>
+  );
+}

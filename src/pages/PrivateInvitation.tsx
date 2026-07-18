@@ -115,6 +115,7 @@ const PrivateInvitation = () => {
               layout_style: inv.layout_style || "classic",
               ornament_style: inv.ornament_style || "none",
               background_image_url: inv.background_image_url || inv.cover_image_url || null,
+              ...((inv.design_extras as any) || {}),
             }}
             title={inv.title}
             subtitle={inv.host_name ? `يتشرف بدعوتكم · ${inv.host_name}` : "دعوة كريمة"}

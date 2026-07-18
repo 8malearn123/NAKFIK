@@ -15,6 +15,19 @@ export function OrnamentBorder({
   if (style === "none") return null;
   const common = "absolute inset-0 pointer-events-none";
   switch (style) {
+    case "islamic":
+      return (
+        <svg className={`${common} ${className}`} viewBox="0 0 400 600" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id={`isl-${color.replace("#","")}`} x="0" y="0" width="36" height="36" patternUnits="userSpaceOnUse">
+              <path d="M18 2 L22 12 L32 8 L26 18 L32 28 L22 24 L18 34 L14 24 L4 28 L10 18 L4 8 L14 12 Z" fill="none" stroke={color} strokeWidth="0.7" opacity="0.4" />
+              <circle cx="18" cy="18" r="3.5" fill="none" stroke={color} strokeWidth="0.5" opacity="0.35" />
+            </pattern>
+          </defs>
+          <rect width="400" height="46" fill={`url(#isl-${color.replace("#","")})`} />
+          <rect y="554" width="400" height="46" fill={`url(#isl-${color.replace("#","")})`} />
+        </svg>
+      );
     case "arabesque":
       return (
         <svg className={`${common} ${className}`} viewBox="0 0 400 600" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">

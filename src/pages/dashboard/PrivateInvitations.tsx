@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
+import { EXTRA_KEYS } from "@/components/design/templates";
 import CustomTemplateDesigner, { DEFAULT_OVERLAY, type NameOverlay } from "@/components/design/CustomTemplateDesigner";
 
 interface Inv {
@@ -61,6 +62,7 @@ interface Inv {
   custom_template_url: string | null;
   use_custom_template: boolean;
   name_overlay: NameOverlay;
+  design_extras?: Record<string, unknown> | null;
 }
 
 interface Guest {
@@ -104,6 +106,7 @@ const emptyForm: Partial<Inv> = {
   layout_style: "classic", ornament_style: "none", body_font: "Cairo",
   text_color: "#FFFFFF", template_key: null,
   custom_template_url: null, use_custom_template: false, name_overlay: DEFAULT_OVERLAY,
+  design_extras: {},
 };
 
 const PrivateInvitations = () => {
@@ -190,15 +193,19 @@ const PrivateInvitations = () => {
     if (!orgId || !user) return toast.error("لا توجد مؤسسة مرتبطة بحسابك");
     if (!form.title || !form.event_date) return toast.error("العنوان وتاريخ المناسبة مطلوبان");
     const payload: any = { ...form, organization_id: orgId, created_by: user.id };
-    if (editing) {
-      const { error } = await supabase.from("private_invitations").update(payload).eq("id", editing.id);
-      if (error) return toast.error(error.message);
-      toast.success("تم التحديث");
-    } else {
-      const { error } = await supabase.from("private_invitations").insert(payload);
-      if (error) return toast.error(error.message);
-      toast.success("تم إنشاء الدعوة");
+    const run = async (p: any) =>
+      editing
+        ? supabase.from("private_invitations").update(p).eq("id", editing.id)
+        : supabase.from("private_invitations").insert(p);
+    let { error } = await run(payload);
+    // توافقية: إذا لم يُنفَّذ ملف SQL الخاص بحقل التخصيصات بعد
+    if (error?.message?.includes("design_extras")) {
+      const { design_extras: _omit, ...rest } = payload;
+      ({ error } = await run(rest));
+      if (!error) toast.info("حُفظت الدعوة بدون خيارات التخصيص المتقدم — نفّذ ملف SQL الخاص بها أولاً");
     }
+    if (error) return toast.error(error.message);
+    toast.success(editing ? "تم التحديث" : "تم إنشاء الدعوة");
     setOpen(false);
     load();
   };
@@ -682,6 +689,7 @@ const PrivateInvitations = () => {
                     ornament_style: form.ornament_style || "none",
                     background_image_url: form.background_image_url || null,
                     template_key: form.template_key || null,
+                    ...((form.design_extras as any) || {}),
                   }}
                   onChange={(patch) => {
                     setForm((f) => ({
@@ -696,6 +704,11 @@ const PrivateInvitations = () => {
                       ...(patch.background_image_url !== undefined && { background_image_url: patch.background_image_url }),
                       ...(patch.template_key !== undefined && { template_key: patch.template_key }),
                     }));
+                    // خيارات التخصيص المتقدم تُجمع في design_extras
+                    const extras: Record<string, unknown> = {};
+                    for (const k of EXTRA_KEYS) if ((patch as any)[k] !== undefined) extras[k] = (patch as any)[k];
+                    if (Object.keys(extras).length)
+                      setForm((f) => ({ ...f, design_extras: { ...((f.design_extras as any) || {}), ...extras } }));
                   }}
                   previewTitle={form.title || "عنوان الدعوة"}
                   previewSubtitle="INVITATION · دعوة كريمة"

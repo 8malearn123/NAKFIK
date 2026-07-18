@@ -35,6 +35,9 @@ export const FONTS = [
   { value: "Reem Kufi",        label: "Reem Kufi (كوفي)" },
   { value: "Scheherazade New", label: "Scheherazade (تقليدي)" },
   { value: "Aref Ruqaa",       label: "Aref Ruqaa (رقعة)" },
+  { value: "Almarai",          label: "Almarai (حديث)" },
+  { value: "El Messiri",       label: "El Messiri (مسيري)" },
+  { value: "Lateef",           label: "Lateef (لطيف)" },
 ];
 
 export const LAYOUTS = [
@@ -46,9 +49,65 @@ export const LAYOUTS = [
 
 export const ORNAMENTS = [
   { key: "none",      label: "بدون" },
-  { key: "arabesque", label: "أرابيسك" },
-  { key: "floral",    label: "زهري" },
+  { key: "arabesque", label: "عربي (أرابيسك)" },
+  { key: "islamic",   label: "إسلامي" },
+  { key: "floral",    label: "وردي (زهري)" },
   { key: "geometric", label: "هندسي" },
-  { key: "art-deco",  label: "آرت ديكو" },
+  { key: "art-deco",  label: "كلاسيكي (آرت ديكو)" },
   { key: "waves",     label: "أمواج" },
+] as const;
+
+// ===== خيارات التخصيص المتقدم (الإضافات الاحترافية) =====
+
+export type DesignExtras = {
+  frame_style?: "none" | "simple" | "gold" | "silver" | "luxury";
+  corner_style?: "square" | "rounded" | "ornate";
+  bg_style?: "solid" | "gradient" | "pattern" | "paper";
+  heading_scale?: number;   // 0.7 – 1.5
+  body_scale?: number;      // 0.7 – 1.4
+  text_align?: "center" | "right" | "left";
+  spacing_scale?: number;   // 0.6 – 1.6
+  content_opacity?: number; // 0.5 – 1
+  logo_url?: string | null;
+};
+
+export const DEFAULT_EXTRAS: Required<DesignExtras> = {
+  frame_style: "none",
+  corner_style: "rounded",
+  bg_style: "gradient",
+  heading_scale: 1,
+  body_scale: 1,
+  text_align: "center",
+  spacing_scale: 1,
+  content_opacity: 1,
+  logo_url: null,
+};
+
+export const EXTRA_KEYS = Object.keys(DEFAULT_EXTRAS) as (keyof DesignExtras)[];
+
+export const FRAMES = [
+  { key: "none",   label: "بدون إطار" },
+  { key: "simple", label: "بسيط" },
+  { key: "gold",   label: "ذهبي" },
+  { key: "silver", label: "فضي" },
+  { key: "luxury", label: "فاخر" },
+] as const;
+
+export const CORNERS = [
+  { key: "square",  label: "مربعة" },
+  { key: "rounded", label: "دائرية" },
+  { key: "ornate",  label: "مزخرفة" },
+] as const;
+
+export const BG_STYLES = [
+  { key: "solid",    label: "سادة" },
+  { key: "gradient", label: "تدرج" },
+  { key: "pattern",  label: "نقش" },
+  { key: "paper",    label: "خامة ورق" },
+] as const;
+
+export const ALIGNMENTS = [
+  { key: "right",  label: "يمين" },
+  { key: "center", label: "وسط" },
+  { key: "left",   label: "يسار" },
 ] as const;
