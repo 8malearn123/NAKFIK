@@ -10,13 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReminderSettings from "@/components/dashboard/ReminderSettings";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Mail, Plus, Pencil, Trash2, Users, ExternalLink, Copy, QrCode, Palette,
   Calendar, MapPin, Shirt, Phone, Gift, Send, CheckCircle2, X,
   Heart, Flower2, GraduationCap, Cake, Landmark, Mic2, Scissors, Crown, Briefcase, Sparkles,
-  Upload, Image as ImageIcon, Loader2, Database,
+  Upload, Image as ImageIcon, Loader2, Database, Bell,
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
@@ -112,6 +113,7 @@ const PrivateInvitations = () => {
   const [loading, setLoading] = useState(true);
 
   const [open, setOpen] = useState(false);
+  const [reminderInv, setReminderInv] = useState<Inv | null>(null);
   const [editing, setEditing] = useState<Inv | null>(null);
   const [mode, setMode] = useState<"nakfeek" | "custom" | null>(null);
   const [form, setForm] = useState<Partial<Inv>>(emptyForm);
@@ -376,6 +378,9 @@ const PrivateInvitations = () => {
                   <div className="flex gap-2 mt-auto pt-3 flex-wrap">
                     <Button size="sm" variant="secondary" onClick={() => openGuests(inv)}>
                       <Users className="w-3 h-3 ml-1" /> المدعوين
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setReminderInv(inv)}>
+                      <Bell className="w-3 h-3 ml-1" /> التذكيرات
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(inv)}>
                       <Pencil className="w-3 h-3 ml-1" /> تعديل
@@ -848,6 +853,16 @@ const PrivateInvitations = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* إعدادات تذكير المدعوين */}
+        {reminderInv && (
+          <ReminderSettings
+            invitationId={reminderInv.id}
+            invitationTitle={reminderInv.title}
+            open={!!reminderInv}
+            onOpenChange={(v) => { if (!v) setReminderInv(null); }}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
