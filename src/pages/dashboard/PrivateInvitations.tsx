@@ -309,6 +309,35 @@ const PrivateInvitations = () => {
     return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v.cls}`}>{v.label}</span>;
   };
 
+  // حالة التتبع الكاملة للمدعو: الرد أولاً، ثم الفتح، ثم الإرسال
+  const trackingState = (g: Guest): { label: string; cls: string; at: string | null } => {
+    if (g.rsvp_status === "confirmed")
+      return { label: "أكد الحضور", cls: "bg-green-500/10 text-green-700", at: g.confirmed_at };
+    if (g.rsvp_status === "maybe")
+      return { label: "ربما", cls: "bg-amber-100 text-amber-700", at: g.confirmed_at };
+    if (g.rsvp_status === "declined")
+      return { label: "اعتذر", cls: "bg-destructive/10 text-destructive", at: g.confirmed_at };
+    if ((g as any).opened_at)
+      return { label: "فتح الدعوة — لم يرد بعد", cls: "bg-indigo-500/10 text-indigo-700", at: (g as any).opened_at };
+    if ((g as any).invite_sent_at || g.rsvp_status === "invited")
+      return { label: "أُرسلت الدعوة — لم يرد بعد", cls: "bg-blue-500/10 text-blue-700", at: (g as any).invite_sent_at };
+    return { label: "لم تُرسل بعد", cls: "bg-muted text-muted-foreground", at: null };
+  };
+
+  const trackingBadge = (g: Guest) => {
+    const s = trackingState(g);
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s.cls}`}>{s.label}</span>
+        {s.at && (
+          <span className="text-[10px] text-muted-foreground">
+            {new Date(s.at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}
+          </span>
+        )}
+      </span>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -749,6 +778,9 @@ const PrivateInvitations = () => {
                 <span className="text-[11px] font-semibold bg-destructive/10 text-destructive rounded-full px-2.5 py-1">
                   اعتذر: {guests.filter((g) => g.rsvp_status === "declined").length}
                 </span>
+                <span className="text-[11px] font-semibold bg-indigo-500/10 text-indigo-700 rounded-full px-2.5 py-1">
+                  لم يرد بعد: {guests.filter((g) => !["confirmed", "maybe", "declined"].includes(g.rsvp_status)).length}
+                </span>
               </div>
             </div>
 
@@ -766,7 +798,7 @@ const PrivateInvitations = () => {
                   <div className="flex-1 min-w-[200px]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold">{g.guest_name}</span>
-                      {statusBadge(g.rsvp_status)}
+                      {trackingBadge(g)}
                       {g.companions_count > 0 && <span className="text-xs text-muted-foreground">+{g.companions_count} مرافق</span>}
                     </div>
                     {g.guest_phone && <p className="text-xs text-muted-foreground" dir="ltr">{g.guest_phone}</p>}

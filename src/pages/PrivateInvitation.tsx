@@ -32,6 +32,8 @@ const PrivateInvitation = () => {
       setInv(payload.invitation);
       setCompanions(payload.guest?.companions_count || 0);
       setLoading(false);
+      // ختم أول فتح للدعوة (يتجاهل الخطأ بصمت إن لم تُفعّل الدالة بعد)
+      supabase.rpc("mark_invitation_opened" as any, { _token: token }).then(() => {});
     };
     load();
   }, [token]);
