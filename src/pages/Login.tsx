@@ -161,6 +161,29 @@ const Login = () => {
             </Button>
           </form>
 
+          {/* Demo Accounts */}
+          <div className="mt-6 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5">
+            <p className="text-xs text-muted-foreground mb-3 text-center font-semibold">{t("pgAuth.login.demoTitle")}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
+                { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
+                { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
+              ].map((demo) => (
+                <button
+                  key={demo.email}
+                  type="button"
+                  onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
+                  className="text-xs px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent/10 hover:border-primary/50 transition-all text-start truncate"
+                >
+                  <span className="block font-semibold">{demo.label}</span>
+                  <span className="text-muted-foreground text-[10px]" dir="ltr">{demo.email}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 text-center" dir="ltr">Password: Demo@12345</p>
+          </div>
+
           <div className="mt-4 text-center">
             <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               {t("pgAuth.common.backHome")}
