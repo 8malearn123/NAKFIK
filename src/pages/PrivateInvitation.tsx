@@ -212,7 +212,6 @@ const PrivateInvitation = () => {
               ) : guest.rsvp_status === "declined" ? (
                 <div className="text-center">
                   <p className="text-gray-600">تم تسجيل اعتذارك. نتمنى لقاءك في مناسبة قادمة.</p>
-                  <Button variant="link" onClick={() => confirm("confirmed")} className="mt-2">تغيير ردي للحضور</Button>
                 </div>
               ) : (
                 <div className="space-y-3">
