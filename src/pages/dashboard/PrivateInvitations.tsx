@@ -798,6 +798,26 @@ const PrivateInvitations = () => {
               <DialogTitle>إدارة المدعوين — {activeInv?.title}</DialogTitle>
             </DialogHeader>
 
+            {/* عداد المؤكدين حسب التصنيف — أعلى الصفحة ليجهز المنظم لكل فئة */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {TIER_KEYS.map((k) => {
+                const confirmed = guests.filter(
+                  (g) => g.rsvp_status === "confirmed" && (g.guest_tier || "regular") === k
+                ).length;
+                const total = guests.filter((g) => (g.guest_tier || "regular") === k).length;
+                return (
+                  <div key={k} className={`rounded-xl border p-3 text-center ${GUEST_TIERS[k].cls}`}>
+                    <div className="flex items-center justify-center gap-1 text-[11px] font-bold">
+                      {k === "vvip" && <Crown className="w-3.5 h-3.5" />}
+                      {GUEST_TIERS[k].label}
+                    </div>
+                    <div className="text-2xl font-extrabold leading-tight mt-0.5">{confirmed}</div>
+                    <div className="text-[10px] opacity-80">مؤكد من أصل {total} مدعو</div>
+                  </div>
+                );
+              })}
+            </div>
+
             <div className="flex flex-wrap gap-2 mb-3">
               <Button size="sm" variant="outline" onClick={openImport}>
                 <Database className="w-4 h-4 ml-1" /> استيراد من قاعدة بيانات
@@ -821,25 +841,6 @@ const PrivateInvitations = () => {
                 </span>
               </div>
             </div>
-
-            {/* إحصائيات الحضور المؤكد حسب التصنيف — لتجهيز الجلوس والضيافة */}
-            {guests.some((g) => g.rsvp_status === "confirmed") && (
-              <div className="flex items-center gap-1.5 flex-wrap mb-3 bg-muted/30 rounded-xl p-2.5">
-                <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
-                  <Crown className="w-3.5 h-3.5 text-amber-600" /> الحضور المؤكد حسب التصنيف:
-                </span>
-                {TIER_KEYS.map((k) => {
-                  const count = guests.filter(
-                    (g) => g.rsvp_status === "confirmed" && (g.guest_tier || "regular") === k
-                  ).length;
-                  return (
-                    <span key={k} className={`text-[11px] font-bold rounded-full px-2.5 py-1 border ${GUEST_TIERS[k].cls}`}>
-                      {GUEST_TIERS[k].label}: {count}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
 
             <div className="bg-muted/30 rounded-xl p-3 mb-3 space-y-2">
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
