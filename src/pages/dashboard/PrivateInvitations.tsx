@@ -804,7 +804,6 @@ const PrivateInvitations = () => {
                 const confirmed = guests.filter(
                   (g) => g.rsvp_status === "confirmed" && (g.guest_tier || "regular") === k
                 ).length;
-                const total = guests.filter((g) => (g.guest_tier || "regular") === k).length;
                 return (
                   <div key={k} className={`rounded-xl border p-3 text-center ${GUEST_TIERS[k].cls}`}>
                     <div className="flex items-center justify-center gap-1 text-[11px] font-bold">
@@ -812,7 +811,7 @@ const PrivateInvitations = () => {
                       {GUEST_TIERS[k].label}
                     </div>
                     <div className="text-2xl font-extrabold leading-tight mt-0.5">{confirmed}</div>
-                    <div className="text-[10px] opacity-80">مؤكد من أصل {total} مدعو</div>
+                    <div className="text-[10px] opacity-80">{confirmed >= 2 && confirmed <= 10 ? "مؤكدين" : "مؤكد"}</div>
                   </div>
                 );
               })}
