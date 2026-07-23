@@ -76,7 +76,16 @@ interface Guest {
   companions_count: number;
   confirmed_at: string | null;
   checked_in_at: string | null;
+  guest_tier?: string | null;
 }
+
+// تصنيفات المدعوين — يحددها المنظم فقط ولا يراها أو يغيرها المدعو
+const GUEST_TIERS: Record<string, { label: string; cls: string }> = {
+  vvip:    { label: "VVIP", cls: "bg-amber-500/15 text-amber-700 border-amber-400/60" },
+  vip:     { label: "VIP",  cls: "bg-primary/10 text-primary border-primary/40" },
+  regular: { label: "عادي", cls: "bg-muted text-muted-foreground border-border" },
+};
+const TIER_KEYS = ["vvip", "vip", "regular"] as const;
 
 // Presets — تطبق ستايل و رسالة افتراضية حسب نوع المناسبة
 const CATEGORY_PRESETS: Record<string, {
@@ -124,7 +133,7 @@ const PrivateInvitations = () => {
   const [guestsOpen, setGuestsOpen] = useState(false);
   const [activeInv, setActiveInv] = useState<Inv | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [newGuest, setNewGuest] = useState({ guest_name: "", guest_phone: "", guest_email: "" });
+  const [newGuest, setNewGuest] = useState({ guest_name: "", guest_phone: "", guest_email: "", guest_tier: "regular" });
 
   const [qrGuest, setQrGuest] = useState<Guest | null>(null);
   const [uploading, setUploading] = useState<"cover" | "background" | null>(null);
@@ -233,15 +242,37 @@ const PrivateInvitations = () => {
   const addGuest = async () => {
     if (!activeInv) return;
     if (!newGuest.guest_name.trim()) return toast.error("اسم المدعو مطلوب");
-    const { error } = await supabase.from("private_invitation_guests").insert({
+    const payload: any = {
       invitation_id: activeInv.id,
       guest_name: newGuest.guest_name.trim(),
       guest_phone: newGuest.guest_phone || null,
       guest_email: newGuest.guest_email || null,
-    });
+      guest_tier: newGuest.guest_tier,
+    };
+    let { error } = await supabase.from("private_invitation_guests").insert(payload);
+    // توافقية: إذا لم يُنفَّذ ملف SQL الخاص بتصنيف المدعوين بعد
+    if (error?.message?.includes("guest_tier")) {
+      const { guest_tier: _omit, ...rest } = payload;
+      ({ error } = await supabase.from("private_invitation_guests").insert(rest));
+      if (!error) toast.info("أُضيف المدعو بدون تصنيف — نفّذ ملف SQL الخاص بالتصنيفات أولاً");
+    }
     if (error) return toast.error(error.message);
-    setNewGuest({ guest_name: "", guest_phone: "", guest_email: "" });
+    setNewGuest({ guest_name: "", guest_phone: "", guest_email: "", guest_tier: "regular" });
     await loadGuests(activeInv.id);
+  };
+
+  const updateTier = async (g: Guest, tier: string) => {
+    const { error } = await supabase
+      .from("private_invitation_guests")
+      .update({ guest_tier: tier } as any)
+      .eq("id", g.id);
+    if (error)
+      return toast.error(
+        error.message.includes("guest_tier")
+          ? "نفّذ ملف SQL الخاص بتصنيف المدعوين أولاً"
+          : error.message
+      );
+    if (activeInv) loadGuests(activeInv.id);
   };
 
   const removeGuest = async (id: string) => {
@@ -791,11 +822,53 @@ const PrivateInvitations = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-muted/30 rounded-xl p-3 mb-3">
-              <Input placeholder="اسم المدعو *" value={newGuest.guest_name} onChange={(e) => setNewGuest({ ...newGuest, guest_name: e.target.value })} />
-              <Input dir="ltr" placeholder="+9665..." value={newGuest.guest_phone} onChange={(e) => setNewGuest({ ...newGuest, guest_phone: e.target.value })} />
-              <Input dir="ltr" placeholder="البريد (اختياري)" value={newGuest.guest_email} onChange={(e) => setNewGuest({ ...newGuest, guest_email: e.target.value })} />
-              <Button onClick={addGuest}><Plus className="w-4 h-4 ml-1" /> إضافة</Button>
+            {/* إحصائيات الحضور المؤكد حسب التصنيف — لتجهيز الجلوس والضيافة */}
+            {guests.some((g) => g.rsvp_status === "confirmed") && (
+              <div className="flex items-center gap-1.5 flex-wrap mb-3 bg-muted/30 rounded-xl p-2.5">
+                <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+                  <Crown className="w-3.5 h-3.5 text-amber-600" /> الحضور المؤكد حسب التصنيف:
+                </span>
+                {TIER_KEYS.map((k) => {
+                  const count = guests.filter(
+                    (g) => g.rsvp_status === "confirmed" && (g.guest_tier || "regular") === k
+                  ).length;
+                  return (
+                    <span key={k} className={`text-[11px] font-bold rounded-full px-2.5 py-1 border ${GUEST_TIERS[k].cls}`}>
+                      {GUEST_TIERS[k].label}: {count}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="bg-muted/30 rounded-xl p-3 mb-3 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <Input placeholder="اسم المدعو *" value={newGuest.guest_name} onChange={(e) => setNewGuest({ ...newGuest, guest_name: e.target.value })} />
+                <Input dir="ltr" placeholder="+9665..." value={newGuest.guest_phone} onChange={(e) => setNewGuest({ ...newGuest, guest_phone: e.target.value })} />
+                <Input dir="ltr" placeholder="البريد (اختياري)" value={newGuest.guest_email} onChange={(e) => setNewGuest({ ...newGuest, guest_email: e.target.value })} />
+                <Button onClick={addGuest}><Plus className="w-4 h-4 ml-1" /> إضافة</Button>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Crown className="w-3.5 h-3.5" /> تصنيف المدعو:
+                </span>
+                {TIER_KEYS.map((k) => {
+                  const active = newGuest.guest_tier === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setNewGuest({ ...newGuest, guest_tier: k })}
+                      className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
+                        active ? GUEST_TIERS[k].cls + " ring-1 ring-current" : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {GUEST_TIERS[k].label}
+                    </button>
+                  );
+                })}
+                <span className="text-[10px] text-muted-foreground">— يراه المنظم فقط ولا يظهر للمدعو</span>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -805,6 +878,18 @@ const PrivateInvitations = () => {
                   <div className="flex-1 min-w-[200px]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold">{g.guest_name}</span>
+                      <select
+                        value={g.guest_tier || "regular"}
+                        onChange={(e) => updateTier(g, e.target.value)}
+                        title="تصنيف المدعو — يحدده المنظم فقط"
+                        className={`text-[10px] font-bold rounded-full px-2 py-0.5 border cursor-pointer appearance-none text-center ${
+                          GUEST_TIERS[g.guest_tier || "regular"]?.cls || GUEST_TIERS.regular.cls
+                        }`}
+                      >
+                        {TIER_KEYS.map((k) => (
+                          <option key={k} value={k}>{GUEST_TIERS[k].label}</option>
+                        ))}
+                      </select>
                       {trackingBadge(g)}
                       {g.companions_count > 0 && <span className="text-xs text-muted-foreground">+{g.companions_count} مرافق</span>}
                     </div>
