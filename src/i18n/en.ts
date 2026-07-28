@@ -6,6 +6,7 @@ import { favoritesDict, myNotificationsDict } from "./pages/favorites";
 import { myProfileDict } from "./pages/myProfile";
 import { settingsDict } from "./pages/settings";
 import { networkingDict } from "./pages/networking";
+import { checkoutDict } from "./pages/checkout";
 
 export const en = {
   // Common
@@ -536,4 +537,5 @@ export const en = {
   pgProfile: myProfileDict.en,
   pgSettings: settingsDict.en,
   pgNetworking: networkingDict.en,
+  pgCheckout: checkoutDict.en,
 };

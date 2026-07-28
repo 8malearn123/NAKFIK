@@ -18,6 +18,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
 import { downloadIcs } from "@/lib/calendar";
+import { isPaymentsConfigured } from "@/lib/payments";
 import {
   Dialog,
   DialogContent,
@@ -205,6 +206,12 @@ const EventDetail = () => {
     // لا تسجيل بعد نفاد المقاعد
     if (event.max_attendees && event.current_attendees_count >= event.max_attendees) {
       toast.error(t("pgEventDetail.soldOutToast"));
+      return;
+    }
+    // التذاكر المدفوعة تمر عبر صفحة الدفع الآمنة (إذا كانت البوابة مفعّلة)
+    const chosenTicket = tickets.find(tk => tk.id === selectedTicket);
+    if (chosenTicket && chosenTicket.price > 0 && isPaymentsConfigured()) {
+      navigate(`/checkout/${event.id}/${chosenTicket.id}`);
       return;
     }
     setSubmitting(true);

@@ -43,6 +43,8 @@ import Subscriptions from "./pages/admin/Subscriptions";
 import Analytics from "./pages/admin/Analytics";
 import Announcements from "./pages/admin/Announcements";
 import RSVPConfirm from "./pages/RSVPConfirm";
+import Checkout from "./pages/Checkout";
+import PaymentCallback from "./pages/PaymentCallback";
 import EventHeatmap from "./pages/dashboard/EventHeatmap";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
 import AdminFinance from "./pages/admin/AdminFinance";
@@ -92,6 +94,8 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/rsvp/:token" element={<RSVPConfirm />} />
+                <Route path="/checkout/:eventId/:ticketId" element={<Checkout />} />
+                <Route path="/payment/callback" element={<PaymentCallback />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
