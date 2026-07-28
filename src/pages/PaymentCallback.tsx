@@ -18,7 +18,6 @@ const PaymentCallback = () => {
   const started = useRef(false);
 
   const paymentId = params.get("id");
-  const status = params.get("status");
   const message = params.get("message");
   const eventId = params.get("event");
   const ticketId = params.get("ticket");
@@ -29,18 +28,18 @@ const PaymentCallback = () => {
     started.current = true;
 
     const verify = async () => {
-      // فشل واضح من البوابة قبل أي تحقق
-      if (!paymentId || (status && status !== "paid")) {
+      if (!paymentId) {
         setGatewayMsg(message);
         setPhase("failed");
         return;
       }
-      // التحقق النهائي دائماً من الخادم — لا ثقة بمعاملات الرابط
+      // التحقق النهائي دائماً من الخادم — لا ثقة بمعاملات الرابط.
+      // حتى العمليات الفاشلة/الملغاة تمر هنا ليسجلها الخادم في سجل المدفوعات.
       const { data, error } = await supabase.functions.invoke("verify-payment", {
         body: { payment_id: paymentId, event_id: eventId, ticket_id: ticketId },
       });
       if (error || !data || data.error) {
-        setGatewayMsg((data as any)?.gateway_message || null);
+        setGatewayMsg((data as any)?.gateway_message || message || null);
         setPhase("failed");
         return;
       }

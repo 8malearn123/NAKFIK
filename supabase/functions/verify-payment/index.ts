@@ -83,6 +83,8 @@ Deno.serve(async (req) => {
       null;
 
     if (failReason) {
+      // تسجيل المحاولة الفاشلة/الملغاة في سجل المدفوعات — بدون إنشاء أي تذكرة
+      const failedStatuses = ["failed", "voided", "canceled", "cancelled"];
       await admin.from("payments").upsert({
         user_id: user.id,
         event_id,
@@ -90,7 +92,9 @@ Deno.serve(async (req) => {
         provider_payment_id: payment_id,
         amount: (payment.amount || 0) / 100,
         currency: payment.currency || "SAR",
-        status: payment.status === "paid" ? "failed" : (payment.status === "failed" ? "failed" : "initiated"),
+        status: payment.status === "paid" || failedStatuses.includes(payment.status)
+          ? "failed"
+          : "initiated",
         payment_method: payment.source?.type || null,
         error_message: failReason,
         updated_at: new Date().toISOString(),
@@ -146,6 +150,19 @@ Deno.serve(async (req) => {
       payment_method: payment.source?.type || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: "provider_payment_id" });
+
+    // إرسال التذكرة للمستخدم: إشعار داخل المنصة برابط تذاكره (تحمل رمز QR)
+    const { data: evt } = await admin
+      .from("events")
+      .select("title_ar")
+      .eq("id", event_id)
+      .single();
+    await admin.from("in_app_notifications").insert({
+      user_id: user.id,
+      title: "تم إصدار تذكرتك 🎫",
+      body: `تم تأكيد دفعك وحجز مقعدك في "${evt?.title_ar || "الفعالية"}" — تجد تذكرتك ورمز QR في صفحة تذاكري.`,
+      link: "/my-tickets",
+    });
 
     return json({ status: "paid", qr_code: qrCode });
   } catch (e) {
