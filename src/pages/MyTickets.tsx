@@ -9,8 +9,9 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Calendar, MapPin, Clock, Ticket, ChevronDown, ChevronUp, ExternalLink, Mail, Phone, User as UserIcon, Bell,
+  Calendar, MapPin, Clock, Ticket, ChevronDown, ChevronUp, ExternalLink, Mail, Phone, User as UserIcon, Bell, Trash2, Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import MyTicketConnectQR from "@/components/MyTicketConnectQR";
 import EventFeaturedCardsView from "@/components/EventFeaturedCardsView";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,6 +21,7 @@ interface RegistrationRow {
   qr_code: string;
   status: string;
   registered_at: string;
+  checked_in_at: string | null;
   event: {
     id: string;
     title_ar: string;
@@ -34,12 +36,26 @@ interface RegistrationRow {
   } | null;
 }
 
-const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
+const TicketCard = ({ reg, onCancelled }: { reg: RegistrationRow; onCancelled: (id: string) => void }) => {
   const [expanded, setExpanded] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const { profile } = useAuth();
   const { t, lang } = useLanguage();
   const locale = lang === "ar" ? "ar-SA" : "en-US";
   const isPast = new Date(reg.event.start_date) < new Date();
+  const canCancel = !isPast && !reg.checked_in_at;
+
+  const cancelTicket = async () => {
+    const isPaid = (reg.ticket?.price || 0) > 0;
+    const msg = t("pgTickets.cancelConfirm") + (isPaid ? `\n\n${t("pgTickets.cancelPaidNote")}` : "");
+    if (!confirm(msg)) return;
+    setCancelling(true);
+    const { error } = await supabase.from("registrations").delete().eq("id", reg.id);
+    setCancelling(false);
+    if (error) return toast.error(t("pgTickets.cancelError"));
+    toast.success(t("pgTickets.cancelSuccess"));
+    onCancelled(reg.id);
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className={`bg-card rounded-2xl border border-border/50 overflow-hidden shadow-sm hover:shadow-md transition-shadow ${isPast ? "opacity-70" : ""}`}>
@@ -88,6 +104,18 @@ const TicketCard = ({ reg }: { reg: RegistrationRow }) => {
               </Link>
             </Button>
             {!isPast && <MyTicketConnectQR />}
+            {canCancel && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-full text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={cancelTicket}
+                disabled={cancelling}
+              >
+                {cancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                {t("pgTickets.cancelTicket")}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -138,7 +166,7 @@ const MyTickets = () => {
       const { data } = await supabase
         .from("registrations")
         .select(`
-          id, qr_code, status, registered_at,
+          id, qr_code, status, registered_at, checked_in_at,
           event:events!inner(id, title_ar, start_date, venue_name, cover_image_url, is_online),
           ticket:tickets(name_ar, price)
         `)
@@ -157,6 +185,9 @@ const MyTickets = () => {
     };
     load();
   }, [user]);
+
+  const handleCancelled = (id: string) =>
+    setRegistrations(prev => prev.filter(r => r.id !== id));
 
   const now = new Date();
   const upcoming = registrations.filter(r => new Date(r.event.start_date) >= now);
@@ -189,7 +220,7 @@ const MyTickets = () => {
               </TabsList>
               <TabsContent value="upcoming" className="space-y-4">
                 {upcoming.length > 0 ? (
-                  upcoming.map(reg => <TicketCard key={reg.id} reg={reg} />)
+                  upcoming.map(reg => <TicketCard key={reg.id} reg={reg} onCancelled={handleCancelled} />)
                 ) : (
                   <div className="text-center py-16">
                     <Ticket className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -202,7 +233,7 @@ const MyTickets = () => {
               </TabsContent>
               <TabsContent value="past" className="space-y-4">
                 {past.length > 0 ? (
-                  past.map(reg => <TicketCard key={reg.id} reg={reg} />)
+                  past.map(reg => <TicketCard key={reg.id} reg={reg} onCancelled={handleCancelled} />)
                 ) : (
                   <div className="text-center py-16">
                     <p className="text-muted-foreground">{t("pgTickets.noPast")}</p>

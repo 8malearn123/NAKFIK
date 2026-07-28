@@ -24,6 +24,11 @@ export const myTicketsDict = {
     connectCardTitle: "بطاقة التواصل الخاصة بي",
     connectCardHint: "شاركها أو دعهم يمسحونها للحصول على بياناتك",
     openCardPage: "فتح صفحة البطاقة",
+    cancelTicket: "إلغاء التذكرة",
+    cancelConfirm: "هل أنت متأكد من إلغاء هذه التذكرة؟ سيتحرر مقعدك ولا يمكن التراجع.",
+    cancelPaidNote: "هذه تذكرة مدفوعة — استرداد المبلغ يتم بالتواصل مع منظم الفعالية.",
+    cancelSuccess: "تم إلغاء التذكرة وتحرير مقعدك",
+    cancelError: "تعذر إلغاء التذكرة",
   },
   en: {
     pageTitle: "My Tickets",
@@ -49,5 +54,10 @@ export const myTicketsDict = {
     connectCardTitle: "My Connect Card",
     connectCardHint: "Share it or let others scan it to get your details",
     openCardPage: "Open Card Page",
+    cancelTicket: "Cancel Ticket",
+    cancelConfirm: "Are you sure you want to cancel this ticket? Your seat will be released and this cannot be undone.",
+    cancelPaidNote: "This is a paid ticket — refunds are handled by contacting the event organizer.",
+    cancelSuccess: "Ticket cancelled and your seat released",
+    cancelError: "Could not cancel the ticket",
   },
 };
