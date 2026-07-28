@@ -192,7 +192,20 @@ const EventDetail = () => {
   }, [id, user]);
 
   const handleRegister = async () => {
-    if (!user || !event) {
+    if (!event) return;
+    // لا تسجيل بعد نفاد المقاعد
+    if (event.max_attendees && event.current_attendees_count >= event.max_attendees) {
+      toast.error(t("pgEventDetail.soldOutToast"));
+      return;
+    }
+    // التذاكر المدفوعة تنتقل مباشرة لصفحة الدفع بدون أي تحويلات أخرى
+    // (صفحة الدفع نفسها تطلب تسجيل الدخول إن لزم)
+    const chosenTicket = tickets.find(tk => tk.id === selectedTicket);
+    if (chosenTicket && chosenTicket.price > 0) {
+      navigate(`/checkout/${event.id}/${chosenTicket.id}`);
+      return;
+    }
+    if (!user) {
       toast.error(t("pgEventDetail.loginFirst"));
       return;
     }
@@ -200,17 +213,6 @@ const EventDetail = () => {
     if (!profile?.profile_completed) {
       toast.info(t("pgEventDetail.completeProfileFirst"));
       navigate(`/my/profile?required=1&return=${encodeURIComponent(`/events/${event.id}`)}`);
-      return;
-    }
-    // لا تسجيل بعد نفاد المقاعد
-    if (event.max_attendees && event.current_attendees_count >= event.max_attendees) {
-      toast.error(t("pgEventDetail.soldOutToast"));
-      return;
-    }
-    // التذاكر المدفوعة تمر دائماً عبر صفحة الدفع الآمنة
-    const chosenTicket = tickets.find(tk => tk.id === selectedTicket);
-    if (chosenTicket && chosenTicket.price > 0) {
-      navigate(`/checkout/${event.id}/${chosenTicket.id}`);
       return;
     }
     setSubmitting(true);
