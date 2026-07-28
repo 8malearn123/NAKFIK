@@ -18,7 +18,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
 import { downloadIcs } from "@/lib/calendar";
-import { isPaymentsConfigured } from "@/lib/payments";
 import {
   Dialog,
   DialogContent,
@@ -208,9 +207,9 @@ const EventDetail = () => {
       toast.error(t("pgEventDetail.soldOutToast"));
       return;
     }
-    // التذاكر المدفوعة تمر عبر صفحة الدفع الآمنة (إذا كانت البوابة مفعّلة)
+    // التذاكر المدفوعة تمر دائماً عبر صفحة الدفع الآمنة
     const chosenTicket = tickets.find(tk => tk.id === selectedTicket);
-    if (chosenTicket && chosenTicket.price > 0 && isPaymentsConfigured()) {
+    if (chosenTicket && chosenTicket.price > 0) {
       navigate(`/checkout/${event.id}/${chosenTicket.id}`);
       return;
     }
