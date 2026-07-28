@@ -1,14 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
-import { MOYASAR_PUBLISHABLE_KEY, isPaymentsConfigured, loadMoyasar, toHalalas } from "@/lib/payments";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/landing/Navbar";
-import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin } from "lucide-react";
+import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info } from "lucide-react";
+
+// وسائل الدفع المعروضة — واجهة فقط بدون ربط فعلي بأي بوابة حالياً
+const PAY_METHODS = [
+  { key: "mada", label: "مدى", labelEn: "mada", Icon: CreditCard },
+  { key: "applepay", label: "Apple Pay", labelEn: "Apple Pay", Icon: Smartphone },
+  { key: "stcpay", label: "STC Pay", labelEn: "STC Pay", Icon: Wallet },
+  { key: "visa", label: "Visa", labelEn: "Visa", Icon: CreditCard },
+  { key: "mastercard", label: "Mastercard", labelEn: "Mastercard", Icon: CreditCard },
+];
 
 interface EventInfo {
   id: string;
@@ -36,9 +45,7 @@ const Checkout = () => {
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [ticket, setTicket] = useState<TicketInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formError, setFormError] = useState<string | null>(null);
-  const formRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
+  const [method, setMethod] = useState("mada");
 
   useEffect(() => {
     document.title = `${t("pgCheckout.title")} | نكفيك`;
@@ -61,41 +68,6 @@ const Checkout = () => {
     };
     load();
   }, [eventId, ticketId]);
-
-  // تهيئة نموذج ميسر بعد توفر البيانات
-  useEffect(() => {
-    if (loading || !event || !ticket || !user) return;
-    if (!isPaymentsConfigured() || ticket.price <= 0 || initialized.current) return;
-    initialized.current = true;
-
-    loadMoyasar()
-      .then(() => {
-        const Moyasar = (window as any).Moyasar;
-        if (!Moyasar || !formRef.current) return;
-        Moyasar.init({
-          element: formRef.current,
-          language: lang === "ar" ? "ar" : "en",
-          amount: toHalalas(ticket.price),
-          currency: "SAR",
-          description: `${event.title_ar} — ${ticket.name_ar}`,
-          publishable_api_key: MOYASAR_PUBLISHABLE_KEY,
-          callback_url: `${window.location.origin}/payment/callback?event=${event.id}&ticket=${ticket.id}`,
-          methods: ["creditcard", "applepay", "stcpay"],
-          supported_networks: ["mada", "visa", "mastercard"],
-          apple_pay: {
-            country: "SA",
-            label: "Nakfeek Ticket",
-            validate_merchant_url: "https://api.moyasar.com/v1/applepay/initiate",
-          },
-          metadata: {
-            user_id: user.id,
-            event_id: event.id,
-            ticket_id: ticket.id,
-          },
-        });
-      })
-      .catch(() => setFormError("failed_to_load"));
-  }, [loading, event, ticket, user, lang]);
 
   if (loading) {
     return (
@@ -210,21 +182,48 @@ const Checkout = () => {
                     <Link to={`/events/${event.id}`}>{t("pgCheckout.backToEvent")}</Link>
                   </Button>
                 </div>
-              ) : !isPaymentsConfigured() ? (
-                <div className="text-center py-8 space-y-2">
-                  <ShieldCheck className="w-10 h-10 text-muted-foreground/40 mx-auto" />
-                  <p className="font-bold">{t("pgCheckout.notConfigured")}</p>
-                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">{t("pgCheckout.notConfiguredDesc")}</p>
-                </div>
-              ) : formError ? (
-                <div className="text-center py-8">
-                  <p className="text-destructive text-sm">{t("pgCheckout.failedTitle")}</p>
-                  <Button variant="outline" className="mt-3 rounded-full" onClick={() => window.location.reload()}>
-                    {t("pgCheckout.tryAgain")}
+              ) : (
+                <div className="space-y-4">
+                  {/* اختيار وسيلة الدفع — عرض فقط */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">{t("pgCheckout.selectMethod")}</p>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                      {PAY_METHODS.map((m) => {
+                        const active = method === m.key;
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={() => setMethod(m.key)}
+                            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1.5 text-xs font-bold transition ${
+                              active
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border hover:border-primary/40 bg-card text-muted-foreground"
+                            }`}
+                          >
+                            <m.Icon className="w-5 h-5" />
+                            {lang === "ar" ? m.label : m.labelEn}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* تنبيه: الدفع غير مفعّل بعد */}
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    {t("pgCheckout.notConfiguredDesc")}
+                  </div>
+
+                  <Button
+                    className="w-full rounded-full"
+                    size="lg"
+                    onClick={() => toast.info(t("pgCheckout.notConfiguredDesc"))}
+                  >
+                    <Lock className="w-4 h-4 ml-1" />
+                    {t("pgCheckout.completePayment")} — {ticket.price.toLocaleString()} {t("pgCheckout.currency")}
                   </Button>
                 </div>
-              ) : (
-                <div ref={formRef} className="mysr-form" dir="ltr" />
               )}
 
               <p className="text-[10px] text-muted-foreground mt-4 leading-relaxed border-t pt-3">
