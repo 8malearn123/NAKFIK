@@ -4,10 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Users, Ticket, Calendar, TrendingUp, TrendingDown, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, Trophy } from "lucide-react";
+import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail } from "lucide-react";
 import InvitationsReport from "@/components/reports/InvitationsReport";
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { toast } from "sonner";
@@ -32,29 +32,12 @@ interface RegistrationRow {
 
 const COLORS = ["hsl(270 30% 52%)", "hsl(172 55% 40%)", "hsl(42 65% 55%)", "hsl(0 70% 60%)", "hsl(220 60% 55%)", "hsl(140 50% 50%)"];
 
-// معايير ترتيب "أفضل الفعاليات أداءً"
-type TopSort = "registrations" | "sold" | "attendance" | "revenue";
-const TOP_SORTS: { key: TopSort; label: string }[] = [
-  { key: "registrations", label: "عدد التسجيلات" },
-  { key: "sold", label: "التذاكر المباعة" },
-  { key: "attendance", label: "نسبة الحضور" },
-  { key: "revenue", label: "الإيرادات" },
-];
-const RANK_LABELS = ["الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة"];
-
-// فترات قسم "اتجاه المبيعات"
+// فترات تبويب "الاتجاهات"
 type SalesPeriod = "7d" | "30d" | "12m";
 const SALES_PERIODS: { key: SalesPeriod; label: string }[] = [
   { key: "7d", label: "آخر 7 أيام" },
   { key: "30d", label: "آخر 30 يومًا" },
   { key: "12m", label: "آخر 12 شهرًا" },
-];
-const RANK_STYLES = [
-  "bg-amber-400/20 text-amber-700 border-amber-400/60",   // ذهبي
-  "bg-slate-300/30 text-slate-600 border-slate-400/60",   // فضي
-  "bg-orange-400/15 text-orange-700 border-orange-400/50", // برونزي
-  "bg-muted text-muted-foreground border-border",
-  "bg-muted text-muted-foreground border-border",
 ];
 
 const Reports = () => {
@@ -62,7 +45,6 @@ const Reports = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [regs, setRegs] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [topSort, setTopSort] = useState<TopSort>("registrations");
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("30d");
 
   useEffect(() => {
@@ -142,15 +124,14 @@ const Reports = () => {
     return Object.entries(counts).map(([k, v]) => ({ name: k, value: v }));
   }, [events]);
 
-  // اتجاه المبيعات — مبيعات التذاكر المدفوعة عبر الزمن مع مقارنة بالفترة السابقة
-  const salesTrend = useMemo(() => {
-    const sales = regs.filter(r => r.payment_status === "paid" || Number(r.amount_paid || 0) > 0);
+  // اتجاهات الفترة المختارة — التسجيلات والمبيعات المدفوعة مع مقارنة بالفترة السابقة
+  const trend = useMemo(() => {
     const now = new Date();
     const daily = salesPeriod !== "12m";
     const units = salesPeriod === "7d" ? 7 : salesPeriod === "30d" ? 30 : 12;
 
     const keyOf = (d: Date) => (daily ? d.toISOString().slice(0, 10) : d.toISOString().slice(0, 7));
-    const buckets = new Map<string, { label: string; tickets: number; revenue: number }>();
+    const buckets = new Map<string, { label: string; registrations: number; tickets: number; revenue: number }>();
     for (let i = units - 1; i >= 0; i--) {
       const d = new Date(now);
       if (daily) d.setDate(d.getDate() - i);
@@ -158,6 +139,7 @@ const Reports = () => {
       const key = keyOf(d);
       buckets.set(key, {
         label: daily ? key.slice(5) : `${key.slice(5, 7)}/${key.slice(2, 4)}`,
+        registrations: 0,
         tickets: 0,
         revenue: 0,
       });
@@ -171,16 +153,21 @@ const Reports = () => {
     if (daily) prevStart.setDate(prevStart.getDate() - units);
     else prevStart.setMonth(prevStart.getMonth() - units);
 
-    let curTickets = 0, curRevenue = 0, prevTickets = 0, prevRevenue = 0;
-    sales.forEach(r => {
+    let curTickets = 0, curRevenue = 0, curRegs = 0, prevTickets = 0, prevRevenue = 0;
+    regs.forEach(r => {
       if (!r.registered_at) return;
       const at = new Date(r.registered_at);
+      const isPaid = r.payment_status === "paid" || Number(r.amount_paid || 0) > 0;
       const amount = Number(r.amount_paid || 0);
       if (at >= currentStart) {
-        curTickets += 1; curRevenue += amount;
+        curRegs += 1;
         const b = buckets.get(keyOf(at));
-        if (b) { b.tickets += 1; b.revenue += amount; }
-      } else if (at >= prevStart) {
+        if (b) b.registrations += 1;
+        if (isPaid) {
+          curTickets += 1; curRevenue += amount;
+          if (b) { b.tickets += 1; b.revenue += amount; }
+        }
+      } else if (at >= prevStart && isPaid) {
         prevTickets += 1; prevRevenue += amount;
       }
     });
@@ -190,31 +177,13 @@ const Reports = () => {
 
     return {
       series: Array.from(buckets.values()),
+      registrations: curRegs,
       tickets: curTickets,
       revenue: curRevenue,
       ticketsChange: change(curTickets, prevTickets),
       revenueChange: change(curRevenue, prevRevenue),
     };
   }, [regs, salesPeriod]);
-
-  // أفضل الفعاليات أداءً — أفضل 5 حسب معيار الترتيب المختار
-  const bestEvents = useMemo(() => {
-    const rows = events.map(e => {
-      const evRegs = regs.filter(r => r.event_id === e.id);
-      const checked = evRegs.filter(r => r.checked_in_at).length;
-      const sold = evRegs.filter(r => r.payment_status === "paid" || Number(r.amount_paid || 0) > 0).length;
-      return {
-        id: e.id,
-        title: e.title_ar,
-        registrations: evRegs.length,
-        sold,
-        attendance: evRegs.length ? Math.round((checked / evRegs.length) * 100) : 0,
-        revenue: evRegs.reduce((s, r) => s + Number(r.amount_paid || 0), 0),
-      };
-    });
-    const key = topSort;
-    return rows.sort((a, b) => (b as any)[key] - (a as any)[key]).slice(0, 5);
-  }, [events, regs, topSort]);
 
   const exportCSV = () => {
     const header = ["الفعالية", "التاريخ", "الحضور المسجل", "الحضور الفعلي", "السعة", "الحالة"];
@@ -282,17 +251,77 @@ const Reports = () => {
 
               <TabsContent value="trends" className="space-y-5">
                 <div className="bg-card rounded-2xl border border-border/50 p-5">
-                  <h3 className="font-semibold text-foreground mb-4">التسجيلات اليومية — آخر 30 يوم</h3>
+                  <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                    <h3 className="font-semibold text-foreground">التسجيلات والمبيعات — {SALES_PERIODS.find(p => p.key === salesPeriod)?.label}</h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {SALES_PERIODS.map(p => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setSalesPeriod(p.key)}
+                          className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
+                            salesPeriod === p.key
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={timeSeries}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                      <Legend />
-                      <Line type="monotone" dataKey="registrations" name="تسجيلات" stroke="hsl(270 30% 52%)" strokeWidth={2} />
-                    </LineChart>
+                    <AreaChart data={trend.series}>
+                      <defs>
+                        <linearGradient id="gradRegs" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(270 30% 52%)" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="hsl(270 30% 52%)" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradTickets" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="hsl(172 55% 40%)" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="hsl(172 55% 40%)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickMargin={8} />
+                      <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} width={32} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Area type="monotone" dataKey="registrations" name="التسجيلات" stroke="hsl(270 30% 52%)" strokeWidth={2.5} fill="url(#gradRegs)" dot={false} activeDot={{ r: 4 }} />
+                      <Area type="monotone" dataKey="tickets" name="التذاكر المباعة" stroke="hsl(172 55% 40%)" strokeWidth={2} fill="url(#gradTickets)" dot={false} activeDot={{ r: 4 }} />
+                    </AreaChart>
                   </ResponsiveContainer>
+
+                  {/* بطاقات ملخص الفترة — أسفل الرسم */}
+                  <div className="grid sm:grid-cols-3 gap-3 mt-4">
+                    <div className="rounded-xl border p-3 text-center bg-muted/20">
+                      <div className="font-extrabold text-2xl text-foreground">{trend.tickets.toLocaleString("ar-SA")}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">تذاكر مباعة خلال الفترة</div>
+                    </div>
+                    <div className="rounded-xl border p-3 text-center bg-muted/20">
+                      <div className="font-extrabold text-2xl text-foreground">
+                        {trend.revenue.toLocaleString("ar-SA")} <span className="text-xs font-normal">ر.س</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">إجمالي الإيرادات خلال الفترة</div>
+                    </div>
+                    <div className="rounded-xl border p-3 text-center bg-muted/20">
+                      <div className={`font-extrabold text-2xl inline-flex items-center gap-1 ${
+                        trend.ticketsChange > 0 ? "text-green-600" : trend.ticketsChange < 0 ? "text-destructive" : "text-muted-foreground"
+                      }`}>
+                        {trend.ticketsChange > 0 ? "↑" : trend.ticketsChange < 0 ? "↓" : ""}
+                        <span dir="ltr">{trend.ticketsChange > 0 ? "+" : ""}{trend.ticketsChange}%</span>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        مقارنة بالفترة السابقة
+                        {trend.revenueChange !== trend.ticketsChange && (
+                          <span dir="ltr" className="ms-1">
+                            (الإيرادات {trend.revenueChange > 0 ? "+" : ""}{trend.revenueChange}%)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -358,148 +387,6 @@ const Reports = () => {
               </TabsContent>
             </Tabs>
 
-            {/* اتجاه المبيعات */}
-            <div className="bg-card rounded-2xl border border-border/50 p-5">
-              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <LineIcon className="w-5 h-5 text-primary" /> اتجاه المبيعات
-                </h3>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {SALES_PERIODS.map(p => (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => setSalesPeriod(p.key)}
-                      className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
-                        salesPeriod === p.key
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* ملخص الفترة */}
-              <div className="grid sm:grid-cols-3 gap-3 mb-4">
-                <div className="rounded-xl border p-3 text-center">
-                  <div className="font-extrabold text-2xl text-foreground">{salesTrend.tickets.toLocaleString("ar-SA")}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">تذاكر مباعة خلال الفترة</div>
-                </div>
-                <div className="rounded-xl border p-3 text-center">
-                  <div className="font-extrabold text-2xl text-foreground">
-                    {salesTrend.revenue.toLocaleString("ar-SA")} <span className="text-xs font-normal">ر.س</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">إجمالي الإيرادات</div>
-                </div>
-                <div className="rounded-xl border p-3 text-center">
-                  <div className={`font-extrabold text-2xl inline-flex items-center gap-1 ${
-                    salesTrend.ticketsChange > 0 ? "text-green-600" : salesTrend.ticketsChange < 0 ? "text-destructive" : "text-muted-foreground"
-                  }`}>
-                    {salesTrend.ticketsChange > 0 ? <TrendingUp className="w-5 h-5" /> : salesTrend.ticketsChange < 0 ? <TrendingDown className="w-5 h-5" /> : null}
-                    <span dir="ltr">{salesTrend.ticketsChange > 0 ? "+" : ""}{salesTrend.ticketsChange}%</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">
-                    مقارنة بالفترة السابقة
-                    {salesTrend.revenueChange !== salesTrend.ticketsChange && (
-                      <span dir="ltr" className="ms-1">
-                        (الإيرادات {salesTrend.revenueChange > 0 ? "+" : ""}{salesTrend.revenueChange}%)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* الرسم الخطي */}
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={salesTrend.series}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                  <Legend />
-                  <Line type="monotone" dataKey="tickets" name="التذاكر المباعة" stroke="hsl(270 30% 52%)" strokeWidth={2.5} dot={{ r: 2.5 }} />
-                  <Line type="monotone" dataKey="revenue" name="الإيراد (ر.س)" stroke="hsl(42 65% 55%)" strokeWidth={1.5} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* أفضل الفعاليات أداءً */}
-            <div className="bg-card rounded-2xl border border-border/50 p-5">
-              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                <h3 className="font-bold text-lg flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-500" /> أفضل الفعاليات أداءً
-                </h3>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] text-muted-foreground">ترتيب حسب:</span>
-                  {TOP_SORTS.map(s => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setTopSort(s.key)}
-                      className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
-                        topSort === s.key
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {bestEvents.length === 0 ? (
-                <p className="text-center text-muted-foreground text-sm py-8">لا توجد فعاليات بعد</p>
-              ) : (
-                <div className="space-y-2">
-                  {bestEvents.map((e, i) => (
-                    <div key={e.id} className="border rounded-xl p-3 flex items-center gap-3 flex-wrap hover:bg-muted/40 transition">
-                      {/* الترتيب */}
-                      <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 font-extrabold text-sm ${RANK_STYLES[i]}`}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-[160px]">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm">{e.title}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${RANK_STYLES[i]}`}>
-                            {RANK_LABELS[i]}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 text-center flex-wrap">
-                        <div>
-                          <div className={`font-extrabold text-sm ${topSort === "registrations" ? "text-primary" : "text-foreground"}`}>
-                            {e.registrations.toLocaleString("ar-SA")}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">التسجيلات</div>
-                        </div>
-                        <div>
-                          <div className={`font-extrabold text-sm ${topSort === "sold" ? "text-primary" : "text-foreground"}`}>
-                            {e.sold.toLocaleString("ar-SA")}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">تذاكر مباعة</div>
-                        </div>
-                        <div>
-                          <div className={`font-extrabold text-sm ${topSort === "attendance" ? "text-primary" : "text-foreground"}`}>
-                            {e.attendance}%
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">نسبة الحضور</div>
-                        </div>
-                        <div>
-                          <div className={`font-extrabold text-sm ${topSort === "revenue" ? "text-primary" : "text-foreground"}`}>
-                            {e.revenue.toLocaleString("ar-SA")}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">الإيرادات (ر.س)</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </>
         )}
       </div>
