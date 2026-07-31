@@ -10,7 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import SubscriptionUsageCard from "@/components/dashboard/SubscriptionUsageCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import ActionItems from "@/components/dashboard/ActionItems";
-import EventHealthCard from "@/components/dashboard/EventHealth";
 
 const statusLabels: Record<string, { label: string; className: string }> = {
   draft: { label: "مسودة", className: "bg-muted text-muted-foreground" },
@@ -136,9 +135,6 @@ const DashboardHome = () => {
 
         {/* Action Items */}
         <ActionItems />
-
-        {/* صحة الفعالية */}
-        <EventHealthCard />
 
         {/* Upcoming Events */}
         <motion.div

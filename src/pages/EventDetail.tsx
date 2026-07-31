@@ -14,6 +14,7 @@ import { isEventFavorite, toggleEventFavorite } from "@/lib/favorites";
 import { isOnWaitlist, toggleWaitlist } from "@/lib/waitlist";
 import SmartMatch from "@/components/SmartMatch";
 import EventRatingSection from "@/components/events/EventRating";
+import EventHealthCard from "@/components/dashboard/EventHealth";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { badgeStyles, getEventBadges } from "@/lib/eventBadges";
@@ -44,6 +45,7 @@ interface EventData {
   created_at?: string | null;
   venue_address?: string | null;
   venue_map_url?: string | null;
+  organization_id?: string | null;
 }
 
 interface SessionData {
@@ -67,7 +69,7 @@ interface TicketData {
 
 const EventDetail = () => {
   const { id } = useParams();
-  const { user, profile } = useAuth();
+  const { user, profile, organization } = useAuth();
   const { t, lang, dir } = useLanguage();
   const locale = lang === "ar" ? "ar-SA" : "en-US";
   const categoryLabels: Record<string, string> = {
@@ -439,6 +441,11 @@ const EventDetail = () => {
               {event.description_ar}
             </p>
           </motion.div>
+        )}
+
+        {/* صحة الفعالية — تظهر لمنظّم الفعالية فقط */}
+        {organization && event.organization_id && organization.id === event.organization_id && (
+          <EventHealthCard eventId={event.id} />
         )}
 
         {/* Sessions schedule */}
