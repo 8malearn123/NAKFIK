@@ -173,6 +173,73 @@ const Reports = () => {
     return { events: fEvents.length, registrations: totalReg, checkedIn, revenue, attendanceRate };
   }, [fEvents, fRegs]);
 
+  // مقارنة تلقائية مع الفترة السابقة المكافئة — تتبع فلتر الفترة (والافتراضي 30 يوماً)
+  type Delta = { pct: number; isNew: boolean };
+  const statDeltas = useMemo(() => {
+    const period: FilterPeriod = filterPeriod === "all" ? "30d" : filterPeriod;
+    const now = new Date();
+    const curStart = new Date(now);
+    if (period === "7d") curStart.setDate(curStart.getDate() - 7);
+    else if (period === "30d") curStart.setDate(curStart.getDate() - 30);
+    else curStart.setMonth(curStart.getMonth() - 12);
+    const prevStart = new Date(curStart);
+    if (period === "7d") prevStart.setDate(prevStart.getDate() - 7);
+    else if (period === "30d") prevStart.setDate(prevStart.getDate() - 30);
+    else prevStart.setMonth(prevStart.getMonth() - 12);
+
+    // نفس فلاتر الصفحة لكن بدون قصّ الفترة — حتى نقدر نقيس الفترة السابقة
+    const ids = new Set(fEvents.map(e => e.id));
+    const scoped = regs.filter(r => {
+      if (!ids.has(r.event_id)) return false;
+      if (filterTicket !== "all") {
+        const cls = r.ticket_id ? ticketClasses[r.ticket_id] || "regular" : "regular";
+        if (cls !== filterTicket) return false;
+      }
+      return true;
+    });
+    const inWin = (dateStr: string | null, from: Date, to: Date) => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return d >= from && d < to;
+    };
+    const cur = scoped.filter(r => inWin(r.registered_at, curStart, now));
+    const prev = scoped.filter(r => inWin(r.registered_at, prevStart, curStart));
+
+    const delta = (c: number, p: number): Delta =>
+      p > 0 ? { pct: Math.round(((c - p) / p) * 100), isNew: false }
+            : c > 0 ? { pct: 0, isNew: true } : { pct: 0, isNew: false };
+
+    const curChecked = cur.filter(r => r.checked_in_at).length;
+    const prevChecked = prev.filter(r => r.checked_in_at).length;
+    const curRevenue = cur.reduce((s, r) => s + Number(r.amount_paid || 0), 0);
+    const prevRevenue = prev.reduce((s, r) => s + Number(r.amount_paid || 0), 0);
+    const curRate = cur.length ? (curChecked / cur.length) * 100 : 0;
+    const prevRate = prev.length ? (prevChecked / prev.length) * 100 : 0;
+    const curEvents = fEvents.filter(e => inWin(e.start_date, curStart, now)).length;
+    const prevEvents = fEvents.filter(e => inWin(e.start_date, prevStart, curStart)).length;
+
+    return {
+      events: delta(curEvents, prevEvents),
+      registrations: delta(cur.length, prev.length),
+      checkedIn: delta(curChecked, prevChecked),
+      attendanceRate: delta(Math.round(curRate), Math.round(prevRate)),
+      revenue: delta(curRevenue, prevRevenue),
+    };
+  }, [regs, fEvents, filterPeriod, filterTicket, ticketClasses]);
+
+  // شارة التغير: ↑ أخضر / ↓ أحمر / محايد
+  const DeltaBadge = ({ d }: { d: Delta }) => {
+    if (d.isNew)
+      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">جديد</span>;
+    const cls = d.pct > 0 ? "bg-green-500/10 text-green-600" : d.pct < 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground";
+    const arrow = d.pct > 0 ? "↑" : d.pct < 0 ? "↓" : "—";
+    return (
+      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${cls}`}>
+        {arrow} <span dir="ltr">{Math.abs(d.pct)}%</span>
+      </span>
+    );
+  };
+
   // Time series — registrations per day (last 30 days)
   const timeSeries = useMemo(() => {
     const map = new Map<string, { date: string; registrations: number; revenue: number }>();
@@ -407,11 +474,11 @@ const Reports = () => {
   };
 
   const cards = [
-    { icon: Calendar, label: "إجمالي الفعاليات", value: stats.events.toLocaleString("ar-SA"), color: "bg-primary/10 text-primary" },
-    { icon: Users, label: "إجمالي التسجيلات", value: stats.registrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
-    { icon: Ticket, label: "حضور فعلي", value: stats.checkedIn.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
-    { icon: TrendingUp, label: "نسبة الحضور", value: `${stats.attendanceRate}%`, color: "bg-emerald-100 text-emerald-700" },
-    { icon: DollarSign, label: "الإيرادات (ر.س)", value: stats.revenue.toLocaleString("ar-SA"), color: "bg-purple-100 text-purple-700" },
+    { icon: Calendar, label: "إجمالي الفعاليات", value: stats.events.toLocaleString("ar-SA"), color: "bg-primary/10 text-primary", delta: statDeltas.events },
+    { icon: Users, label: "إجمالي التسجيلات", value: stats.registrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal", delta: statDeltas.registrations },
+    { icon: Ticket, label: "حضور فعلي", value: stats.checkedIn.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent", delta: statDeltas.checkedIn },
+    { icon: TrendingUp, label: "نسبة الحضور", value: `${stats.attendanceRate}%`, color: "bg-emerald-100 text-emerald-700", delta: statDeltas.attendanceRate },
+    { icon: DollarSign, label: "الإيرادات (ر.س)", value: stats.revenue.toLocaleString("ar-SA"), color: "bg-purple-100 text-purple-700", delta: statDeltas.revenue },
   ];
 
   return (
@@ -522,8 +589,16 @@ const Reports = () => {
                   <div className={`w-10 h-10 rounded-xl ${c.color} flex items-center justify-center mb-3`}>
                     <c.icon className="w-5 h-5" />
                   </div>
-                  <div className="font-bold text-2xl text-foreground">{c.value}</div>
-                  <div className="text-muted-foreground text-xs mt-1">{c.label}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="font-bold text-2xl text-foreground">{c.value}</div>
+                    <DeltaBadge d={c.delta} />
+                  </div>
+                  <div className="text-muted-foreground text-xs mt-1">
+                    {c.label}
+                    <span className="block text-[10px] opacity-70">
+                      مقارنة بالفترة السابقة ({FILTER_PERIODS.find(p => p.key === (filterPeriod === "all" ? "30d" : filterPeriod))?.label})
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
