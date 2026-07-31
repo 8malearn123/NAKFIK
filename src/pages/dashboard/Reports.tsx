@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, Trophy } from "lucide-react";
+import { BarChart3, Users, Ticket, Calendar, TrendingUp, TrendingDown, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, Trophy } from "lucide-react";
 import InvitationsReport from "@/components/reports/InvitationsReport";
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -41,6 +41,14 @@ const TOP_SORTS: { key: TopSort; label: string }[] = [
   { key: "revenue", label: "الإيرادات" },
 ];
 const RANK_LABELS = ["الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة"];
+
+// فترات قسم "اتجاه المبيعات"
+type SalesPeriod = "7d" | "30d" | "12m";
+const SALES_PERIODS: { key: SalesPeriod; label: string }[] = [
+  { key: "7d", label: "آخر 7 أيام" },
+  { key: "30d", label: "آخر 30 يومًا" },
+  { key: "12m", label: "آخر 12 شهرًا" },
+];
 const RANK_STYLES = [
   "bg-amber-400/20 text-amber-700 border-amber-400/60",   // ذهبي
   "bg-slate-300/30 text-slate-600 border-slate-400/60",   // فضي
@@ -55,6 +63,7 @@ const Reports = () => {
   const [regs, setRegs] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [topSort, setTopSort] = useState<TopSort>("registrations");
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("30d");
 
   useEffect(() => {
     if (!organization) return;
@@ -132,6 +141,61 @@ const Reports = () => {
     events.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1; });
     return Object.entries(counts).map(([k, v]) => ({ name: k, value: v }));
   }, [events]);
+
+  // اتجاه المبيعات — مبيعات التذاكر المدفوعة عبر الزمن مع مقارنة بالفترة السابقة
+  const salesTrend = useMemo(() => {
+    const sales = regs.filter(r => r.payment_status === "paid" || Number(r.amount_paid || 0) > 0);
+    const now = new Date();
+    const daily = salesPeriod !== "12m";
+    const units = salesPeriod === "7d" ? 7 : salesPeriod === "30d" ? 30 : 12;
+
+    const keyOf = (d: Date) => (daily ? d.toISOString().slice(0, 10) : d.toISOString().slice(0, 7));
+    const buckets = new Map<string, { label: string; tickets: number; revenue: number }>();
+    for (let i = units - 1; i >= 0; i--) {
+      const d = new Date(now);
+      if (daily) d.setDate(d.getDate() - i);
+      else d.setMonth(d.getMonth() - i, 1);
+      const key = keyOf(d);
+      buckets.set(key, {
+        label: daily ? key.slice(5) : `${key.slice(5, 7)}/${key.slice(2, 4)}`,
+        tickets: 0,
+        revenue: 0,
+      });
+    }
+
+    // بداية الفترة الحالية وبداية الفترة السابقة (بنفس الطول) للمقارنة
+    const currentStart = new Date(now);
+    if (daily) { currentStart.setDate(currentStart.getDate() - (units - 1)); currentStart.setHours(0, 0, 0, 0); }
+    else { currentStart.setMonth(currentStart.getMonth() - (units - 1), 1); currentStart.setHours(0, 0, 0, 0); }
+    const prevStart = new Date(currentStart);
+    if (daily) prevStart.setDate(prevStart.getDate() - units);
+    else prevStart.setMonth(prevStart.getMonth() - units);
+
+    let curTickets = 0, curRevenue = 0, prevTickets = 0, prevRevenue = 0;
+    sales.forEach(r => {
+      if (!r.registered_at) return;
+      const at = new Date(r.registered_at);
+      const amount = Number(r.amount_paid || 0);
+      if (at >= currentStart) {
+        curTickets += 1; curRevenue += amount;
+        const b = buckets.get(keyOf(at));
+        if (b) { b.tickets += 1; b.revenue += amount; }
+      } else if (at >= prevStart) {
+        prevTickets += 1; prevRevenue += amount;
+      }
+    });
+
+    const change = (cur: number, prev: number) =>
+      prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0;
+
+    return {
+      series: Array.from(buckets.values()),
+      tickets: curTickets,
+      revenue: curRevenue,
+      ticketsChange: change(curTickets, prevTickets),
+      revenueChange: change(curRevenue, prevRevenue),
+    };
+  }, [regs, salesPeriod]);
 
   // أفضل الفعاليات أداءً — أفضل 5 حسب معيار الترتيب المختار
   const bestEvents = useMemo(() => {
@@ -293,6 +357,74 @@ const Reports = () => {
                 <InvitationsReport organizationId={organization?.id} />
               </TabsContent>
             </Tabs>
+
+            {/* اتجاه المبيعات */}
+            <div className="bg-card rounded-2xl border border-border/50 p-5">
+              <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                  <LineIcon className="w-5 h-5 text-primary" /> اتجاه المبيعات
+                </h3>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {SALES_PERIODS.map(p => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => setSalesPeriod(p.key)}
+                      className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
+                        salesPeriod === p.key
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ملخص الفترة */}
+              <div className="grid sm:grid-cols-3 gap-3 mb-4">
+                <div className="rounded-xl border p-3 text-center">
+                  <div className="font-extrabold text-2xl text-foreground">{salesTrend.tickets.toLocaleString("ar-SA")}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">تذاكر مباعة خلال الفترة</div>
+                </div>
+                <div className="rounded-xl border p-3 text-center">
+                  <div className="font-extrabold text-2xl text-foreground">
+                    {salesTrend.revenue.toLocaleString("ar-SA")} <span className="text-xs font-normal">ر.س</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">إجمالي الإيرادات</div>
+                </div>
+                <div className="rounded-xl border p-3 text-center">
+                  <div className={`font-extrabold text-2xl inline-flex items-center gap-1 ${
+                    salesTrend.ticketsChange > 0 ? "text-green-600" : salesTrend.ticketsChange < 0 ? "text-destructive" : "text-muted-foreground"
+                  }`}>
+                    {salesTrend.ticketsChange > 0 ? <TrendingUp className="w-5 h-5" /> : salesTrend.ticketsChange < 0 ? <TrendingDown className="w-5 h-5" /> : null}
+                    <span dir="ltr">{salesTrend.ticketsChange > 0 ? "+" : ""}{salesTrend.ticketsChange}%</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    مقارنة بالفترة السابقة
+                    {salesTrend.revenueChange !== salesTrend.ticketsChange && (
+                      <span dir="ltr" className="ms-1">
+                        (الإيرادات {salesTrend.revenueChange > 0 ? "+" : ""}{salesTrend.revenueChange}%)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* الرسم الخطي */}
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={salesTrend.series}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="tickets" name="التذاكر المباعة" stroke="hsl(270 30% 52%)" strokeWidth={2.5} dot={{ r: 2.5 }} />
+                  <Line type="monotone" dataKey="revenue" name="الإيراد (ر.س)" stroke="hsl(42 65% 55%)" strokeWidth={1.5} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
 
             {/* أفضل الفعاليات أداءً */}
             <div className="bg-card rounded-2xl border border-border/50 p-5">
