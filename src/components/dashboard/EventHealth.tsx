@@ -16,18 +16,14 @@ interface Row {
 }
 
 const EventHealthCard = () => {
-  const { userId } = useEffectiveUser();
+  const { effectiveOrganization: organization } = useEffectiveUser();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!organization?.id) { setLoading(false); return; }
+    const org = organization;
     const load = async () => {
-      const { data: orgs } = await supabase
-        .from("organizations").select("id").eq("owner_id", userId).limit(1);
-      const org = orgs?.[0];
-      if (!org) { setLoading(false); return; }
-
       const { data: events } = await supabase
         .from("events")
         .select("id, title_ar, status, description_ar, cover_image_url, venue_name, is_online, max_attendees, current_attendees_count, start_date, tickets(count)")
@@ -78,7 +74,7 @@ const EventHealthCard = () => {
       setLoading(false);
     };
     load();
-  }, [userId]);
+  }, [organization?.id]);
 
   if (loading) return null;
 
