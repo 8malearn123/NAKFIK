@@ -227,6 +227,26 @@ const Reports = () => {
     };
   }, [regs, fEvents, filterPeriod, filterTicket, ticketClasses]);
 
+  // توزيع مبيعات التذاكر حسب الفئة (VVIP / VIP / عادي)
+  const ticketClassBreakdown = useMemo(() => {
+    const meta: { key: TicketClass; name: string; color: string }[] = [
+      { key: "vvip", name: "VVIP", color: "hsl(42 65% 55%)" },
+      { key: "vip", name: "VIP", color: "hsl(270 30% 52%)" },
+      { key: "regular", name: "عادي", color: "hsl(172 55% 40%)" },
+    ];
+    const sold = fRegs.filter(r => r.payment_status === "paid" || Number(r.amount_paid || 0) > 0);
+    const total = sold.length;
+    return meta.map(m => {
+      const list = sold.filter(r => (r.ticket_id ? ticketClasses[r.ticket_id] || "regular" : "regular") === m.key);
+      return {
+        ...m,
+        count: list.length,
+        pct: total ? Math.round((list.length / total) * 100) : 0,
+        revenue: list.reduce((s, r) => s + Number(r.amount_paid || 0), 0),
+      };
+    });
+  }, [fRegs, ticketClasses]);
+
   // شارة التغير: ↑ أخضر / ↓ أحمر / محايد
   const DeltaBadge = ({ d }: { d: Delta }) => {
     if (d.isNew)
@@ -727,6 +747,49 @@ const Reports = () => {
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
+                </div>
+
+                {/* توزيع مبيعات التذاكر حسب الفئة */}
+                <div className="bg-card rounded-2xl border border-border/50 p-5 md:col-span-2">
+                  <h3 className="font-semibold text-foreground mb-4">توزيع مبيعات التذاكر حسب الفئة</h3>
+                  <div className="grid md:grid-cols-2 gap-4 items-center">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie data={ticketClassBreakdown} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+                          {ticketClassBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2">
+                      {ticketClassBreakdown.map(c => (
+                        <div key={c.key} className="border rounded-xl p-3 flex items-center gap-3">
+                          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                          <span className="font-bold text-sm w-14">{c.name}</span>
+                          <div className="flex items-center gap-4 flex-1 justify-end text-center flex-wrap">
+                            <div>
+                              <div className="font-extrabold text-sm">{c.count.toLocaleString("ar-SA")}</div>
+                              <div className="text-[10px] text-muted-foreground">تذاكر مباعة</div>
+                            </div>
+                            <div>
+                              <div className="font-extrabold text-sm">{c.pct}%</div>
+                              <div className="text-[10px] text-muted-foreground">من الإجمالي</div>
+                            </div>
+                            <div>
+                              <div className="font-extrabold text-sm">{c.revenue.toLocaleString("ar-SA")}</div>
+                              <div className="text-[10px] text-muted-foreground">الإيرادات (ر.س)</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {ticketClassBreakdown.every(c => c.count === 0) && (
+                        <p className="text-center text-xs text-muted-foreground pt-2">
+                          لا توجد مبيعات مدفوعة ضمن الفلاتر الحالية بعد
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
