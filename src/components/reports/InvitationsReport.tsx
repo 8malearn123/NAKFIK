@@ -4,13 +4,15 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell,
 } from "recharts";
-import { Mail, Send, CheckCircle2, XCircle, UserPlus, Clock, Download } from "lucide-react";
+import { Mail, Send, CheckCircle2, XCircle, UserPlus, Clock, Download, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface Props {
   /** If provided, scope to that organization only (organizer view). Otherwise loads all (admin view). */
   organizationId?: string;
+  /** فلتر الفترة الزمنية القادم من فلاتر صفحة التقارير */
+  period?: "all" | "7d" | "30d" | "12m";
 }
 
 interface InvRow {
@@ -40,10 +42,11 @@ const CAT_LABEL: Record<string, string> = {
 
 const COLORS = ["hsl(270 30% 52%)", "hsl(172 55% 40%)", "hsl(42 65% 55%)", "hsl(0 70% 60%)", "hsl(220 60% 55%)"];
 
-const InvitationsReport = ({ organizationId }: Props) => {
+const InvitationsReport = ({ organizationId, period = "all" }: Props) => {
   const [invs, setInvs] = useState<InvRow[]>([]);
   const [guests, setGuests] = useState<GuestRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invFilter, setInvFilter] = useState("all");
 
   useEffect(() => {
     const load = async () => {
@@ -71,20 +74,43 @@ const InvitationsReport = ({ organizationId }: Props) => {
     load();
   }, [organizationId]);
 
+  // تطبيق فلتري المناسبة والفترة الزمنية القادمة من فلاتر الصفحة
+  const fInvs = useMemo(() => {
+    let cutoff: Date | null = null;
+    if (period !== "all") {
+      cutoff = new Date();
+      if (period === "7d") cutoff.setDate(cutoff.getDate() - 7);
+      else if (period === "30d") cutoff.setDate(cutoff.getDate() - 30);
+      else cutoff.setMonth(cutoff.getMonth() - 12);
+    }
+    return invs.filter((inv) => {
+      if (invFilter !== "all" && inv.id !== invFilter) return false;
+      if (cutoff && new Date(inv.event_date) < cutoff) return false;
+      return true;
+    });
+  }, [invs, invFilter, period]);
+
+  const fGuests = useMemo(() => {
+    const ids = new Set(fInvs.map((i) => i.id));
+    return guests.filter((g) => ids.has(g.invitation_id));
+  }, [guests, fInvs]);
+
   const totals = useMemo(() => {
-    const total = guests.length;
-    const sent = guests.filter((g) => g.invite_sent_at || g.rsvp_status !== "pending").length;
-    const confirmed = guests.filter((g) => g.rsvp_status === "confirmed").length;
-    const declined = guests.filter((g) => g.rsvp_status === "declined").length;
-    const pending = guests.filter((g) => g.rsvp_status === "pending" || g.rsvp_status === "invited").length;
-    const checked = guests.filter((g) => g.checked_in_at).length;
-    const companions = guests.reduce((s, g) => s + (g.companions_count || 0), 0);
-    return { total, sent, confirmed, declined, pending, checked, companions, expected: confirmed + companions };
-  }, [guests]);
+    const total = fGuests.length;
+    const sent = fGuests.filter((g) => g.invite_sent_at || g.rsvp_status !== "pending").length;
+    const confirmed = fGuests.filter((g) => g.rsvp_status === "confirmed").length;
+    const declined = fGuests.filter((g) => g.rsvp_status === "declined").length;
+    const pending = fGuests.filter((g) => g.rsvp_status === "pending" || g.rsvp_status === "invited").length;
+    const checked = fGuests.filter((g) => g.checked_in_at).length;
+    const companions = fGuests.reduce((s, g) => s + (g.companions_count || 0), 0);
+    // نسبة الاستجابة: من ردّ (تأكيداً أو اعتذاراً) من أصل من أُرسلت لهم الدعوة
+    const responseRate = sent ? Math.round(((confirmed + declined) / sent) * 100) : 0;
+    return { total, sent, confirmed, declined, pending, checked, companions, expected: confirmed + companions, responseRate };
+  }, [fGuests]);
 
   const perInv = useMemo(() => {
-    return invs.map((inv) => {
-      const gs = guests.filter((g) => g.invitation_id === inv.id);
+    return fInvs.map((inv) => {
+      const gs = fGuests.filter((g) => g.invitation_id === inv.id);
       const confirmed = gs.filter((g) => g.rsvp_status === "confirmed").length;
       const declined = gs.filter((g) => g.rsvp_status === "declined").length;
       const sent = gs.filter((g) => g.invite_sent_at || g.rsvp_status !== "pending").length;
@@ -93,7 +119,7 @@ const InvitationsReport = ({ organizationId }: Props) => {
       const checked = gs.filter((g) => g.checked_in_at).length;
       return { ...inv, total: gs.length, confirmed, declined, sent, pending, companions, checked };
     });
-  }, [invs, guests]);
+  }, [fInvs, fGuests]);
 
   const chartData = useMemo(
     () => perInv.slice(0, 8).map((r) => ({
@@ -143,24 +169,48 @@ const InvitationsReport = ({ organizationId }: Props) => {
     return (
       <div className="text-center p-12 bg-card border rounded-2xl">
         <Mail className="w-10 h-10 text-muted-foreground/40 mx-auto mb-2" />
-        <p className="text-muted-foreground text-sm">لا توجد دعوات خاصة لعرض إحصائياتها</p>
+        <p className="text-muted-foreground text-sm mb-1">لا توجد دعوات خاصة لعرض إحصائياتها بعد</p>
+        <p className="text-muted-foreground/70 text-xs mb-4">أنشئ أول دعوة خاصة وستظهر هنا إحصائيات الردود والحضور تلقائياً</p>
+        <Button asChild size="sm" variant="outline" className="rounded-full">
+          <a href="/dashboard/invitations">+ إنشاء دعوة خاصة</a>
+        </Button>
       </div>
     );
   }
 
   const cards = [
-    { icon: Mail, label: "إجمالي الدعوات", value: invs.length, cls: "bg-primary/10 text-primary" },
-    { icon: UserPlus, label: "إجمالي المدعوين", value: totals.total, cls: "bg-teal/10 text-teal-700" },
-    { icon: Send, label: "تم الإرسال", value: totals.sent, cls: "bg-blue-100 text-blue-700" },
-    { icon: CheckCircle2, label: "مؤكدين الحضور", value: totals.confirmed, cls: "bg-emerald-100 text-emerald-700" },
-    { icon: XCircle, label: "معتذرين", value: totals.declined, cls: "bg-rose-100 text-rose-700" },
-    { icon: Clock, label: "بانتظار الرد", value: totals.pending, cls: "bg-amber-100 text-amber-700" },
-    { icon: UserPlus, label: "إجمالي المرافقين", value: totals.companions, cls: "bg-purple-100 text-purple-700" },
-    { icon: CheckCircle2, label: "إجمالي الحضور المتوقع", value: totals.expected, cls: "bg-accent/10 text-accent" },
+    { icon: Send, label: "إجمالي الدعوات المرسلة", value: `${totals.sent}`, cls: "bg-blue-100 text-blue-700" },
+    { icon: CheckCircle2, label: "دعوات مؤكدة", value: `${totals.confirmed}`, cls: "bg-emerald-100 text-emerald-700" },
+    { icon: XCircle, label: "دعوات معتذر عنها", value: `${totals.declined}`, cls: "bg-rose-100 text-rose-700" },
+    { icon: Clock, label: "لم يتم الرد عليها", value: `${totals.pending}`, cls: "bg-amber-100 text-amber-700" },
+    { icon: TrendingUp, label: "نسبة الاستجابة", value: `${totals.responseRate}%`, cls: "bg-primary/10 text-primary" },
+    { icon: Mail, label: "عدد المناسبات", value: `${fInvs.length}`, cls: "bg-teal/10 text-teal-700" },
+    { icon: UserPlus, label: "إجمالي المرافقين", value: `${totals.companions}`, cls: "bg-purple-100 text-purple-700" },
+    { icon: CheckCircle2, label: "الحضور المتوقع", value: `${totals.expected}`, cls: "bg-accent/10 text-accent" },
   ];
 
   return (
     <div className="space-y-5">
+      {/* فلتر المناسبة — يعمل مع فلتر الفترة أعلى الصفحة */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="text-[11px] text-muted-foreground">المناسبة:</label>
+        <select
+          value={invFilter}
+          onChange={(e) => setInvFilter(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold min-w-[180px]"
+        >
+          <option value="all">كل المناسبات</option>
+          {invs.map((i) => (
+            <option key={i.id} value={i.id}>{i.title}</option>
+          ))}
+        </select>
+        {period !== "all" && (
+          <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-2.5 py-1">
+            مفلتر حسب الفترة المختارة أعلى الصفحة
+          </span>
+        )}
+      </div>
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {cards.map((c) => (
@@ -168,7 +218,7 @@ const InvitationsReport = ({ organizationId }: Props) => {
             <div className={`w-9 h-9 rounded-lg ${c.cls} flex items-center justify-center mb-2`}>
               <c.icon className="w-4 h-4" />
             </div>
-            <div className="font-bold text-xl text-foreground">{c.value.toLocaleString("ar-SA")}</div>
+            <div className="font-bold text-xl text-foreground">{c.value}</div>
             <div className="text-muted-foreground text-[11px] mt-0.5">{c.label}</div>
           </div>
         ))}

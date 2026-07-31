@@ -809,7 +809,7 @@ const Reports = () => {
               </TabsContent>
 
               <TabsContent value="invitations" className="space-y-5">
-                <InvitationsReport organizationId={organization?.id} />
+                <InvitationsReport organizationId={organization?.id} period={filterPeriod} />
               </TabsContent>
             </Tabs>
 
