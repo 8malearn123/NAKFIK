@@ -4,7 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, SlidersHorizontal, X } from "lucide-react";
+import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, SlidersHorizontal, X, FileText, FileSpreadsheet, FileDown, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
 import InvitationsReport from "@/components/reports/InvitationsReport";
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -292,6 +296,116 @@ const Reports = () => {
     toast.success("تم تصدير التقرير");
   };
 
+  // ملخص الفلاتر المفعّلة — يظهر في ترويسة التقارير المصدّرة
+  const filtersSummary = (): string[] => {
+    const out: string[] = [];
+    if (filterEvent !== "all") out.push(`الفعالية: ${events.find(e => e.id === filterEvent)?.title_ar || ""}`);
+    if (filterPeriod !== "all") out.push(`الفترة: ${FILTER_PERIODS.find(p => p.key === filterPeriod)?.label}`);
+    if (filterTicket !== "all") out.push(`نوع التذكرة: ${FILTER_TICKETS.find(t => t.key === filterTicket)?.label}`);
+    if (filterStatus !== "all") out.push(`حالة الفعالية: ${FILTER_STATUS.find(s => s.key === filterStatus)?.label}`);
+    return out.length ? out : ["بدون فلاتر — كل البيانات"];
+  };
+
+  // صفوف تفاصيل الفعاليات (مشتركة بين Excel وPDF)
+  const buildEventRows = () =>
+    fEvents.map(e => {
+      const evRegs = fRegs.filter(r => r.event_id === e.id);
+      const checked = evRegs.filter(r => r.checked_in_at).length;
+      return {
+        "الفعالية": e.title_ar,
+        "التاريخ": e.start_date.slice(0, 10),
+        "الحالة": ({ upcoming: "قادمة", ongoing: "جارية", ended: "منتهية" } as const)[eventTimeStatus(e)],
+        "التسجيلات": evRegs.length,
+        "الحضور الفعلي": checked,
+        "نسبة الحضور %": evRegs.length ? Math.round((checked / evRegs.length) * 100) : 0,
+        "الإيرادات (ر.س)": evRegs.reduce((s, r) => s + Number(r.amount_paid || 0), 0),
+        "السعة": e.max_attendees ?? "—",
+      };
+    });
+
+  const exportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    wb.Workbook = { Views: [{ RTL: true }] };
+
+    const summary = [
+      { "البند": "تاريخ التقرير", "القيمة": new Date().toLocaleString("ar-SA") },
+      ...filtersSummary().map((f, i) => ({ "البند": i === 0 ? "الفلاتر المطبقة" : "", "القيمة": f })),
+      { "البند": "إجمالي الفعاليات", "القيمة": stats.events },
+      { "البند": "إجمالي التسجيلات", "القيمة": stats.registrations },
+      { "البند": "الحضور الفعلي", "القيمة": stats.checkedIn },
+      { "البند": "نسبة الحضور", "القيمة": `${stats.attendanceRate}%` },
+      { "البند": "الإيرادات (ر.س)", "القيمة": stats.revenue },
+    ];
+    const wsSummary = XLSX.utils.json_to_sheet(summary);
+    wsSummary["!cols"] = [{ wch: 24 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, "الملخص");
+
+    const wsEvents = XLSX.utils.json_to_sheet(buildEventRows());
+    wsEvents["!cols"] = [{ wch: 32 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsEvents, "الفعاليات");
+
+    XLSX.writeFile(wb, `تقرير-نكفيك-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success("تم تصدير التقرير بصيغة Excel");
+  };
+
+  const exportPDF = () => {
+    // نافذة طباعة أنيقة تشمل الملخص والجداول ورسوم التبويب المفتوح — الحفظ كـ PDF من نافذة الطباعة
+    const charts = Array.from(document.querySelectorAll(".recharts-wrapper svg"))
+      .map(svg => {
+        const c = svg.cloneNode(true) as SVGElement;
+        c.setAttribute("width", "660");
+        c.removeAttribute("height");
+        return c.outerHTML;
+      });
+    const rows = buildEventRows();
+    const head = Object.keys(rows[0] || { "الفعالية": "" });
+    const w = window.open("", "_blank");
+    if (!w) { toast.error("اسمح بالنوافذ المنبثقة لتصدير PDF"); return; }
+    w.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8" />
+<title>تقرير نكفيك</title>
+<style>
+  @page { size: A4; margin: 14mm; }
+  * { box-sizing: border-box; font-family: "Segoe UI", Tahoma, Arial, sans-serif; }
+  body { color: #1f1830; margin: 0; }
+  .head { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #6b4d9e; padding-bottom: 10px; margin-bottom: 14px; }
+  .brand { font-size: 22px; font-weight: 800; color: #6b4d9e; }
+  .meta { font-size: 11px; color: #666; text-align: left; }
+  .filters { background: #f5f1fb; border-radius: 10px; padding: 8px 12px; font-size: 11px; margin-bottom: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat { border: 1px solid #e3dcf0; border-radius: 10px; padding: 10px; text-align: center; }
+  .stat b { display: block; font-size: 18px; color: #6b4d9e; }
+  .stat span { font-size: 10px; color: #777; }
+  h2 { font-size: 14px; color: #6b4d9e; border-inline-start: 4px solid #6b4d9e; padding-inline-start: 8px; margin: 18px 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #6b4d9e; color: #fff; padding: 6px; text-align: right; }
+  td { border: 1px solid #e3dcf0; padding: 5px 6px; }
+  tr:nth-child(even) td { background: #faf8fd; }
+  .chart { margin: 10px 0; page-break-inside: avoid; text-align: center; }
+  .foot { margin-top: 18px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 8px; }
+</style></head><body>
+  <div class="head">
+    <div class="brand">نكفيك تيكت — تقرير الفعاليات</div>
+    <div class="meta">${new Date().toLocaleString("ar-SA")}<br/>${organization?.name || ""}</div>
+  </div>
+  <div class="filters"><b>الفلاتر المطبقة:</b> ${filtersSummary().join(" · ")}</div>
+  <div class="stats">
+    <div class="stat"><b>${stats.events}</b><span>الفعاليات</span></div>
+    <div class="stat"><b>${stats.registrations}</b><span>التسجيلات</span></div>
+    <div class="stat"><b>${stats.checkedIn}</b><span>حضور فعلي</span></div>
+    <div class="stat"><b>${stats.attendanceRate}%</b><span>نسبة الحضور</span></div>
+    <div class="stat"><b>${stats.revenue.toLocaleString()}</b><span>الإيرادات (ر.س)</span></div>
+  </div>
+  <h2>تفاصيل الفعاليات</h2>
+  <table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+  <tbody>${rows.map(r => `<tr>${head.map(h => `<td>${(r as any)[h]}</td>`).join("")}</tr>`).join("")}</tbody></table>
+  ${charts.length ? `<h2>الرسوم البيانية</h2>${charts.map(c => `<div class="chart">${c}</div>`).join("")}` : ""}
+  <div class="foot">أُنشئ هذا التقرير آلياً من منصة نكفيك تيكت</div>
+<script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+</body></html>`);
+    w.document.close();
+    toast.success("افتح نافذة الطباعة واختر «حفظ كـ PDF»");
+  };
+
   const cards = [
     { icon: Calendar, label: "إجمالي الفعاليات", value: stats.events.toLocaleString("ar-SA"), color: "bg-primary/10 text-primary" },
     { icon: Users, label: "إجمالي التسجيلات", value: stats.registrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
@@ -308,9 +422,24 @@ const Reports = () => {
             <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
             <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء فعالياتك</p>
           </div>
-          <Button onClick={exportCSV} variant="outline" className="rounded-full">
-            <Download className="w-4 h-4" /> تصدير CSV
-          </Button>
+          <DropdownMenu dir="rtl">
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-full">
+                <Download className="w-4 h-4" /> تصدير التقرير <ChevronDown className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportPDF} className="gap-2 cursor-pointer">
+                <FileText className="w-4 h-4 text-destructive" /> تصدير بصيغة PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportExcel} className="gap-2 cursor-pointer">
+                <FileSpreadsheet className="w-4 h-4 text-green-600" /> تصدير بصيغة Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportCSV} className="gap-2 cursor-pointer">
+                <FileDown className="w-4 h-4 text-primary" /> تصدير بصيغة CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {loading ? (
