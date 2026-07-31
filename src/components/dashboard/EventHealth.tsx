@@ -80,7 +80,7 @@ const EventHealthCard = () => {
     load();
   }, [userId]);
 
-  if (loading || rows.length === 0) return null;
+  if (loading) return null;
 
   return (
     <motion.div
@@ -94,6 +94,21 @@ const EventHealthCard = () => {
         </h2>
         <span className="text-[11px] text-muted-foreground">درجة من 100 لكل فعالية</span>
       </div>
+
+      {rows.length === 0 && (
+        <div className="text-center py-8">
+          <HeartPulse className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">
+            لا توجد فعاليات لقياس صحتها بعد — أنشئ فعاليتك الأولى وستظهر درجتها هنا
+          </p>
+          <Link
+            to="/dashboard/events/create"
+            className="inline-block mt-3 text-sm font-bold text-primary hover:underline"
+          >
+            + إنشاء فعالية
+          </Link>
+        </div>
+      )}
 
       <div className="space-y-3">
         {rows.map((r) => {
