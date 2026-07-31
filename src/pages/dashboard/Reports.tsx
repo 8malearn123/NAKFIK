@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail } from "lucide-react";
+import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, SlidersHorizontal, X } from "lucide-react";
 import InvitationsReport from "@/components/reports/InvitationsReport";
 import {
   ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -16,6 +16,7 @@ interface EventRow {
   id: string;
   title_ar: string;
   start_date: string;
+  end_date: string | null;
   current_attendees_count: number;
   max_attendees: number | null;
   status: string;
@@ -24,11 +25,55 @@ interface EventRow {
 interface RegistrationRow {
   id: string;
   event_id: string;
+  ticket_id: string | null;
   amount_paid: number | null;
   registered_at: string;
   checked_in_at: string | null;
   payment_status: string;
 }
+
+// ===== فلاتر أعلى الصفحة =====
+type TicketClass = "vvip" | "vip" | "regular";
+type EventTimeStatus = "upcoming" | "ongoing" | "ended";
+type FilterPeriod = "all" | "7d" | "30d" | "12m";
+
+// تصنيف التذكرة من اسمها ونوعها (VVIP / VIP / عادي)
+const classifyTicket = (name: string | null, type: string | null): TicketClass => {
+  const n = (name || "").toUpperCase();
+  if (n.includes("VVIP")) return "vvip";
+  if (type === "vip" || n.includes("VIP")) return "vip";
+  return "regular";
+};
+
+// حالة الفعالية زمنياً: قادمة / جارية / منتهية
+const eventTimeStatus = (e: EventRow): EventTimeStatus => {
+  const now = Date.now();
+  const start = new Date(e.start_date).getTime();
+  // فعالية بلا وقت نهاية تُعتبر جارية لست ساعات من بدايتها
+  const end = e.end_date ? new Date(e.end_date).getTime() : start + 6 * 3600_000;
+  if (start > now) return "upcoming";
+  if (end < now) return "ended";
+  return "ongoing";
+};
+
+const FILTER_PERIODS: { key: FilterPeriod; label: string }[] = [
+  { key: "all", label: "كل الفترات" },
+  { key: "7d", label: "آخر 7 أيام" },
+  { key: "30d", label: "آخر 30 يومًا" },
+  { key: "12m", label: "آخر 12 شهرًا" },
+];
+const FILTER_TICKETS: { key: "all" | TicketClass; label: string }[] = [
+  { key: "all", label: "كل التذاكر" },
+  { key: "vvip", label: "VVIP" },
+  { key: "vip", label: "VIP" },
+  { key: "regular", label: "عادي" },
+];
+const FILTER_STATUS: { key: "all" | EventTimeStatus; label: string }[] = [
+  { key: "all", label: "كل الحالات" },
+  { key: "upcoming", label: "قادمة" },
+  { key: "ongoing", label: "جارية" },
+  { key: "ended", label: "منتهية" },
+];
 
 const COLORS = ["hsl(270 30% 52%)", "hsl(172 55% 40%)", "hsl(42 65% 55%)", "hsl(0 70% 60%)", "hsl(220 60% 55%)", "hsl(140 50% 50%)"];
 
@@ -46,37 +91,83 @@ const Reports = () => {
   const [regs, setRegs] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("30d");
+  const [ticketClasses, setTicketClasses] = useState<Record<string, TicketClass>>({});
+
+  // حالة الفلاتر
+  const [filterEvent, setFilterEvent] = useState("all");
+  const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>("all");
+  const [filterTicket, setFilterTicket] = useState<"all" | TicketClass>("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | EventTimeStatus>("all");
+  const filtersActive = filterEvent !== "all" || filterPeriod !== "all" || filterTicket !== "all" || filterStatus !== "all";
+  const resetFilters = () => { setFilterEvent("all"); setFilterPeriod("all"); setFilterTicket("all"); setFilterStatus("all"); };
 
   useEffect(() => {
     if (!organization) return;
     const load = async () => {
       const { data: ev } = await supabase
         .from("events")
-        .select("id, title_ar, start_date, current_attendees_count, max_attendees, status, category")
+        .select("id, title_ar, start_date, end_date, current_attendees_count, max_attendees, status, category")
         .eq("organization_id", organization.id);
       const evtList = (ev || []) as EventRow[];
       setEvents(evtList);
 
       if (evtList.length) {
         const ids = evtList.map(e => e.id);
-        const { data: r } = await supabase
-          .from("registrations")
-          .select("id, event_id, amount_paid, registered_at, checked_in_at, payment_status")
-          .in("event_id", ids);
+        const [{ data: r }, { data: tix }] = await Promise.all([
+          supabase
+            .from("registrations")
+            .select("id, event_id, ticket_id, amount_paid, registered_at, checked_in_at, payment_status")
+            .in("event_id", ids),
+          supabase.from("tickets").select("id, name_ar, name_en, type").in("event_id", ids),
+        ]);
         setRegs((r || []) as RegistrationRow[]);
+        const classes: Record<string, TicketClass> = {};
+        (tix || []).forEach((t: any) => {
+          classes[t.id] = classifyTicket(t.name_en || t.name_ar, t.type);
+        });
+        setTicketClasses(classes);
       }
       setLoading(false);
     };
     load();
   }, [organization]);
 
+  // ===== تطبيق الفلاتر — كل الإحصائيات والرسوم أدناه تُبنى على النتائج المفلترة =====
+  const fEvents = useMemo(() => {
+    return events.filter(e => {
+      if (filterEvent !== "all" && e.id !== filterEvent) return false;
+      if (filterStatus !== "all" && eventTimeStatus(e) !== filterStatus) return false;
+      return true;
+    });
+  }, [events, filterEvent, filterStatus]);
+
+  const fRegs = useMemo(() => {
+    const ids = new Set(fEvents.map(e => e.id));
+    let cutoff: Date | null = null;
+    if (filterPeriod !== "all") {
+      cutoff = new Date();
+      if (filterPeriod === "7d") cutoff.setDate(cutoff.getDate() - 7);
+      else if (filterPeriod === "30d") cutoff.setDate(cutoff.getDate() - 30);
+      else cutoff.setMonth(cutoff.getMonth() - 12);
+    }
+    return regs.filter(r => {
+      if (!ids.has(r.event_id)) return false;
+      if (cutoff && (!r.registered_at || new Date(r.registered_at) < cutoff)) return false;
+      if (filterTicket !== "all") {
+        const cls = r.ticket_id ? ticketClasses[r.ticket_id] || "regular" : "regular";
+        if (cls !== filterTicket) return false;
+      }
+      return true;
+    });
+  }, [regs, fEvents, filterPeriod, filterTicket, ticketClasses]);
+
   const stats = useMemo(() => {
-    const totalReg = regs.length;
-    const checkedIn = regs.filter(r => r.checked_in_at).length;
-    const revenue = regs.reduce((s, r) => s + Number(r.amount_paid || 0), 0);
+    const totalReg = fRegs.length;
+    const checkedIn = fRegs.filter(r => r.checked_in_at).length;
+    const revenue = fRegs.reduce((s, r) => s + Number(r.amount_paid || 0), 0);
     const attendanceRate = totalReg ? Math.round((checkedIn / totalReg) * 100) : 0;
-    return { events: events.length, registrations: totalReg, checkedIn, revenue, attendanceRate };
-  }, [events, regs]);
+    return { events: fEvents.length, registrations: totalReg, checkedIn, revenue, attendanceRate };
+  }, [fEvents, fRegs]);
 
   // Time series — registrations per day (last 30 days)
   const timeSeries = useMemo(() => {
@@ -87,7 +178,7 @@ const Reports = () => {
       const key = d.toISOString().slice(0, 10);
       map.set(key, { date: key.slice(5), registrations: 0, revenue: 0 });
     }
-    regs.forEach(r => {
+    fRegs.forEach(r => {
       const key = r.registered_at?.slice(0, 10);
       if (key && map.has(key)) {
         const e = map.get(key)!;
@@ -96,33 +187,33 @@ const Reports = () => {
       }
     });
     return Array.from(map.values());
-  }, [regs]);
+  }, [fRegs]);
 
   // Top events
   const topEvents = useMemo(() => {
-    return [...events]
+    return [...fEvents]
       .sort((a, b) => b.current_attendees_count - a.current_attendees_count)
       .slice(0, 7)
       .map(e => ({ name: e.title_ar.slice(0, 20), attendees: e.current_attendees_count }));
-  }, [events]);
+  }, [fEvents]);
 
   // Status breakdown
   const statusBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
-    events.forEach(e => { counts[e.status] = (counts[e.status] || 0) + 1; });
+    fEvents.forEach(e => { counts[e.status] = (counts[e.status] || 0) + 1; });
     const labels: Record<string, string> = {
       draft: "مسودة", pending_review: "قيد المراجعة", published: "منشورة",
       approved: "معتمدة", rejected: "مرفوضة", completed: "منتهية", cancelled: "ملغاة",
     };
     return Object.entries(counts).map(([k, v]) => ({ name: labels[k] || k, value: v }));
-  }, [events]);
+  }, [fEvents]);
 
   // Category breakdown
   const categoryBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
-    events.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1; });
+    fEvents.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1; });
     return Object.entries(counts).map(([k, v]) => ({ name: k, value: v }));
-  }, [events]);
+  }, [fEvents]);
 
   // اتجاهات الفترة المختارة — التسجيلات والمبيعات المدفوعة مع مقارنة بالفترة السابقة
   const trend = useMemo(() => {
@@ -154,7 +245,7 @@ const Reports = () => {
     else prevStart.setMonth(prevStart.getMonth() - units);
 
     let curTickets = 0, curRevenue = 0, curRegs = 0, prevTickets = 0, prevRevenue = 0;
-    regs.forEach(r => {
+    fRegs.forEach(r => {
       if (!r.registered_at) return;
       const at = new Date(r.registered_at);
       const isPaid = r.payment_status === "paid" || Number(r.amount_paid || 0) > 0;
@@ -183,12 +274,12 @@ const Reports = () => {
       ticketsChange: change(curTickets, prevTickets),
       revenueChange: change(curRevenue, prevRevenue),
     };
-  }, [regs, salesPeriod]);
+  }, [fRegs, salesPeriod]);
 
   const exportCSV = () => {
     const header = ["الفعالية", "التاريخ", "الحضور المسجل", "الحضور الفعلي", "السعة", "الحالة"];
-    const rows = events.map(e => {
-      const evRegs = regs.filter(r => r.event_id === e.id);
+    const rows = fEvents.map(e => {
+      const evRegs = fRegs.filter(r => r.event_id === e.id);
       const checked = evRegs.filter(r => r.checked_in_at).length;
       return [e.title_ar, e.start_date.slice(0, 10), evRegs.length, checked, e.max_attendees || "—", e.status];
     });
@@ -228,6 +319,74 @@ const Reports = () => {
           </div>
         ) : (
           <>
+            {/* الفلاتر — تُطبَّق على كل إحصائيات ورسوم الصفحة */}
+            <div className="bg-card rounded-2xl border border-border/50 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <SlidersHorizontal className="w-4 h-4 text-primary" />
+                <span className="font-bold text-sm">الفلاتر</span>
+                {filtersActive && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-[11px] font-bold text-destructive inline-flex items-center gap-0.5 hover:underline ms-auto"
+                  >
+                    <X className="w-3 h-3" /> إعادة تعيين
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground block mb-1">الفعالية</label>
+                  <select
+                    value={filterEvent}
+                    onChange={(e) => setFilterEvent(e.target.value)}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+                  >
+                    <option value="all">كل الفعاليات</option>
+                    {events.map(e => (
+                      <option key={e.id} value={e.id}>{e.title_ar}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground block mb-1">الفترة الزمنية</label>
+                  <select
+                    value={filterPeriod}
+                    onChange={(e) => setFilterPeriod(e.target.value as FilterPeriod)}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+                  >
+                    {FILTER_PERIODS.map(p => (
+                      <option key={p.key} value={p.key}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground block mb-1">نوع التذكرة</label>
+                  <select
+                    value={filterTicket}
+                    onChange={(e) => setFilterTicket(e.target.value as "all" | TicketClass)}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+                  >
+                    {FILTER_TICKETS.map(t => (
+                      <option key={t.key} value={t.key}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground block mb-1">حالة الفعالية</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as "all" | EventTimeStatus)}
+                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+                  >
+                    {FILTER_STATUS.map(st => (
+                      <option key={st.key} value={st.key}>{st.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {cards.map(c => (
                 <div key={c.label} className="bg-card rounded-2xl border border-border/50 p-5">
