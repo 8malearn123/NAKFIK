@@ -28,12 +28,17 @@ export default function CustomTemplateRender({
       className={`relative w-full mx-auto rounded-2xl overflow-hidden shadow-2xl ${className}`}
       style={{
         maxWidth,
-        aspectRatio: "9 / 16",
-        backgroundImage: `url(${templateUrl})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
+        // حاوية استعلام: أحجام النصوص تتناسب مع عرض البطاقة الفعلي (cqw)
+        containerType: "inline-size",
       }}
     >
+      {/* الصورة بأبعادها الطبيعية كاملة — بلا قصّ ولا نسبة مفروضة */}
+      <img
+        src={templateUrl}
+        alt=""
+        className="block w-full h-auto select-none"
+        draggable={false}
+      />
       {fields.map((f) => {
         const v = valueOf(f);
         if (!v && !f.prefix && !f.suffix) return null;
@@ -49,7 +54,8 @@ export default function CustomTemplateRender({
               textAlign: f.textAlign,
               color: f.color,
               fontFamily: `'${f.fontFamily}', serif`,
-              fontSize: `clamp(12px, ${f.fontSize / 10}vw, ${f.fontSize}px)`,
+              // الحجم بوحدة cqw = يتمدد وينكمش مع عرض البطاقة نفسها (المرجع 480px)
+              fontSize: `clamp(9px, ${(f.fontSize / 4.8).toFixed(2)}cqw, ${Math.round(f.fontSize * 1.5)}px)`,
               fontWeight: f.fontWeight,
               letterSpacing: `${f.letterSpacing}px`,
               lineHeight: 1.25,
