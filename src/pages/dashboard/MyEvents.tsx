@@ -10,8 +10,9 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock,
+  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock, AlertTriangle,
 } from "lucide-react";
+import { computeEventReadiness, READINESS_THRESHOLD, type EventReadiness } from "@/lib/eventHealth";
 
 type EventStatus = "draft" | "pending_review" | "approved" | "published" | "rejected" | "completed" | "cancelled";
 
@@ -44,6 +45,8 @@ interface EventRow {
   max_attendees: number | null;
   cover_image_url: string | null;
   is_online: boolean;
+  description_ar: string | null;
+  tickets?: { count: number }[];
 }
 
 const MyEvents = () => {
@@ -61,7 +64,7 @@ const MyEvents = () => {
     const load = async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, title_ar, start_date, venue_name, status, type, current_attendees_count, max_attendees, cover_image_url, is_online")
+        .select("id, title_ar, start_date, venue_name, status, type, current_attendees_count, max_attendees, cover_image_url, is_online, description_ar, tickets(count)")
         .eq("organization_id", organization.id)
         .order("created_at", { ascending: false });
 
@@ -198,12 +201,30 @@ const MyEvents = () => {
     }
   };
 
-  const handleSubmitForReview = async (id: string) => {
-    const { error } = await supabase.from("events").update({ status: "pending_review" } as any).eq("id", id);
+  // جاهزية الفعالية للمراجعة — من الحقول الإلزامية
+  const readinessOf = (e: EventRow): EventReadiness =>
+    computeEventReadiness({
+      title: e.title_ar,
+      description: e.description_ar,
+      coverImage: e.cover_image_url,
+      hasLocation: e.is_online || !!e.venue_name,
+      startDate: e.start_date,
+      ticketsCount: e.tickets?.[0]?.count || 0,
+    });
+
+  const handleSubmitForReview = async (event: EventRow) => {
+    const readiness = readinessOf(event);
+    if (!readiness.ready) {
+      toast.error(
+        `لا يمكن الإرسال — صحة الفعالية ${readiness.score}% (المطلوب ${READINESS_THRESHOLD}%).\nالناقص: ${readiness.missing.map(m => m.missingLabel).join("، ")}`
+      );
+      return;
+    }
+    const { error } = await supabase.from("events").update({ status: "pending_review" } as any).eq("id", event.id);
     if (error) {
       toast.error("خطأ في تقديم الفعالية");
     } else {
-      setEvents(events.map(e => e.id === id ? { ...e, status: "pending_review" as EventStatus } : e));
+      setEvents(events.map(e => e.id === event.id ? { ...e, status: "pending_review" as EventStatus } : e));
       toast.success("تم تقديم الفعالية للمراجعة");
     }
   };
@@ -250,6 +271,7 @@ const MyEvents = () => {
           ) : filtered.length > 0 ? (
             filtered.map((event, i) => {
               const status = statusConfig[event.status] || statusConfig.draft;
+              const readiness = event.status === "draft" && event.type === "public" ? readinessOf(event) : null;
               return (
                 <motion.div key={event.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-card rounded-2xl border border-border/50 hover:border-primary/20 hover:shadow-md transition-all p-4 flex gap-4">
                   {event.cover_image_url && (
@@ -271,17 +293,39 @@ const MyEvents = () => {
                         {event.current_attendees_count}/{event.max_attendees || "∞"}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <span className={`text-[11px] font-semibold rounded-full px-3 py-1 ${status.className}`}>{status.label}</span>
                       <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-3 py-1">
                         {event.type === "public" ? "عامة" : "خاصة"}
                       </span>
+                      {readiness && (
+                        <span className={`text-[11px] font-semibold rounded-full px-3 py-1 ${
+                          readiness.ready ? "bg-green-500/10 text-green-700" : "bg-amber-100 text-amber-800"
+                        }`}>
+                          الصحة: {readiness.score}%
+                        </span>
+                      )}
                     </div>
+                    {readiness && !readiness.ready && (
+                      <div className="mt-2 text-[11px] text-amber-700 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5 leading-relaxed">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <span>
+                          <b>لإرسالها للمراجعة أكمل:</b> {readiness.missing.map(m => m.missingLabel).join("، ")}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {event.status === "draft" && event.type === "public" && (
-                      <Button variant="default" size="sm" className="h-8 text-xs rounded-full" onClick={() => handleSubmitForReview(event.id)}>
-                        <Send className="w-3.5 h-3.5" /> تقديم للمراجعة
+                      <Button
+                        variant={readiness?.ready ? "default" : "secondary"}
+                        size="sm"
+                        className="h-8 text-xs rounded-full disabled:opacity-60"
+                        disabled={!readiness?.ready}
+                        title={readiness?.ready ? undefined : `أكمل البيانات الناقصة أولاً — الصحة ${readiness?.score}% والمطلوب ${READINESS_THRESHOLD}%`}
+                        onClick={() => handleSubmitForReview(event)}
+                      >
+                        {readiness?.ready ? <Send className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} تقديم للمراجعة
                       </Button>
                     )}
                     {event.type === "private" && (

@@ -75,6 +75,83 @@ export const computeEventHealth = (i: EventHealthInput): EventHealth => {
   return { score, level, suggestions: suggestions.slice(0, 2) };
 };
 
+// ===== جاهزية الفعالية للمراجعة =====
+// قائمة الحقول الإلزامية — اكتمالها هو المؤشر الحقيقي لجاهزية الإرسال للمراجعة.
+
+export const READINESS_THRESHOLD = 80;
+
+export interface ReadinessInput {
+  title: string | null;
+  description: string | null;
+  coverImage: string | null;
+  hasLocation: boolean; // موقع محدد أو فعالية أونلاين برابط
+  startDate: string | null;
+  ticketsCount: number;
+}
+
+export interface ReadinessItem {
+  key: string;
+  label: string;        // اسم الحقل
+  missingLabel: string; // ما يظهر للمنظم عند النقص
+  done: boolean;
+}
+
+export interface EventReadiness {
+  score: number;   // 0..100
+  ready: boolean;  // score >= READINESS_THRESHOLD
+  items: ReadinessItem[];
+  missing: ReadinessItem[];
+}
+
+export const computeEventReadiness = (i: ReadinessInput): EventReadiness => {
+  const items: ReadinessItem[] = [
+    {
+      key: "title",
+      label: "عنوان الفعالية",
+      missingLabel: "عنوان الفعالية غير مضاف",
+      done: !!i.title && i.title.trim().length >= 3,
+    },
+    {
+      key: "date",
+      label: "التاريخ والوقت",
+      missingLabel: "التاريخ أو الوقت غير محدد",
+      done: !!i.startDate && !isNaN(new Date(i.startDate).getTime()),
+    },
+    {
+      key: "description",
+      label: "الوصف",
+      missingLabel: "الوصف غير مكتمل (30 حرفاً على الأقل)",
+      done: !!i.description && i.description.trim().length >= 30,
+    },
+    {
+      key: "cover",
+      label: "صورة الغلاف",
+      missingLabel: "صورة الغلاف غير مضافة",
+      done: !!i.coverImage,
+    },
+    {
+      key: "location",
+      label: "الموقع",
+      missingLabel: "الموقع غير محدد",
+      done: i.hasLocation,
+    },
+    {
+      key: "tickets",
+      label: "التذاكر",
+      missingLabel: "لم يتم إضافة أنواع أو أسعار التذاكر",
+      done: i.ticketsCount > 0,
+    },
+  ];
+  const doneCount = items.filter(x => x.done).length;
+  const score = Math.round((doneCount / items.length) * 100);
+  return {
+    score,
+    ready: score >= READINESS_THRESHOLD,
+    items,
+    missing: items.filter(x => !x.done),
+  };
+};
+
 export const healthMeta: Record<HealthLevel, { label: string; text: string; bg: string; bar: string }> = {
   excellent: { label: "ممتاز", text: "text-green-700", bg: "bg-green-500/10", bar: "bg-green-500" },
   good:      { label: "جيد", text: "text-amber-700", bg: "bg-amber-500/10", bar: "bg-amber-500" },

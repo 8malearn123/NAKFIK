@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { HeartPulse, Lightbulb } from "lucide-react";
+import { HeartPulse, Lightbulb, CheckCircle2, XCircle, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { computeEventHealth, healthMeta, type EventHealth as Health } from "@/lib/eventHealth";
+import {
+  computeEventHealth, computeEventReadiness, healthMeta, READINESS_THRESHOLD,
+  type EventHealth as Health, type EventReadiness,
+} from "@/lib/eventHealth";
 import { getRatingSummary } from "@/lib/ratings";
 
 // بطاقة "صحة الفعالية" — درجة من 100 خاصة بالفعالية المعروضة.
@@ -11,13 +14,15 @@ import { getRatingSummary } from "@/lib/ratings";
 
 const EventHealthCard = ({ eventId }: { eventId: string }) => {
   const [health, setHealth] = useState<Health | null>(null);
+  const [readiness, setReadiness] = useState<EventReadiness | null>(null);
+  const [isDraft, setIsDraft] = useState(false);
   const [title, setTitle] = useState("");
 
   useEffect(() => {
     const load = async () => {
       const { data: e } = await supabase
         .from("events")
-        .select("id, title_ar, status, description_ar, cover_image_url, venue_name, is_online, max_attendees, current_attendees_count, tickets(count)")
+        .select("id, title_ar, status, start_date, description_ar, cover_image_url, venue_name, is_online, max_attendees, current_attendees_count, tickets(count)")
         .eq("id", eventId)
         .maybeSingle();
       if (!e) return;
@@ -36,6 +41,17 @@ const EventHealthCard = ({ eventId }: { eventId: string }) => {
 
       const rating = getRatingSummary(eventId);
       setTitle((e as any).title_ar);
+      setIsDraft((e as any).status === "draft");
+      setReadiness(
+        computeEventReadiness({
+          title: (e as any).title_ar,
+          description: (e as any).description_ar,
+          coverImage: (e as any).cover_image_url,
+          hasLocation: (e as any).is_online || !!(e as any).venue_name,
+          startDate: (e as any).start_date,
+          ticketsCount: (e as any).tickets?.[0]?.count || 0,
+        })
+      );
       setHealth(
         computeEventHealth({
           description: (e as any).description_ar,
@@ -103,6 +119,37 @@ const EventHealthCard = ({ eventId }: { eventId: string }) => {
           </div>
         </div>
       </Link>
+
+      {/* قائمة الحقول الإلزامية — تحدد جاهزية الإرسال للمراجعة */}
+      {readiness && (
+        <div className="mt-3 border rounded-xl p-3">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <span className="text-xs font-bold">اكتمال البيانات الإلزامية: {readiness.score}%</span>
+            {isDraft && (
+              <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 inline-flex items-center gap-1 ${
+                readiness.ready ? "bg-green-500/10 text-green-700" : "bg-amber-100 text-amber-800"
+              }`}>
+                {readiness.ready
+                  ? <><CheckCircle2 className="w-3 h-3" /> جاهزة للإرسال للمراجعة</>
+                  : <><Lock className="w-3 h-3" /> الإرسال للمراجعة يتطلب {READINESS_THRESHOLD}%</>}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            {readiness.items.map((item) => (
+              <span
+                key={item.key}
+                className={`text-[11px] rounded-lg px-2 py-1 inline-flex items-center gap-1 ${
+                  item.done ? "bg-green-500/10 text-green-700" : "bg-destructive/10 text-destructive"
+                }`}
+              >
+                {item.done ? <CheckCircle2 className="w-3 h-3 flex-shrink-0" /> : <XCircle className="w-3 h-3 flex-shrink-0" />}
+                {item.done ? item.label : item.missingLabel}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };
