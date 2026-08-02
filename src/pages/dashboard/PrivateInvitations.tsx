@@ -17,7 +17,7 @@ import {
   Mail, Plus, Pencil, Trash2, Users, ExternalLink, Copy, QrCode, Palette,
   Calendar, MapPin, Shirt, Phone, Gift, Send, CheckCircle2, X,
   Heart, Flower2, GraduationCap, Cake, Landmark, Mic2, Scissors, Crown, Briefcase, Sparkles,
-  Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList,
+  Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList, CalendarDays, Save,
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
@@ -140,16 +140,109 @@ const PrivateInvitations = () => {
   const [qrGuest, setQrGuest] = useState<Guest | null>(null);
   const [attInv, setAttInv] = useState<Inv | null>(null);
   const [attGuests, setAttGuests] = useState<Guest[]>([]);
+  const [attScans, setAttScans] = useState<{ guest_id: string; day_id: string | null; scan_type: string; scanned_at: string }[]>([]);
+  const [attDays, setAttDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null }[]>([]);
+  const [attDayFilter, setAttDayFilter] = useState("all");
+
+  // إدارة أيام الدعوة (مناسبة متعددة الأيام)
+  const [daysInv, setDaysInv] = useState<Inv | null>(null);
+  const [invDays, setInvDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null; notes: string | null }[]>([]);
+  const [invDaysSupported, setInvDaysSupported] = useState(true);
+
+  const openDays = async (inv: Inv) => {
+    setDaysInv(inv);
+    const { data, error } = await supabase
+      .from("invitation_days" as any)
+      .select("*")
+      .eq("invitation_id", inv.id)
+      .order("day_number");
+    if (error) { setInvDaysSupported(false); setInvDays([]); return; }
+    setInvDaysSupported(true);
+    setInvDays(((data as any) || []) as any);
+  };
+
+  const DAY_ORDINALS = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع"];
+
+  const addInvDay = async () => {
+    if (!daysInv) return;
+    const maxN = Math.max(0, ...invDays.map(d => d.day_number));
+    const base = invDays.length
+      ? new Date(invDays[invDays.length - 1].day_date)
+      : new Date(daysInv.event_date);
+    if (invDays.length) base.setDate(base.getDate() + 1);
+    const { error } = await supabase.from("invitation_days" as any).insert({
+      invitation_id: daysInv.id,
+      day_number: maxN + 1,
+      day_date: `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`,
+      title: `اليوم ${DAY_ORDINALS[maxN] || maxN + 1}`,
+    } as any);
+    if (error) {
+      setInvDaysSupported(false);
+      return toast.error("نفّذ ملف SQL الخاص بأيام الدعوات أولاً");
+    }
+    openDays(daysInv);
+  };
+
+  const updateInvDayLocal = (id: string, patch: any) =>
+    setInvDays(prev => prev.map(d => (d.id === id ? { ...d, ...patch } : d)));
+
+  const saveInvDay = async (d: any) => {
+    const { error } = await supabase
+      .from("invitation_days" as any)
+      .update({ title: d.title, day_date: d.day_date, notes: d.notes } as any)
+      .eq("id", d.id);
+    if (error) return toast.error(error.message);
+    toast.success("تم حفظ اليوم");
+  };
+
+  const removeInvDay = async (d: any) => {
+    if (!confirm(`حذف «${d.title || `اليوم ${d.day_number}`}»؟`)) return;
+    await supabase.from("invitation_days" as any).delete().eq("id", d.id);
+    if (daysInv) openDays(daysInv);
+  };
 
   // قائمة حضور الدعوة — الدخول والخروج من مسح الدعوات على البوابات
   const openAttendance = async (inv: Inv) => {
     setAttInv(inv);
-    const { data } = await supabase
-      .from("private_invitation_guests")
-      .select("*")
-      .eq("invitation_id", inv.id)
-      .order("checked_in_at", { ascending: true });
+    setAttDayFilter("all");
+    const [{ data }, scansRes, daysRes] = await Promise.all([
+      supabase
+        .from("private_invitation_guests")
+        .select("*")
+        .eq("invitation_id", inv.id)
+        .order("checked_in_at", { ascending: true }),
+      supabase
+        .from("invitation_guest_scans" as any)
+        .select("guest_id, day_id, scan_type, scanned_at")
+        .eq("invitation_id", inv.id)
+        .order("scanned_at"),
+      supabase
+        .from("invitation_days" as any)
+        .select("id, day_number, day_date, title")
+        .eq("invitation_id", inv.id)
+        .order("day_number"),
+    ]);
     setAttGuests(((data || []) as Guest[]).filter(g => g.rsvp_status !== "declined"));
+    setAttScans(scansRes.error ? [] : (((scansRes.data as any) || []) as any));
+    setAttDays(daysRes.error ? [] : (((daysRes.data as any) || []) as any));
+  };
+
+  // أوقات الضيف حسب اليوم المختار: أول دخول وآخر خروج ضمن النطاق
+  const guestTimes = (g: Guest): { entry: string | null; exit: string | null } => {
+    const scoped = attScans.filter(
+      sc => sc.guest_id === g.id && (attDayFilter === "all" || sc.day_id === attDayFilter)
+    );
+    let entry: string | null = null;
+    let exit: string | null = null;
+    scoped.forEach(sc => {
+      if (sc.scan_type === "entry" && !entry) entry = sc.scanned_at;
+      if (sc.scan_type === "exit") exit = sc.scanned_at;
+    });
+    if (attDayFilter === "all") {
+      entry = entry || g.checked_in_at;
+      exit = exit || g.checked_out_at || null;
+    }
+    return { entry, exit };
   };
   const [uploading, setUploading] = useState<"cover" | "background" | null>(null);
 
@@ -463,6 +556,9 @@ const PrivateInvitations = () => {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openAttendance(inv)}>
                       <ClipboardList className="w-3 h-3 ml-1" /> الحضور
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openDays(inv)}>
+                      <CalendarDays className="w-3 h-3 ml-1" /> الأيام
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(inv)}>
                       <Pencil className="w-3 h-3 ml-1" /> تعديل
@@ -936,6 +1032,57 @@ const PrivateInvitations = () => {
           </DialogContent>
         </Dialog>
 
+        {/* أيام الدعوة — مناسبة متعددة الأيام */}
+        <Dialog open={!!daysInv} onOpenChange={(v) => !v && setDaysInv(null)}>
+          <DialogContent dir="rtl" className="max-w-xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-primary" /> أيام المناسبة — {daysInv?.title}
+              </DialogTitle>
+            </DialogHeader>
+            {!invDaysSupported ? (
+              <p className="text-xs text-amber-700 bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
+                نفّذ ملف SQL الخاص بأيام الدعوات (invitation_days) لتفعيل هذه الميزة
+              </p>
+            ) : (
+              <>
+                <p className="text-[11px] text-muted-foreground -mt-2">
+                  للمناسبات الممتدة لعدة أيام — حضور كل يوم يُسجل مستقلاً وتشوفه في قائمة الحضور
+                </p>
+                {invDays.length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-6">لا أيام بعد — أضف اليوم الأول</p>
+                )}
+                <div className="space-y-2">
+                  {invDays.map(d => (
+                    <div key={d.id} className="border rounded-xl p-3 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="w-8 h-8 rounded-full bg-primary/10 text-primary font-extrabold flex items-center justify-center text-sm">{d.day_number}</span>
+                        <Input value={d.title || ""} onChange={e => updateInvDayLocal(d.id, { title: e.target.value })} className="h-8 w-36 font-bold text-sm" />
+                        <Input type="date" value={d.day_date} onChange={e => updateInvDayLocal(d.id, { day_date: e.target.value })} className="h-8 w-36 text-sm" />
+                        <Button size="sm" variant="outline" className="h-8 rounded-full text-xs" onClick={() => saveInvDay(d)}>
+                          <Save className="w-3 h-3" /> حفظ
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 rounded-full text-destructive" onClick={() => removeInvDay(d)}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      <Input
+                        value={d.notes || ""}
+                        onChange={e => updateInvDayLocal(d.id, { notes: e.target.value })}
+                        placeholder="التجهيزات اليومية (القاعة، الضيافة...)"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" className="rounded-full w-full" onClick={addInvDay}>
+                  <Plus className="w-4 h-4" /> إضافة يوم
+                </Button>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* قائمة حضور الدعوة */}
         <Dialog open={!!attInv} onOpenChange={(v) => !v && setAttInv(null)}>
           <DialogContent dir="rtl" className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -947,16 +1094,45 @@ const PrivateInvitations = () => {
             <p className="text-[11px] text-muted-foreground -mt-2">
               تُعبأ تلقائياً عند مسح دعوة الضيف على البوابات: الدخول من بوابات الدخول والخروج من بوابات الخروج
             </p>
+            {attDays.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                <span className="text-[11px] text-muted-foreground font-semibold">عرض حسب اليوم:</span>
+                <button
+                  type="button"
+                  onClick={() => setAttDayFilter("all")}
+                  className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${attDayFilter === "all" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                >
+                  كامل المناسبة
+                </button>
+                {attDays.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setAttDayFilter(d.id)}
+                    className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${attDayFilter === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+                  >
+                    {d.title || `اليوم ${d.day_number}`}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-1.5 flex-wrap mb-2">
-              <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
-                دخلوا: {attGuests.filter(g => g.checked_in_at).length}
-              </span>
-              <span className="text-[11px] font-semibold bg-primary/10 text-primary rounded-full px-2.5 py-1">
-                بالداخل الآن: {attGuests.filter(g => g.checked_in_at && !g.checked_out_at).length}
-              </span>
-              <span className="text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1">
-                غادروا: {attGuests.filter(g => g.checked_out_at).length}
-              </span>
+              {(() => {
+                const times = attGuests.map(g => guestTimes(g));
+                return (
+                  <>
+                    <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
+                      دخلوا: {times.filter(t => t.entry).length}
+                    </span>
+                    <span className="text-[11px] font-semibold bg-primary/10 text-primary rounded-full px-2.5 py-1">
+                      بالداخل الآن: {times.filter(t => t.entry && !t.exit).length}
+                    </span>
+                    <span className="text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1">
+                      غادروا: {times.filter(t => t.exit).length}
+                    </span>
+                  </>
+                );
+              })()}
             </div>
             {attGuests.length === 0 ? (
               <p className="text-center text-muted-foreground text-sm py-8">لا يوجد مدعوون بعد</p>
@@ -975,7 +1151,8 @@ const PrivateInvitations = () => {
                   <tbody className="divide-y divide-border/50">
                     {attGuests.map(g => {
                       const tierMeta = GUEST_TIERS[g.guest_tier || "regular"] || GUEST_TIERS.regular;
-                      const stay = computeStay(g.checked_in_at, g.checked_out_at || null);
+                      const { entry, exit } = guestTimes(g);
+                      const stay = computeStay(entry, exit);
                       return (
                         <tr key={g.id} className="hover:bg-muted/20">
                           <td className="p-2.5 font-bold">{g.guest_name}</td>
@@ -983,14 +1160,14 @@ const PrivateInvitations = () => {
                             <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 border ${tierMeta.cls}`}>{tierMeta.label}</span>
                           </td>
                           <td className="p-2.5 text-xs">
-                            {g.checked_in_at
-                              ? <span className="text-green-700 font-semibold">{new Date(g.checked_in_at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
+                            {entry
+                              ? <span className="text-green-700 font-semibold">{new Date(entry).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
                               : <span className="text-muted-foreground">لم يدخل بعد</span>}
                           </td>
                           <td className="p-2.5 text-xs">
-                            {g.checked_out_at
-                              ? <span className="text-amber-700 font-semibold">{new Date(g.checked_out_at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
-                              : g.checked_in_at
+                            {exit
+                              ? <span className="text-amber-700 font-semibold">{new Date(exit).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
+                              : entry
                               ? <span className="text-primary font-semibold">بالداخل</span>
                               : <span className="text-muted-foreground">—</span>}
                           </td>

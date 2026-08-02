@@ -58,6 +58,9 @@ const CheckIn = () => {
   // أيام الفعالية (للفعاليات متعددة الأيام) — المسح يُوسم باليوم المختار
   const [eventDays, setEventDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null }[]>([]);
   const [selectedDay, setSelectedDay] = useState<string>("");
+  // أيام الدعوة الخاصة — نفس الفكرة للمناسبات متعددة الأيام
+  const [invDays, setInvDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null }[]>([]);
+  const [selectedInvDay, setSelectedInvDay] = useState<string>("");
 
   // بوابات معيَّنة لهذا المستخدم؟ (التعيين من الإدارة فقط)
   useEffect(() => {
@@ -113,6 +116,24 @@ const CheckIn = () => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization, locked]);
+
+  // أيام الدعوة الخاصة — تُحمَّل بصمت وتُختار تلقائياً حسب تاريخ اليوم
+  useEffect(() => {
+    if (!selectedEvent.startsWith("inv:")) { setInvDays([]); setSelectedInvDay(""); return; }
+    supabase
+      .from("invitation_days" as any)
+      .select("id, day_number, day_date, title")
+      .eq("invitation_id", selectedEvent.slice(4))
+      .order("day_number")
+      .then(({ data, error }) => {
+        if (error) { setInvDays([]); setSelectedInvDay(""); return; }
+        const list = ((data as any) || []) as { id: string; day_number: number; day_date: string; title: string | null }[];
+        setInvDays(list);
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        setSelectedInvDay(list.find(d => d.day_date === todayStr)?.id || "");
+      });
+  }, [selectedEvent]);
 
   // أيام الفعالية — تُحمَّل بصمت وتُختار تلقائياً حسب تاريخ اليوم
   useEffect(() => {
@@ -239,6 +260,15 @@ const CheckIn = () => {
         return;
       }
       const nowIso = new Date().toISOString();
+      // سجل المسح اليومي للضيف (يتجاهل الخطأ إن لم يُنفذ ملف SQL بعد)
+      const logGuestScan = (type: "entry" | "exit") =>
+        supabase.from("invitation_guest_scans" as any).insert({
+          invitation_id: invId,
+          guest_id: (guest as any).id,
+          day_id: selectedInvDay || null,
+          scan_type: type,
+          scanned_by: user?.id || null,
+        } as any).then(() => {});
       if (scanMode === "exit") {
         const { error: outErr } = await supabase
           .from("private_invitation_guests")
@@ -248,14 +278,16 @@ const CheckIn = () => {
           setResult({ status: "error", message: "نفّذ ملف SQL الخاص بتتبع الحضور لتفعيل تسجيل الخروج" });
           return;
         }
+        await logGuestScan("exit");
         setResult({ status: "success", message: `${(guest as any).guest_name} — تم تسجيل الخروج` });
-      } else if ((guest as any).checked_in_at) {
+      } else if ((guest as any).checked_in_at && !selectedInvDay) {
         setResult({ status: "already", message: `${(guest as any).guest_name} مسجَّل دخوله مسبقاً` });
       } else {
         await supabase
           .from("private_invitation_guests")
-          .update({ checked_in_at: nowIso, rsvp_status: "confirmed" } as any)
+          .update({ checked_in_at: (guest as any).checked_in_at || nowIso, rsvp_status: "confirmed" } as any)
           .eq("id", (guest as any).id);
+        await logGuestScan("entry");
         setResult({ status: "success", message: `${(guest as any).guest_name} — تم تسجيل الدخول` });
       }
       refreshStats();
@@ -422,7 +454,7 @@ const CheckIn = () => {
       data: regData as any,
       message: isAlready ? "تم تسجيل حضور هذا الشخص مسبقاً" : "تم تسجيل الحضور بنجاح!",
     });
-  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats, selectedDay]);
+  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats, selectedDay, selectedInvDay]);
 
   const handleManualSubmit = (e: React.FormEvent) => { e.preventDefault(); lookupCode(manualCode); };
 
@@ -549,6 +581,26 @@ const CheckIn = () => {
               )}
             </div>
           </div>
+
+          {isInvMode && invDays.length > 0 && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> يوم المناسبة</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {invDays.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => { setSelectedInvDay(d.id); setResult(null); }}
+                    className={`text-[11px] font-bold rounded-full px-3 py-1.5 border transition ${
+                      selectedInvDay === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {d.title || `اليوم ${d.day_number}`} · {new Date(d.day_date).toLocaleDateString("ar-SA", { day: "numeric", month: "short" })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {!isInvMode && eventDays.length > 0 && (
             <div>
