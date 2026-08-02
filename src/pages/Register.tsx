@@ -20,6 +20,9 @@ const Register = () => {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
+    bankName: "",
+    iban: "",
+    accountHolder: "",
     phone: "",
     password: "",
     confirmPassword: "",
@@ -41,6 +44,25 @@ const Register = () => {
     if (formData.password.length < 6) {
       toast.error(t("pgAuth.common.passwordMinLength"));
       return;
+    }
+
+    // البريد الإلكتروني إلزامي وصحيح لجميع أنواع الحسابات
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      toast.error(t("pgAuth.register.emailInvalid"));
+      return;
+    }
+
+    // المنظم: البيانات المالية إلزامية منذ التسجيل — تُستخدم لاحقاً للتسويات تلقائياً
+    if (accountType === "organizer") {
+      if (!formData.bankName.trim() || !formData.iban.trim() || !formData.accountHolder.trim()) {
+        toast.error(t("pgAuth.register.bankRequired"));
+        return;
+      }
+      const iban = formData.iban.replace(/\s/g, "").toUpperCase();
+      if (!/^SA\d{22}$/.test(iban)) {
+        toast.error(t("pgAuth.register.ibanInvalid"));
+        return;
+      }
     }
 
     setLoading(true);
@@ -78,7 +100,10 @@ const Register = () => {
           await supabase.from("organizations").insert({
             name: formData.orgName,
             owner_id: data.user.id,
-          });
+            bank_name: formData.bankName.trim(),
+            iban: formData.iban.replace(/\s/g, "").toUpperCase(),
+            bank_account_holder: formData.accountHolder.trim(),
+          } as any);
         }
 
         if (data.session) {
@@ -213,6 +238,28 @@ const Register = () => {
                   <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pl-10" dir="ltr" />
                 </div>
               </div>
+
+              {/* البيانات المالية — إلزامية لحساب المنظم منذ التسجيل */}
+              {accountType === "organizer" && (
+                <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <div>
+                    <p className="font-bold text-sm">{t("pgAuth.register.bankSectionTitle")} *</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{t("pgAuth.register.bankSectionDesc")}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bankName">{t("pgAuth.register.bankName")}</Label>
+                    <Input id="bankName" name="bankName" placeholder={t("pgAuth.register.bankNamePlaceholder")} value={formData.bankName} onChange={handleChange} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="iban">{t("pgAuth.register.iban")}</Label>
+                    <Input id="iban" name="iban" placeholder="SA0000000000000000000000" value={formData.iban} onChange={handleChange} dir="ltr" className="font-mono" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="accountHolder">{t("pgAuth.register.accountHolder")}</Label>
+                    <Input id="accountHolder" name="accountHolder" value={formData.accountHolder} onChange={handleChange} required />
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password">{t("pgAuth.common.password")}</Label>

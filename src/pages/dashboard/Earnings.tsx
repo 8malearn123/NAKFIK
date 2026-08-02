@@ -3,8 +3,6 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
@@ -15,22 +13,27 @@ const OrganizerEarnings = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bankForm, setBankForm] = useState({ bank_name: "", iban: "", holder_name: "" });
+  // البيانات البنكية المسجلة مسبقاً في ملف المنظمة — تُسحب تلقائياً عند طلب التسوية
+  const [orgBank, setOrgBank] = useState<{ bank_name: string | null; iban: string | null; bank_account_holder: string | null } | null>(null);
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
-      const [{ data: tx }, { data: po }] = await Promise.all([
+      const [{ data: tx }, { data: po }, { data: org }] = await Promise.all([
         supabase.from("transactions").select("*").eq("account_id", user.id).order("created_at", { ascending: false }).limit(50),
         supabase.from("payouts").select("*").eq("account_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("organizations").select("bank_name, iban, bank_account_holder").eq("owner_id", user.id).maybeSingle(),
       ]);
       setTransactions(tx || []);
       setPayouts(po || []);
+      setOrgBank((org as any) || null);
       setLoading(false);
     };
     load();
   }, [user]);
+
+  const bankComplete = !!(orgBank?.bank_name && orgBank?.iban && orgBank?.bank_account_holder);
 
   const totalEarnings = transactions.filter(t => t.status === "completed" && t.transaction_type === "ticket_sale").reduce((s, t) => s + Number(t.net_amount || 0), 0);
   const pendingBalance = totalEarnings - payouts.filter(p => p.status === "completed").reduce((s, p) => s + Number(p.amount), 0);
@@ -38,8 +41,9 @@ const OrganizerEarnings = () => {
 
   const requestPayout = async () => {
     if (!user || pendingBalance <= 0) return;
-    if (!bankForm.bank_name || !bankForm.iban || !bankForm.holder_name) {
-      toast.error("يرجى ملء بيانات الحساب البنكي");
+    // البيانات البنكية تُسحب تلقائياً من ملف المنظمة المسجل منذ إنشاء الحساب
+    if (!bankComplete) {
+      toast.error("أكمل بياناتك البنكية في إعدادات المنظمة أولاً");
       return;
     }
     setRequesting(true);
@@ -47,14 +51,14 @@ const OrganizerEarnings = () => {
       account_id: user.id,
       account_type: "organizer",
       amount: pendingBalance,
-      bank_name: bankForm.bank_name,
-      iban: bankForm.iban,
-      account_holder_name: bankForm.holder_name,
+      bank_name: orgBank!.bank_name,
+      iban: orgBank!.iban,
+      account_holder_name: orgBank!.bank_account_holder,
       status: "pending" as any,
     } as any);
     setRequesting(false);
     if (error) { toast.error("خطأ في طلب التسوية"); return; }
-    toast.success("تم إرسال طلب التسوية بنجاح");
+    toast.success("تم إرسال طلب التسوية بنجاح — ستحوَّل إلى حسابك البنكي المسجل");
   };
 
   const txTypeLabel: Record<string, string> = {
@@ -152,24 +156,39 @@ const OrganizerEarnings = () => {
           <TabsContent value="request">
             <div className="bg-card rounded-2xl border border-border/50 p-6 max-w-md space-y-4">
               <h2 className="font-bold text-foreground">طلب تسوية جديدة</h2>
-              <p className="text-xs text-muted-foreground">الرصيد المتاح: <span className="font-bold text-primary">{pendingBalance.toLocaleString()} ر.س</span></p>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">اسم البنك</Label>
-                  <Input value={bankForm.bank_name} onChange={e => setBankForm({ ...bankForm, bank_name: e.target.value })} placeholder="مثال: الراجحي" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">IBAN</Label>
-                  <Input value={bankForm.iban} onChange={e => setBankForm({ ...bankForm, iban: e.target.value })} placeholder="SA..." dir="ltr" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">اسم صاحب الحساب</Label>
-                  <Input value={bankForm.holder_name} onChange={e => setBankForm({ ...bankForm, holder_name: e.target.value })} />
-                </div>
-                <Button className="w-full bg-primary hover:bg-primary/90" onClick={requestPayout} disabled={requesting || pendingBalance <= 0}>
-                  {requesting ? "جاري الإرسال..." : "طلب تسوية"}
-                </Button>
+              <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">الرصيد المتاح للتسوية</p>
+                <p className="text-3xl font-extrabold text-primary">{pendingBalance.toLocaleString()} <span className="text-sm font-normal">ر.س</span></p>
               </div>
+
+              {bankComplete ? (
+                <div className="rounded-xl border p-4 space-y-1.5 text-sm">
+                  <p className="text-xs font-bold text-muted-foreground mb-2">
+                    سيتم التحويل إلى حسابك البنكي المسجل في ملف المنظمة:
+                  </p>
+                  <p><span className="text-muted-foreground text-xs">البنك:</span> <span className="font-bold">{orgBank!.bank_name}</span></p>
+                  <p><span className="text-muted-foreground text-xs">IBAN:</span> <span className="font-mono text-xs" dir="ltr">{orgBank!.iban}</span></p>
+                  <p><span className="text-muted-foreground text-xs">صاحب الحساب:</span> <span className="font-bold">{orgBank!.bank_account_holder}</span></p>
+                  <p className="text-[11px] text-muted-foreground pt-1 border-t mt-2">
+                    لتعديل البيانات البنكية: <a href="/dashboard/settings" className="text-primary underline">إعدادات المنظمة</a>
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 p-4 text-xs leading-relaxed">
+                  ⚠️ لا توجد بيانات بنكية مسجلة في ملف منظمتك بعد.
+                  أضف اسم البنك والآيبان وصاحب الحساب من{" "}
+                  <a href="/dashboard/settings" className="font-bold underline">إعدادات المنظمة</a>{" "}
+                  ثم ارجع لطلب التسوية.
+                </div>
+              )}
+
+              <Button
+                className="w-full bg-primary hover:bg-primary/90"
+                onClick={requestPayout}
+                disabled={requesting || pendingBalance <= 0 || !bankComplete}
+              >
+                {requesting ? "جاري الإرسال..." : "طلب تسوية"}
+              </Button>
             </div>
           </TabsContent>
         </Tabs>
