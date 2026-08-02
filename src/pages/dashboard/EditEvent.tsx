@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowRight, Save, Eye, Trash2, AlertCircle, Upload, Loader2 } from "lucide-react";
+import { ArrowRight, Save, Eye, Trash2, AlertCircle, Upload, Loader2, Send as SendIcon, Lock } from "lucide-react";
+import { computeEventReadiness, READINESS_THRESHOLD } from "@/lib/eventHealth";
 
 const EditEvent = () => {
   const { eventId } = useParams();
@@ -31,6 +32,7 @@ const EditEvent = () => {
   const [currentStatus, setCurrentStatus] = useState<string>("draft");
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [ticketsCount, setTicketsCount] = useState(0);
 
   const toLocalInput = (iso: string | null) => {
     if (!iso) return "";
@@ -56,15 +58,35 @@ const EditEvent = () => {
       setMaxAttendees(data.max_attendees ? String(data.max_attendees) : "");
       setCurrentStatus(data.status);
       setCoverUrl(data.cover_image_url);
+      const { count } = await supabase
+        .from("tickets")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", eventId);
+      setTicketsCount(count || 0);
       setLoading(false);
     })();
   }, [eventId, navigate]);
 
-  const willRequireReview = eventType === "public" && currentStatus !== "draft";
+  // جاهزية الفعالية للمراجعة — محسوبة حيّاً من قيم النموذج الحالية
+  const readiness = computeEventReadiness({
+    title: titleAr,
+    description: descriptionAr,
+    coverImage: coverFile ? "pending" : coverUrl,
+    hasLocation: isOnline || !!venueName.trim(),
+    startDate: startDate || null,
+    ticketsCount,
+  });
 
-  const handleSave = async () => {
+  // "save" = حفظ فقط (تبقى مسودة قابلة للتعديل) — "submit" = حفظ وإرسال للمراجعة
+  const handleSave = async (mode: "save" | "submit") => {
     if (!titleAr.trim() || !startDate) { toast.error("العنوان وتاريخ البداية إلزامية"); return; }
     if (!eventId || !organization) return;
+    if (mode === "submit" && !readiness.ready) {
+      toast.error(
+        `لا يمكن الإرسال — اكتمال البيانات ${readiness.score}% (المطلوب ${READINESS_THRESHOLD}%).\nالناقص: ${readiness.missing.map(m => m.missingLabel).join("، ")}`
+      );
+      return;
+    }
     setSaving(true);
     try {
       let newCoverUrl = coverUrl;
@@ -77,7 +99,10 @@ const EditEvent = () => {
         }
       }
 
-      const newStatus = willRequireReview ? "pending_review" : currentStatus;
+      // الحفظ فقط: الفعالية العامة ترجع/تبقى مسودة حتى يرسلها المنظم بنفسه
+      const newStatus =
+        eventType !== "public" ? currentStatus :
+        mode === "submit" ? "pending_review" : "draft";
 
       const { error } = await supabase.from("events").update({
         title_ar: titleAr,
@@ -96,12 +121,19 @@ const EditEvent = () => {
       } as any).eq("id", eventId);
 
       if (error) throw error;
-      if (willRequireReview) {
+      if (mode === "submit") {
         toast.success("تم حفظ التعديلات وإرسال الفعالية لمراجعة إدارة نكفيك تيكت");
+        navigate("/dashboard/events");
       } else {
-        toast.success("تم حفظ التعديلات بنجاح");
+        setCurrentStatus(newStatus);
+        setCoverUrl(newCoverUrl);
+        setCoverFile(null);
+        toast.success(
+          eventType === "public"
+            ? "تم الحفظ كمسودة — أرسلها للمراجعة متى ما جهزت"
+            : "تم حفظ التعديلات بنجاح"
+        );
       }
-      navigate("/dashboard/events");
     } catch (e: any) {
       toast.error("فشل الحفظ: " + (e?.message || ""));
     } finally {
@@ -142,14 +174,14 @@ const EditEvent = () => {
           </div>
         </div>
 
-        {willRequireReview && (
+        {eventType === "public" && currentStatus !== "draft" && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-semibold text-amber-800 dark:text-amber-200">سيتم إعادة المراجعة</p>
+              <p className="font-semibold text-amber-800 dark:text-amber-200">تنبيه: حفظ التعديلات يعيدها مسودة</p>
               <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-0.5">
-                أي تعديل على فعالية عامة سيُعيدها إلى حالة "قيد المراجعة" من قبل إدارة نكفيك تيكت قبل النشر مجدداً.
+                حفظ تعديلات على فعالية عامة منشورة يعيدها "مسودة" غير معروضة للجمهور حتى ترسلها للمراجعة وتُعتمد مجدداً.
               </p>
             </div>
           </motion.div>
@@ -257,14 +289,34 @@ const EditEvent = () => {
           </div>
         </div>
 
-        <div className="sticky bottom-4 bg-card border border-border/50 rounded-2xl p-4 flex items-center justify-between gap-2 shadow-lg">
-          <p className="text-xs text-muted-foreground">
-            {willRequireReview ? "ستُرسل الفعالية لمراجعة إدارة نكفيك تيكت بعد الحفظ." : "ستُحفظ التعديلات مباشرة."}
+        <div className="sticky bottom-4 bg-card border border-border/50 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-lg flex-wrap">
+          <p className="text-xs text-muted-foreground flex-1 min-w-[180px]">
+            {eventType === "public"
+              ? `"حفظ" يبقيها مسودة تعدّلها متى شئت — و"إرسال للمراجعة" يقدمها لإدارة نكفيك تيكت (اكتمال البيانات: ${readiness.score}%)`
+              : "ستُحفظ التعديلات مباشرة."}
           </p>
-          <Button onClick={handleSave} disabled={saving} className="rounded-full gap-2">
-            <Save className="w-4 h-4" />
-            {saving ? "جاري الحفظ..." : willRequireReview ? "حفظ وإرسال للمراجعة" : "حفظ التعديلات"}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={() => handleSave("save")}
+              disabled={saving}
+              variant={eventType === "public" ? "outline" : "default"}
+              className="rounded-full gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+            </Button>
+            {eventType === "public" && (
+              <Button
+                onClick={() => handleSave("submit")}
+                disabled={saving || !readiness.ready}
+                className="rounded-full gap-2 disabled:opacity-60"
+                title={readiness.ready ? undefined : `أكمل البيانات أولاً — الاكتمال ${readiness.score}% والمطلوب ${READINESS_THRESHOLD}%: ${readiness.missing.map(m => m.missingLabel).join("، ")}`}
+              >
+                {readiness.ready ? <SendIcon className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                حفظ وإرسال للمراجعة
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </DashboardLayout>
