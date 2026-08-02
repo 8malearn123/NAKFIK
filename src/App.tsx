@@ -26,6 +26,7 @@ import Notifications from "./pages/dashboard/Notifications";
 import EventGuests from "./pages/dashboard/EventGuests";
 import EventCheckpoints from "./pages/dashboard/EventCheckpoints";
 import EventAttendance from "./pages/dashboard/EventAttendance";
+import EventDays from "./pages/dashboard/EventDays";
 import Team from "./pages/dashboard/Team";
 
 import EditEvent from "./pages/dashboard/EditEvent";
@@ -140,6 +141,7 @@ const App = () => (
                 <Route path="/dashboard/events/:eventId/guests" element={<ProtectedRoute requiredAccountType="organizer"><EventGuests /></ProtectedRoute>} />
                 <Route path="/dashboard/events/:eventId/checkpoints" element={<ProtectedRoute requiredAccountType="organizer"><EventCheckpoints /></ProtectedRoute>} />
                 <Route path="/dashboard/events/:eventId/attendance" element={<ProtectedRoute requiredAccountType="organizer"><EventAttendance /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/days" element={<ProtectedRoute requiredAccountType="organizer"><EventDays /></ProtectedRoute>} />
                 <Route path="/dashboard/events/:eventId/heatmap" element={<ProtectedRoute requiredAccountType="organizer"><EventHeatmap /></ProtectedRoute>} />
                 <Route path="/dashboard/events/:eventId/featured-cards" element={<ProtectedRoute requiredAccountType="organizer"><EventFeaturedCards /></ProtectedRoute>} />
                 <Route path="/dashboard/earnings" element={<ProtectedRoute requiredAccountType="organizer"><OrganizerEarnings /></ProtectedRoute>} />

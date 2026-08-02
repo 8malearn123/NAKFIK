@@ -23,10 +23,16 @@ interface Row {
 const fmtTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" }) : null;
 
+interface ScanRow { registration_id: string | null; scan_type: string; scanned_at: string; event_day_id?: string | null; }
+interface BaseRow { regId: string; name: string; tier: ReturnType<typeof classifyAttendee>; ticketName: string; fallbackEntry: string | null; }
+
 const EventAttendance = () => {
   const { eventId } = useParams();
   const [eventTitle, setEventTitle] = useState("");
-  const [rows, setRows] = useState<Row[]>([]);
+  const [base, setBase] = useState<BaseRow[]>([]);
+  const [scans, setScans] = useState<ScanRow[]>([]);
+  const [eventDays, setEventDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null }[]>([]);
+  const [dayFilter, setDayFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -35,7 +41,7 @@ const EventAttendance = () => {
   useEffect(() => {
     if (!eventId) return;
     const load = async () => {
-      const [{ data: evt }, { data: regs }, { data: scans }] = await Promise.all([
+      const [{ data: evt }, { data: regs }, scansRes, daysRes] = await Promise.all([
         supabase.from("events").select("title_ar").eq("id", eventId).single(),
         supabase
           .from("registrations")
@@ -43,10 +49,19 @@ const EventAttendance = () => {
           .eq("event_id", eventId),
         supabase
           .from("scan_events")
-          .select("registration_id, scan_type, scanned_at")
+          .select("registration_id, scan_type, scanned_at, event_day_id")
           .eq("event_id", eventId)
           .order("scanned_at"),
+        supabase.from("event_days" as any).select("id, day_number, day_date, title").eq("event_id", eventId).order("day_number"),
       ]);
+      // توافقية: قبل ملف SQL الخاص بالأيام لا يوجد عمود event_day_id
+      let scansData = (scansRes.data as any) || [];
+      if (scansRes.error) {
+        const fb = await supabase.from("scan_events").select("registration_id, scan_type, scanned_at").eq("event_id", eventId).order("scanned_at");
+        scansData = (fb.data as any) || [];
+      }
+      setScans(scansData as ScanRow[]);
+      setEventDays(daysRes.error ? [] : (((daysRes.data as any) || []) as any));
       setEventTitle((evt as any)?.title_ar || "");
 
       const regList = ((regs as any) || []).map((r: any) => ({
@@ -62,29 +77,39 @@ const EventAttendance = () => {
         (profs || []).forEach((p: any) => { names[p.id] = p.full_name || "—"; });
       }
 
-      // أول دخول وآخر خروج لكل تسجيل من سجل المسح
-      const firstEntry: Record<string, string> = {};
-      const lastExit: Record<string, string> = {};
-      ((scans as any) || []).forEach((sc: any) => {
-        if (!sc.registration_id) return;
-        if (sc.scan_type === "entry" && !firstEntry[sc.registration_id]) firstEntry[sc.registration_id] = sc.scanned_at;
-        if (sc.scan_type === "exit") lastExit[sc.registration_id] = sc.scanned_at;
-      });
-
-      setRows(
+      setBase(
         regList.map((r: any) => ({
           regId: r.id,
           name: names[r.attendee_id] || "—",
           tier: classifyAttendee(r.ticket?.name_ar, r.ticket?.name_en, r.ticket?.type),
           ticketName: r.ticket?.name_ar || "تذكرة",
-          entry: firstEntry[r.id] || r.checked_in_at || null,
-          exit: lastExit[r.id] || null,
+          fallbackEntry: r.checked_in_at || null,
         }))
       );
       setLoading(false);
     };
     load();
   }, [eventId]);
+
+  // بناء الصفوف حسب اليوم المختار — أول دخول وآخر خروج ضمن نطاق الفلتر
+  const rows = useMemo<Row[]>(() => {
+    const scoped = dayFilter === "all" ? scans : scans.filter(sc => sc.event_day_id === dayFilter);
+    const firstEntry: Record<string, string> = {};
+    const lastExit: Record<string, string> = {};
+    scoped.forEach(sc => {
+      if (!sc.registration_id) return;
+      if (sc.scan_type === "entry" && !firstEntry[sc.registration_id]) firstEntry[sc.registration_id] = sc.scanned_at;
+      if (sc.scan_type === "exit") lastExit[sc.registration_id] = sc.scanned_at;
+    });
+    return base.map(b => ({
+      regId: b.regId,
+      name: b.name,
+      tier: b.tier,
+      ticketName: b.ticketName,
+      entry: firstEntry[b.regId] || (dayFilter === "all" ? b.fallbackEntry : null),
+      exit: lastExit[b.regId] || null,
+    }));
+  }, [base, scans, dayFilter]);
 
   const filtered = useMemo(
     () => rows.filter(r => !search || r.name.includes(search) || r.ticketName.includes(search)),
@@ -147,6 +172,29 @@ const EventAttendance = () => {
             </div>
           ))}
         </div>
+
+        {eventDays.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] text-muted-foreground font-semibold">عرض حسب اليوم:</span>
+            <button
+              type="button"
+              onClick={() => setDayFilter("all")}
+              className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${dayFilter === "all" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+            >
+              كامل الفعالية
+            </button>
+            {eventDays.map(d => (
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => setDayFilter(d.id)}
+                className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${dayFilter === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
+              >
+                {d.title || `اليوم ${d.day_number}`}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="relative max-w-sm">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

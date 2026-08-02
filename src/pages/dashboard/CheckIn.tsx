@@ -55,6 +55,9 @@ const CheckIn = () => {
   const [invitations, setInvitations] = useState<EventOption[]>([]);
   const [scanMode, setScanMode] = useState<"entry" | "exit">("entry");
   const isInvMode = selectedEvent.startsWith("inv:");
+  // أيام الفعالية (للفعاليات متعددة الأيام) — المسح يُوسم باليوم المختار
+  const [eventDays, setEventDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null }[]>([]);
+  const [selectedDay, setSelectedDay] = useState<string>("");
 
   // بوابات معيَّنة لهذا المستخدم؟ (التعيين من الإدارة فقط)
   useEffect(() => {
@@ -111,6 +114,25 @@ const CheckIn = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization, locked]);
 
+  // أيام الفعالية — تُحمَّل بصمت وتُختار تلقائياً حسب تاريخ اليوم
+  useEffect(() => {
+    if (!selectedEvent || selectedEvent.startsWith("inv:")) { setEventDays([]); setSelectedDay(""); return; }
+    supabase
+      .from("event_days" as any)
+      .select("id, day_number, day_date, title")
+      .eq("event_id", selectedEvent)
+      .order("day_number")
+      .then(({ data, error }) => {
+        if (error) { setEventDays([]); setSelectedDay(""); return; }
+        const list = ((data as any) || []) as { id: string; day_number: number; day_date: string; title: string | null }[];
+        setEventDays(list);
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        const match = list.find(d => d.day_date === todayStr);
+        setSelectedDay(match?.id || "");
+      });
+  }, [selectedEvent]);
+
   // Load checkpoints for selected event
   useEffect(() => {
     if (!selectedEvent || selectedEvent.startsWith("inv:")) { setCheckpoints([]); return; }
@@ -124,8 +146,16 @@ const CheckIn = () => {
       }
       return;
     }
-    supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(({ data }) => {
-      const list = (data as any) || [];
+    supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type, event_day_id").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(async (res) => {
+      let list = (res.data as any) || [];
+      // توافقية: قبل تنفيذ ملف SQL الخاص بالأيام لا يوجد عمود event_day_id
+      if (res.error) {
+        const fb = await supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type").eq("event_id", selectedEvent).eq("is_active", true).order("display_order");
+        list = (fb.data as any) || [];
+      } else if (selectedDay) {
+        // بوابات اليوم المختار + البوابات العامة (غير المسندة ليوم)
+        list = list.filter((c: any) => !c.event_day_id || c.event_day_id === selectedDay);
+      }
       setCheckpoints(list);
       if (selectedCheckpoint && !list.find((c: any) => c.id === selectedCheckpoint)) {
         setSelectedCheckpoint("");
@@ -133,7 +163,7 @@ const CheckIn = () => {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEvent, locked, assignedGates]);
+  }, [selectedEvent, locked, assignedGates, selectedDay]);
 
   // Load stats + gate pressure
   const refreshStats = useCallback(async () => {
@@ -360,7 +390,7 @@ const CheckIn = () => {
     }
 
     // Always log a scan_event so heatmap stays accurate (even on re-scans)
-    await supabase.from("scan_events").insert({
+    const scanRow: any = {
       event_id: reg.event_id,
       registration_id: reg.id,
       attendee_id: reg.attendee_id,
@@ -368,7 +398,13 @@ const CheckIn = () => {
       scanned_by: user?.id || null,
       // بوابة من نوع "خروج" تسجل مسحة خروج — وغيرها دخول
       scan_type: checkpoints.find(c => c.id === selectedCheckpoint)?.checkpoint_type === "exit" ? "exit" : "entry",
-    } as any);
+      event_day_id: selectedDay || null,
+    };
+    let { error: scanErr } = await supabase.from("scan_events").insert(scanRow);
+    if (scanErr?.message?.includes("event_day_id")) {
+      const { event_day_id: _omit, ...rest } = scanRow;
+      await supabase.from("scan_events").insert(rest);
+    }
 
     if (!isAlready) {
       setStats(s => ({ ...s, checkedIn: s.checkedIn + 1 }));
@@ -380,7 +416,7 @@ const CheckIn = () => {
       data: regData as any,
       message: isAlready ? "تم تسجيل حضور هذا الشخص مسبقاً" : "تم تسجيل الحضور بنجاح!",
     });
-  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats]);
+  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats, selectedDay]);
 
   const handleManualSubmit = (e: React.FormEvent) => { e.preventDefault(); lookupCode(manualCode); };
 
@@ -507,6 +543,26 @@ const CheckIn = () => {
               )}
             </div>
           </div>
+
+          {!isInvMode && eventDays.length > 0 && (
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> يوم الفعالية</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {eventDays.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => { setSelectedDay(d.id); setResult(null); }}
+                    className={`text-[11px] font-bold rounded-full px-3 py-1.5 border transition ${
+                      selectedDay === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {d.title || `اليوم ${d.day_number}`} · {new Date(d.day_date).toLocaleDateString("ar-SA", { day: "numeric", month: "short" })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {selectedEvent && !isInvMode && checkpoints.length === 0 && (
             <p className="text-xs text-muted-foreground">
