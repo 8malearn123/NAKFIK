@@ -22,7 +22,8 @@ interface Day {
   notes: string | null;
 }
 
-interface Gate { id: string; name_ar: string; checkpoint_type: string; event_day_id: string | null; }
+interface Gate { id: string; name_ar: string; checkpoint_type: string; }
+interface GateLink { id: string; checkpoint_id: string; event_day_id: string; }
 interface StaffRow { id: string; event_day_id: string; user_id: string; role: string; }
 interface Candidate { id: string; name: string; }
 
@@ -40,6 +41,8 @@ const EventDays = () => {
   const [event, setEvent] = useState<{ title_ar: string; start_date: string; end_date: string | null } | null>(null);
   const [days, setDays] = useState<Day[]>([]);
   const [gates, setGates] = useState<Gate[]>([]);
+  const [gateLinks, setGateLinks] = useState<GateLink[]>([]);
+  const [linksSupported, setLinksSupported] = useState(true);
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +56,7 @@ const EventDays = () => {
     const [{ data: evt }, daysRes, { data: cps }] = await Promise.all([
       supabase.from("events").select("title_ar, start_date, end_date").eq("id", eventId).single(),
       supabase.from("event_days" as any).select("*").eq("event_id", eventId).order("day_number"),
-      supabase.from("checkpoints").select("id, name_ar, checkpoint_type, event_day_id").eq("event_id", eventId).order("display_order"),
+      supabase.from("checkpoints").select("id, name_ar, checkpoint_type").eq("event_id", eventId).order("display_order"),
     ]);
     setEvent(evt as any);
     if (daysRes.error) {
@@ -63,7 +66,20 @@ const EventDays = () => {
     }
     const dayList = (daysRes.data as any as Day[]) || [];
     setDays(dayList);
-    setGates(((cps as any) || []) as Gate[]);
+    const gateList = ((cps as any) || []) as Gate[];
+    setGates(gateList);
+
+    // روابط البوابات بالأيام (متعدد-لمتعدد): البوابة تخدم أي عدد من الأيام
+    if (gateList.length) {
+      const linksRes = await supabase
+        .from("checkpoint_days" as any)
+        .select("id, checkpoint_id, event_day_id")
+        .in("checkpoint_id", gateList.map(g => g.id));
+      if (linksRes.error) { setLinksSupported(false); setGateLinks([]); }
+      else { setLinksSupported(true); setGateLinks(((linksRes.data as any) || []) as GateLink[]); }
+    } else {
+      setGateLinks([]);
+    }
 
     if (dayList.length) {
       const { data: st } = await supabase
@@ -173,10 +189,23 @@ const EventDays = () => {
     load();
   };
 
-  const setGateDay = async (gateId: string, dayId: string | null) => {
-    const { error } = await supabase.from("checkpoints").update({ event_day_id: dayId } as any).eq("id", gateId);
+  const linkGate = async (gateId: string, dayId: string) => {
+    const { data, error } = await supabase
+      .from("checkpoint_days" as any)
+      .insert({ checkpoint_id: gateId, event_day_id: dayId } as any)
+      .select()
+      .single();
+    if (error) {
+      if (error.message.includes("checkpoint_days")) setLinksSupported(false);
+      return toast.error(error.message.includes("duplicate") ? "البوابة مسندة لهذا اليوم مسبقاً" : "نفّذ ملف SQL الخاص بتوزيع البوابات على الأيام أولاً");
+    }
+    setGateLinks(prev => [...prev, data as any]);
+  };
+
+  const unlinkGate = async (linkId: string) => {
+    const { error } = await supabase.from("checkpoint_days" as any).delete().eq("id", linkId);
     if (error) return toast.error(error.message);
-    setGates(prev => prev.map(g => (g.id === gateId ? { ...g, event_day_id: dayId } : g)));
+    setGateLinks(prev => prev.filter(l => l.id !== linkId));
   };
 
   if (loading) {
@@ -222,8 +251,12 @@ const EventDays = () => {
         ) : (
           <div className="space-y-4">
             {days.map(d => {
-              const dayGates = gates.filter(g => g.event_day_id === d.id);
-              const freeGates = gates.filter(g => !g.event_day_id);
+              // روابط هذا اليوم — وأي بوابة غير مسندة له متاحة للإسناد (حتى لو تخدم أياماً أخرى)
+              const dayLinks = gateLinks.filter(l => l.event_day_id === d.id);
+              const dayGates = dayLinks
+                .map(l => ({ link: l, gate: gates.find(g => g.id === l.checkpoint_id) }))
+                .filter(x => x.gate) as { link: GateLink; gate: Gate }[];
+              const addableGates = gates.filter(g => !dayLinks.some(l => l.checkpoint_id === g.id));
               const dayStaff = staff.filter(s => s.event_day_id === d.id);
               return (
                 <div key={d.id} className="bg-card border rounded-2xl p-5 space-y-4">
@@ -274,23 +307,28 @@ const EventDays = () => {
                     {/* بوابات اليوم */}
                     <div className="border rounded-xl p-3">
                       <p className="text-xs font-bold mb-2 flex items-center gap-1"><DoorOpen className="w-3.5 h-3.5 text-primary" /> بوابات اليوم</p>
+                      {!linksSupported && (
+                        <p className="text-[11px] text-amber-700 bg-amber-500/10 rounded-lg px-2 py-1 mb-2">
+                          نفّذ ملف SQL الخاص بتوزيع البوابات على الأيام لتفعيل هذا القسم
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-1.5 mb-2">
-                        {dayGates.length === 0 && <span className="text-[11px] text-muted-foreground">لا بوابات لهذا اليوم — البوابات غير المخصصة تعمل في كل الأيام</span>}
-                        {dayGates.map(g => (
-                          <span key={g.id} className="inline-flex items-center gap-1 text-[11px] font-bold bg-teal/10 text-teal-700 rounded-full px-2.5 py-1">
-                            {g.name_ar} · {g.checkpoint_type === "exit" ? "خروج" : "دخول"}
-                            <button type="button" onClick={() => setGateDay(g.id, null)} className="hover:text-destructive"><X className="w-3 h-3" /></button>
+                        {dayGates.length === 0 && <span className="text-[11px] text-muted-foreground">لا بوابات مسندة — البوابات غير المسندة لأي يوم تعمل في كل الأيام</span>}
+                        {dayGates.map(({ link, gate }) => (
+                          <span key={link.id} className="inline-flex items-center gap-1 text-[11px] font-bold bg-teal/10 text-teal-700 rounded-full px-2.5 py-1">
+                            {gate.name_ar} · {gate.checkpoint_type === "exit" ? "خروج" : "دخول"}
+                            <button type="button" onClick={() => unlinkGate(link.id)} className="hover:text-destructive" title="إزالة من هذا اليوم فقط"><X className="w-3 h-3" /></button>
                           </span>
                         ))}
                       </div>
-                      {freeGates.length > 0 && (
+                      {linksSupported && addableGates.length > 0 && (
                         <select
                           defaultValue=""
-                          onChange={e => { if (e.target.value) { setGateDay(e.target.value, d.id); e.target.value = ""; } }}
+                          onChange={e => { if (e.target.value) { linkGate(e.target.value, d.id); e.target.value = ""; } }}
                           className="h-8 rounded-lg border border-border bg-background px-2 text-xs"
                         >
                           <option value="">+ إسناد بوابة لهذا اليوم</option>
-                          {freeGates.map(g => <option key={g.id} value={g.id}>{g.name_ar}</option>)}
+                          {addableGates.map(g => <option key={g.id} value={g.id}>{g.name_ar} ({g.checkpoint_type === "exit" ? "خروج" : "دخول"})</option>)}
                         </select>
                       )}
                     </div>
@@ -311,7 +349,7 @@ const EventDays = () => {
               );
             })}
             <p className="text-[11px] text-muted-foreground">
-              البوابات غير المسندة لأي يوم تظهر في كل الأيام. عمليات المسح تُسجل على اليوم المختار في شاشة تسجيل الحضور.
+              البوابة الواحدة يمكن إسنادها لعدة أيام معاً، والبوابات غير المسندة لأي يوم تعمل في كل الأيام. عمليات المسح تُسجل على اليوم المختار في شاشة تسجيل الحضور.
             </p>
           </div>
         )}

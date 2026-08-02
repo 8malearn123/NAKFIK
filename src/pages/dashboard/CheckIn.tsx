@@ -146,15 +146,21 @@ const CheckIn = () => {
       }
       return;
     }
-    supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type, event_day_id").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(async (res) => {
+    supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(async (res) => {
       let list = (res.data as any) || [];
-      // توافقية: قبل تنفيذ ملف SQL الخاص بالأيام لا يوجد عمود event_day_id
-      if (res.error) {
-        const fb = await supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type").eq("event_id", selectedEvent).eq("is_active", true).order("display_order");
-        list = (fb.data as any) || [];
-      } else if (selectedDay) {
-        // بوابات اليوم المختار + البوابات العامة (غير المسندة ليوم)
-        list = list.filter((c: any) => !c.event_day_id || c.event_day_id === selectedDay);
+      // بوابات اليوم: البوابة المرتبطة بأيام تظهر في أيامها فقط،
+      // والبوابة بلا أي ربط عامة تعمل في كل الأيام — ولا تختفي لمجرد استخدامها في يوم آخر
+      if (selectedDay && list.length) {
+        const linksRes = await supabase
+          .from("checkpoint_days" as any)
+          .select("checkpoint_id, event_day_id")
+          .in("checkpoint_id", list.map((c: any) => c.id));
+        if (!linksRes.error) {
+          const links = ((linksRes.data as any) || []) as { checkpoint_id: string; event_day_id: string }[];
+          const linkedIds = new Set(links.map(l => l.checkpoint_id));
+          const todayIds = new Set(links.filter(l => l.event_day_id === selectedDay).map(l => l.checkpoint_id));
+          list = list.filter((c: any) => !linkedIds.has(c.id) || todayIds.has(c.id));
+        }
       }
       setCheckpoints(list);
       if (selectedCheckpoint && !list.find((c: any) => c.id === selectedCheckpoint)) {
