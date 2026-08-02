@@ -17,11 +17,12 @@ import {
   Mail, Plus, Pencil, Trash2, Users, ExternalLink, Copy, QrCode, Palette,
   Calendar, MapPin, Shirt, Phone, Gift, Send, CheckCircle2, X,
   Heart, Flower2, GraduationCap, Cake, Landmark, Mic2, Scissors, Crown, Briefcase, Sparkles,
-  Upload, Image as ImageIcon, Loader2, Database, Bell,
+  Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
 import { EXTRA_KEYS } from "@/components/design/templates";
+import { computeStay, formatDuration } from "@/lib/attendance";
 import CustomTemplateDesigner, { DEFAULT_OVERLAY, type NameOverlay } from "@/components/design/CustomTemplateDesigner";
 
 interface Inv {
@@ -76,6 +77,7 @@ interface Guest {
   companions_count: number;
   confirmed_at: string | null;
   checked_in_at: string | null;
+  checked_out_at?: string | null;
   guest_tier?: string | null;
 }
 
@@ -136,6 +138,19 @@ const PrivateInvitations = () => {
   const [newGuest, setNewGuest] = useState({ guest_name: "", guest_phone: "", guest_email: "", guest_tier: "regular" });
 
   const [qrGuest, setQrGuest] = useState<Guest | null>(null);
+  const [attInv, setAttInv] = useState<Inv | null>(null);
+  const [attGuests, setAttGuests] = useState<Guest[]>([]);
+
+  // قائمة حضور الدعوة — الدخول والخروج من مسح الدعوات على البوابات
+  const openAttendance = async (inv: Inv) => {
+    setAttInv(inv);
+    const { data } = await supabase
+      .from("private_invitation_guests")
+      .select("*")
+      .eq("invitation_id", inv.id)
+      .order("checked_in_at", { ascending: true });
+    setAttGuests(((data || []) as Guest[]).filter(g => g.rsvp_status !== "declined"));
+  };
   const [uploading, setUploading] = useState<"cover" | "background" | null>(null);
 
   const [lists, setLists] = useState<{ id: string; name: string; count: number }[]>([]);
@@ -445,6 +460,9 @@ const PrivateInvitations = () => {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setReminderInv(inv)}>
                       <Bell className="w-3 h-3 ml-1" /> التذكيرات
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => openAttendance(inv)}>
+                      <ClipboardList className="w-3 h-3 ml-1" /> الحضور
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(inv)}>
                       <Pencil className="w-3 h-3 ml-1" /> تعديل
@@ -915,6 +933,75 @@ const PrivateInvitations = () => {
                 </div>
               ))}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* قائمة حضور الدعوة */}
+        <Dialog open={!!attInv} onOpenChange={(v) => !v && setAttInv(null)}>
+          <DialogContent dir="rtl" className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ClipboardList className="w-5 h-5 text-primary" /> قائمة الحضور — {attInv?.title}
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-[11px] text-muted-foreground -mt-2">
+              تُعبأ تلقائياً عند مسح دعوة الضيف على البوابات: الدخول من بوابات الدخول والخروج من بوابات الخروج
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap mb-2">
+              <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
+                دخلوا: {attGuests.filter(g => g.checked_in_at).length}
+              </span>
+              <span className="text-[11px] font-semibold bg-primary/10 text-primary rounded-full px-2.5 py-1">
+                بالداخل الآن: {attGuests.filter(g => g.checked_in_at && !g.checked_out_at).length}
+              </span>
+              <span className="text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1">
+                غادروا: {attGuests.filter(g => g.checked_out_at).length}
+              </span>
+            </div>
+            {attGuests.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-8">لا يوجد مدعوون بعد</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs">
+                    <tr>
+                      <th className="text-right p-2.5">المدعو</th>
+                      <th className="text-right p-2.5">التصنيف</th>
+                      <th className="text-right p-2.5">وقت الدخول</th>
+                      <th className="text-right p-2.5">وقت الخروج</th>
+                      <th className="text-right p-2.5">مدة البقاء</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50">
+                    {attGuests.map(g => {
+                      const tierMeta = GUEST_TIERS[g.guest_tier || "regular"] || GUEST_TIERS.regular;
+                      const stay = computeStay(g.checked_in_at, g.checked_out_at || null);
+                      return (
+                        <tr key={g.id} className="hover:bg-muted/20">
+                          <td className="p-2.5 font-bold">{g.guest_name}</td>
+                          <td className="p-2.5">
+                            <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 border ${tierMeta.cls}`}>{tierMeta.label}</span>
+                          </td>
+                          <td className="p-2.5 text-xs">
+                            {g.checked_in_at
+                              ? <span className="text-green-700 font-semibold">{new Date(g.checked_in_at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
+                              : <span className="text-muted-foreground">لم يدخل بعد</span>}
+                          </td>
+                          <td className="p-2.5 text-xs">
+                            {g.checked_out_at
+                              ? <span className="text-amber-700 font-semibold">{new Date(g.checked_out_at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
+                              : g.checked_in_at
+                              ? <span className="text-primary font-semibold">بالداخل</span>
+                              : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="p-2.5 text-xs font-bold">{stay ? formatDuration(stay) : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

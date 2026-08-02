@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock, AlertTriangle,
+  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock, AlertTriangle, ClipboardList,
 } from "lucide-react";
 import { computeEventReadiness, READINESS_THRESHOLD, type EventReadiness } from "@/lib/eventHealth";
 
@@ -335,6 +335,11 @@ const MyEvents = () => {
                         </Link>
                       </Button>
                     )}
+                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
+                      <Link to={`/dashboard/events/${event.id}/attendance`} title="قائمة الحضور — الدخول والخروج ومدة البقاء">
+                        <ClipboardList className="w-3.5 h-3.5" /> الحضور
+                      </Link>
+                    </Button>
                     <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
                       <Link to={`/dashboard/events/${event.id}/checkpoints`}>
                         <DoorOpen className="w-3.5 h-3.5" /> البوابات

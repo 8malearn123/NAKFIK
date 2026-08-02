@@ -24,7 +24,7 @@ interface RegistrationData {
 type ScanResult = { status: "success" | "error" | "already"; data?: RegistrationData; message: string };
 
 interface EventOption { id: string; title_ar: string; }
-interface CheckpointOption { id: string; name_ar: string; capacity: number; color: string; }
+interface CheckpointOption { id: string; name_ar: string; capacity: number; color: string; checkpoint_type?: string; }
 
 const LS_EVENT = "checkin.eventId";
 const LS_CP = "checkin.checkpointId";
@@ -53,7 +53,7 @@ const CheckIn = () => {
     if (!user) return;
     supabase
       .from("checkpoints")
-      .select("id, name_ar, capacity, color, event_id, events(title_ar)")
+      .select("id, name_ar, capacity, color, checkpoint_type, event_id, events(title_ar)")
       .eq("assigned_user_id", user.id)
       .eq("is_active", true)
       .then(({ data }) => {
@@ -103,7 +103,7 @@ const CheckIn = () => {
       }
       return;
     }
-    supabase.from("checkpoints").select("id, name_ar, capacity, color").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(({ data }) => {
+    supabase.from("checkpoints").select("id, name_ar, capacity, color, checkpoint_type").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(({ data }) => {
       const list = (data as any) || [];
       setCheckpoints(list);
       if (selectedCheckpoint && !list.find((c: any) => c.id === selectedCheckpoint)) {
@@ -182,6 +182,51 @@ const CheckIn = () => {
       }
     }
 
+    // 1.7) دعوة خاصة: مسح رابط/رمز دعوة ضيف — دخول أو خروج حسب نوع البوابة
+    if (!reg) {
+      const invMatch = trimmed.match(/\/invite\/([0-9a-fA-F-]{36})/) ||
+        (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(trimmed) ? [null, trimmed] : null);
+      const invToken = invMatch?.[1];
+      if (invToken) {
+        const { data: guest } = await supabase
+          .from("private_invitation_guests")
+          .select("id, guest_name, checked_in_at, invitation_id, private_invitations(title, organization_id)")
+          .eq("token", invToken)
+          .maybeSingle();
+        if (guest) {
+          const inv: any = Array.isArray((guest as any).private_invitations)
+            ? (guest as any).private_invitations[0]
+            : (guest as any).private_invitations;
+          if (organization && inv?.organization_id !== organization.id) {
+            setResult({ status: "error", message: "هذه الدعوة لا تنتمي لمؤسستك" });
+            return;
+          }
+          const isExitGate = checkpoints.find(c => c.id === selectedCheckpoint)?.checkpoint_type === "exit";
+          const nowIso = new Date().toISOString();
+          if (isExitGate) {
+            let { error: outErr } = await supabase
+              .from("private_invitation_guests")
+              .update({ checked_out_at: nowIso, checked_in_at: (guest as any).checked_in_at || nowIso } as any)
+              .eq("id", (guest as any).id);
+            if (outErr?.message?.includes("checked_out_at")) {
+              toast.info("نفّذ ملف SQL الخاص بتتبع الحضور لتسجيل الخروج");
+              outErr = null as any;
+            }
+            setResult({ status: "success", message: `ضيف «${inv?.title || "دعوة خاصة"}»: ${(guest as any).guest_name} — تم تسجيل الخروج` });
+          } else if ((guest as any).checked_in_at) {
+            setResult({ status: "already", message: `${(guest as any).guest_name} مسجَّل دخوله مسبقاً — ${inv?.title || "دعوة خاصة"}` });
+          } else {
+            await supabase
+              .from("private_invitation_guests")
+              .update({ checked_in_at: nowIso, rsvp_status: "confirmed" } as any)
+              .eq("id", (guest as any).id);
+            setResult({ status: "success", message: `ضيف «${inv?.title || "دعوة خاصة"}»: ${(guest as any).guest_name} — تم تسجيل الدخول` });
+          }
+          return;
+        }
+      }
+    }
+
     // 2) Fallback: phone lookup
     if (!reg) {
       const phone = normalizePhone(trimmed);
@@ -245,7 +290,8 @@ const CheckIn = () => {
       attendee_id: reg.attendee_id,
       checkpoint_id: selectedCheckpoint || null,
       scanned_by: user?.id || null,
-      scan_type: "entry",
+      // بوابة من نوع "خروج" تسجل مسحة خروج — وغيرها دخول
+      scan_type: checkpoints.find(c => c.id === selectedCheckpoint)?.checkpoint_type === "exit" ? "exit" : "entry",
     } as any);
 
     if (!isAlready) {
@@ -258,7 +304,7 @@ const CheckIn = () => {
       data: regData as any,
       message: isAlready ? "تم تسجيل حضور هذا الشخص مسبقاً" : "تم تسجيل الحضور بنجاح!",
     });
-  }, [selectedEvent, selectedCheckpoint, organization, user]);
+  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints]);
 
   const handleManualSubmit = (e: React.FormEvent) => { e.preventDefault(); lookupCode(manualCode); };
 
