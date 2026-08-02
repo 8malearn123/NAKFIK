@@ -23,12 +23,14 @@ type Props = {
   previewGuestName?: string;
   bucket?: string;
   uploadPathPrefix?: string;
+  // معاينة بديلة (مثل البطاقات الخاصة) بدل معاينة الدعوة الافتراضية
+  previewNode?: React.ReactNode;
 };
 
 export default function DesignStudio({
   value, onChange, mode = "invitation",
   previewTitle, previewSubtitle, previewBody, previewFooter, previewGuestName,
-  bucket = "event-covers", uploadPathPrefix = "designs",
+  bucket = "event-covers", uploadPathPrefix = "designs", previewNode,
 }: Props) {
   const { user } = useAuth();
   const [advanced, setAdvanced] = useState(false);
@@ -316,7 +318,7 @@ export default function DesignStudio({
       {/* Right: live preview */}
       <div className="lg:sticky lg:top-4 self-start">
         <p className="text-xs text-muted-foreground mb-2 text-center">معاينة مباشرة</p>
-        <DesignPreview
+        {previewNode ? previewNode : <DesignPreview
           design={value}
           title={previewTitle}
           subtitle={previewSubtitle}
@@ -324,7 +326,7 @@ export default function DesignStudio({
           footer={previewFooter}
           guestName={previewGuestName}
           mode={mode}
-        />
+        />}
       </div>
     </div>
   );
