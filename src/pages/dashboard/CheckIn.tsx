@@ -418,10 +418,18 @@ const CheckIn = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraActive(true);
     } catch { toast.error("لا يمكن الوصول إلى الكاميرا"); }
   };
+
+  // ربط البث بعنصر الفيديو بعد ظهوره في الصفحة (وإلا يبقى أبيض على iOS)
+  useEffect(() => {
+    if (!cameraActive || !streamRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.srcObject = streamRef.current;
+    video.play().catch(() => {});
+  }, [cameraActive]);
   const stopCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null; setCameraActive(false); };
   useEffect(() => { return () => { streamRef.current?.getTracks().forEach(t => t.stop()); }; }, []);
 
@@ -582,7 +590,7 @@ const CheckIn = () => {
               ) : (
                 <div className="space-y-3">
                   <div className="relative rounded-xl overflow-hidden bg-foreground/5 aspect-video">
-                    <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-48 h-48 border-2 border-primary rounded-2xl" />
                     </div>
