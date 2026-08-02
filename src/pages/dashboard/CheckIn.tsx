@@ -47,6 +47,10 @@ const CheckIn = () => {
   // بوابات المستخدم المعيَّنة من الإدارة — وجودها يقفل الاختيار عليها حصراً
   const [assignedGates, setAssignedGates] = useState<any[]>([]);
   const locked = assignedGates.length > 0;
+  // الدعوات الخاصة تُختار من نفس قائمة الفعاليات (بقيمة inv:<id>)
+  const [invitations, setInvitations] = useState<EventOption[]>([]);
+  const [scanMode, setScanMode] = useState<"entry" | "exit">("entry");
+  const isInvMode = selectedEvent.startsWith("inv:");
 
   // بوابات معيَّنة لهذا المستخدم؟ (التعيين من الإدارة فقط)
   useEffect(() => {
@@ -75,6 +79,19 @@ const CheckIn = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // الدعوات الخاصة النشطة للمنظم — تُمسح دعوات ضيوفها من نفس الشاشة
+  useEffect(() => {
+    if (!organization || locked) return;
+    supabase
+      .from("private_invitations")
+      .select("id, title")
+      .eq("organization_id", organization.id)
+      .eq("status", "active")
+      .then(({ data }) =>
+        setInvitations(((data as any) || []).map((i: any) => ({ id: `inv:${i.id}`, title_ar: i.title })))
+      );
+  }, [organization, locked]);
+
   // Load events for the organizer
   useEffect(() => {
     if (!organization || locked) return;
@@ -92,7 +109,7 @@ const CheckIn = () => {
 
   // Load checkpoints for selected event
   useEffect(() => {
-    if (!selectedEvent) { setCheckpoints([]); return; }
+    if (!selectedEvent || selectedEvent.startsWith("inv:")) { setCheckpoints([]); return; }
     // موظف معيَّن: بواباته المعيَّنة لهذه الفعالية فقط — بلا أي خيارات أخرى
     if (locked) {
       const mine = assignedGates.filter((c: any) => c.event_id === selectedEvent);
@@ -117,6 +134,14 @@ const CheckIn = () => {
   // Load stats + gate pressure
   const refreshStats = useCallback(async () => {
     if (!selectedEvent) return;
+    if (selectedEvent.startsWith("inv:")) {
+      const invId = selectedEvent.slice(4);
+      const { count: total } = await supabase.from("private_invitation_guests").select("*", { count: "exact", head: true }).eq("invitation_id", invId);
+      const { count: checked } = await supabase.from("private_invitation_guests").select("*", { count: "exact", head: true }).eq("invitation_id", invId).not("checked_in_at", "is", null);
+      setStats({ total: total || 0, checkedIn: checked || 0 });
+      setGatePressure({ count: 0, cap: 0 });
+      return;
+    }
     const { count: totalCount } = await supabase.from("registrations").select("*", { count: "exact", head: true }).eq("event_id", selectedEvent);
     const { count: checkedCount } = await supabase.from("registrations").select("*", { count: "exact", head: true }).eq("event_id", selectedEvent).eq("status", "checked_in");
     setStats({ total: totalCount || 0, checkedIn: checkedCount || 0 });
@@ -149,6 +174,53 @@ const CheckIn = () => {
     const trimmed = code.trim();
     if (!trimmed) return;
     if (!selectedEvent) { toast.error("اختر الفعالية أولاً"); return; }
+
+    // وضع الدعوات الخاصة: مسح دعوات الضيوف — دخول أو خروج حسب وضع المسح
+    if (selectedEvent.startsWith("inv:")) {
+      const invId = selectedEvent.slice(4);
+      const m = trimmed.match(/\/invite\/([0-9a-fA-F-]{36})/) ||
+        (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(trimmed) ? [null, trimmed] : null);
+      const token = m?.[1];
+      if (!token) {
+        setResult({ status: "error", message: "امسح رابط أو رمز دعوة صالحاً" });
+        return;
+      }
+      const { data: guest } = await supabase
+        .from("private_invitation_guests")
+        .select("id, guest_name, checked_in_at, invitation_id")
+        .eq("token", token)
+        .maybeSingle();
+      if (!guest) {
+        setResult({ status: "error", message: "لم يتم العثور على هذه الدعوة" });
+        return;
+      }
+      if ((guest as any).invitation_id !== invId) {
+        setResult({ status: "error", message: "هذه الدعوة تخص مناسبة أخرى — بدّل المناسبة أعلاه" });
+        return;
+      }
+      const nowIso = new Date().toISOString();
+      if (scanMode === "exit") {
+        const { error: outErr } = await supabase
+          .from("private_invitation_guests")
+          .update({ checked_out_at: nowIso, checked_in_at: (guest as any).checked_in_at || nowIso } as any)
+          .eq("id", (guest as any).id);
+        if (outErr?.message?.includes("checked_out_at")) {
+          setResult({ status: "error", message: "نفّذ ملف SQL الخاص بتتبع الحضور لتفعيل تسجيل الخروج" });
+          return;
+        }
+        setResult({ status: "success", message: `${(guest as any).guest_name} — تم تسجيل الخروج` });
+      } else if ((guest as any).checked_in_at) {
+        setResult({ status: "already", message: `${(guest as any).guest_name} مسجَّل دخوله مسبقاً` });
+      } else {
+        await supabase
+          .from("private_invitation_guests")
+          .update({ checked_in_at: nowIso, rsvp_status: "confirmed" } as any)
+          .eq("id", (guest as any).id);
+        setResult({ status: "success", message: `${(guest as any).guest_name} — تم تسجيل الدخول` });
+      }
+      refreshStats();
+      return;
+    }
 
     // 1) Try direct QR lookup
     let { data: reg } = await supabase
@@ -304,7 +376,7 @@ const CheckIn = () => {
       data: regData as any,
       message: isAlready ? "تم تسجيل حضور هذا الشخص مسبقاً" : "تم تسجيل الحضور بنجاح!",
     });
-  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints]);
+  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats]);
 
   const handleManualSubmit = (e: React.FormEvent) => { e.preventDefault(); lookupCode(manualCode); };
 
@@ -350,20 +422,51 @@ const CheckIn = () => {
               <select value={selectedEvent} onChange={e => onChangeEvent(e.target.value)} disabled={locked && events.length <= 1}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
                 <option value="">— اختر —</option>
-                {events.map(e => <option key={e.id} value={e.id}>{e.title_ar}</option>)}
+                <optgroup label="الفعاليات">
+                  {events.map(e => <option key={e.id} value={e.id}>{e.title_ar}</option>)}
+                </optgroup>
+                {invitations.length > 0 && (
+                  <optgroup label="الدعوات الخاصة">
+                    {invitations.map(i => <option key={i.id} value={i.id}>{i.title_ar}</option>)}
+                  </optgroup>
+                )}
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> البوابة الحالية</label>
-              <select value={selectedCheckpoint} onChange={e => onChangeCheckpoint(e.target.value)} disabled={locked || !selectedEvent || checkpoints.length === 0}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
-                {!locked && <option value="">— بدون بوابة —</option>}
-                {checkpoints.map(c => <option key={c.id} value={c.id}>{c.name_ar}</option>)}
-              </select>
+              {isInvMode ? (
+                <>
+                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> وضع المسح</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setScanMode("entry")}
+                      className={`rounded-lg border-2 px-3 py-2 text-sm font-bold transition ${scanMode === "entry" ? "border-brand-teal bg-brand-teal/10 text-brand-teal" : "border-border text-muted-foreground hover:bg-muted"}`}
+                    >
+                      تسجيل دخول
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScanMode("exit")}
+                      className={`rounded-lg border-2 px-3 py-2 text-sm font-bold transition ${scanMode === "exit" ? "border-amber-500 bg-amber-500/10 text-amber-600" : "border-border text-muted-foreground hover:bg-muted"}`}
+                    >
+                      تسجيل خروج
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> البوابة الحالية</label>
+                  <select value={selectedCheckpoint} onChange={e => onChangeCheckpoint(e.target.value)} disabled={locked || !selectedEvent || checkpoints.length === 0}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
+                    {!locked && <option value="">— بدون بوابة —</option>}
+                    {checkpoints.map(c => <option key={c.id} value={c.id}>{c.name_ar}</option>)}
+                  </select>
+                </>
+              )}
             </div>
           </div>
 
-          {selectedEvent && checkpoints.length === 0 && (
+          {selectedEvent && !isInvMode && checkpoints.length === 0 && (
             <p className="text-xs text-muted-foreground">
               لم يتم إعداد بوابات لهذه الفعالية. <a href={`/dashboard/events/${selectedEvent}/checkpoints`} className="text-primary underline">إعداد البوابات</a>
             </p>
