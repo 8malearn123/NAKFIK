@@ -45,6 +45,7 @@ import Announcements from "./pages/admin/Announcements";
 import RSVPConfirm from "./pages/RSVPConfirm";
 import Checkout from "./pages/Checkout";
 import PaymentCallback from "./pages/PaymentCallback";
+import MyCards from "./pages/MyCards";
 import EventHeatmap from "./pages/dashboard/EventHeatmap";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
 import AdminFinance from "./pages/admin/AdminFinance";
@@ -106,6 +107,9 @@ const App = () => (
                 {/* Attendee */}
                 <Route path="/my-tickets" element={
                   <ProtectedRoute><MyTickets /></ProtectedRoute>
+                } />
+                <Route path="/my/cards" element={
+                  <ProtectedRoute><MyCards /></ProtectedRoute>
                 } />
                 <Route path="/my/profile" element={
                   <ProtectedRoute><MyProfile /></ProtectedRoute>

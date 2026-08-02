@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { classifyAttendee, ATTENDEE_CLASS_META } from "@/lib/attendeeClass";
 import {
   Camera, Search, CheckCircle, XCircle, User, Mail, Ticket, Calendar, RotateCcw, Keyboard, DoorOpen, Activity,
 } from "lucide-react";
@@ -17,7 +18,7 @@ interface RegistrationData {
   checked_in_at: string | null;
   attendee: { full_name: string | null; email: string | null } | null;
   event: { title_ar: string; start_date: string } | null;
-  ticket: { name_ar: string } | null;
+  ticket: { name_ar: string; name_en?: string | null; type?: string | null } | null;
 }
 
 type ScanResult = { status: "success" | "error" | "already"; data?: RegistrationData; message: string };
@@ -116,6 +117,31 @@ const CheckIn = () => {
       .eq("qr_code", trimmed)
       .maybeSingle();
 
+    // 1.5) البطاقة الموحدة: QR ثابت للمستخدم (رابط /connect/<code>) —
+    // نتعرف على صاحبها ثم نجلب تسجيله في الفعالية المختارة تحديداً
+    if (!reg) {
+      const connectMatch = trimmed.match(/\/connect\/([A-Za-z0-9_-]+)/) ||
+        (/^[A-Za-z0-9_-]{6,24}$/.test(trimmed) && !trimmed.includes("-") ? [null, trimmed] : null);
+      const connectCode = connectMatch?.[1];
+      if (connectCode) {
+        const { data: card } = await supabase.rpc("get_connect_card", { _code: connectCode });
+        const holder = Array.isArray(card) ? card[0] : card;
+        if (holder?.user_id) {
+          const { data: regByCard } = await supabase
+            .from("registrations")
+            .select("id, qr_code, status, checked_in_at, attendee_id, event_id, ticket_id")
+            .eq("event_id", selectedEvent)
+            .eq("attendee_id", holder.user_id)
+            .maybeSingle();
+          if (regByCard) reg = regByCard;
+          else {
+            setResult({ status: "error", message: "صاحب هذه البطاقة غير مسجل في هذه الفعالية" });
+            return;
+          }
+        }
+      }
+    }
+
     // 2) Fallback: phone lookup
     if (!reg) {
       const phone = normalizePhone(trimmed);
@@ -145,7 +171,7 @@ const CheckIn = () => {
     const [{ data: attendee }, { data: event }, { data: ticket }] = await Promise.all([
       supabase.from("profiles").select("full_name, email").eq("id", reg.attendee_id).maybeSingle(),
       supabase.from("events").select("title_ar, start_date, organization_id").eq("id", reg.event_id).single(),
-      reg.ticket_id ? supabase.from("tickets").select("name_ar").eq("id", reg.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
+      reg.ticket_id ? supabase.from("tickets").select("name_ar, name_en, type").eq("id", reg.ticket_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
 
     if (organization && event?.organization_id !== organization.id) {
@@ -353,7 +379,20 @@ const CheckIn = () => {
                 <div className="bg-background/80 rounded-xl p-4 space-y-3 text-sm">
                   <div className="flex items-center gap-2"><User className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">الاسم:</span><span className="font-semibold text-foreground">{result.data.attendee?.full_name || "—"}</span></div>
                   <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">البريد:</span><span className="font-semibold text-foreground" dir="ltr">{result.data.attendee?.email || "—"}</span></div>
-                  <div className="flex items-center gap-2"><Ticket className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">التذكرة:</span><span className="font-semibold text-foreground">{result.data.ticket?.name_ar || "—"}</span></div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Ticket className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">التذكرة:</span>
+                    <span className="font-semibold text-foreground">{result.data.ticket?.name_ar || "—"}</span>
+                    {(() => {
+                      const tier = classifyAttendee(result.data.ticket?.name_ar, result.data.ticket?.name_en, result.data.ticket?.type);
+                      const meta = ATTENDEE_CLASS_META[tier];
+                      return (
+                        <span className={`text-[10px] font-extrabold rounded-full px-2.5 py-0.5 border ${meta.cls}`}>
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">الفعالية:</span><span className="font-semibold text-foreground">{result.data.event?.title_ar || "—"}</span></div>
                   {currentCp && (
                     <div className="flex items-center gap-2 pt-2 border-t border-border/50">

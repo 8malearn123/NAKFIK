@@ -9,7 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Calendar, MapPin, Clock, Ticket, ChevronDown, ChevronUp, ExternalLink, Mail, Phone, User as UserIcon, Bell, Trash2, Loader2,
+  Calendar, MapPin, Clock, Ticket, ChevronDown, ChevronUp, ExternalLink, Mail, Phone, User as UserIcon, Bell, Trash2, Loader2, IdCard as IdCardIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import MyTicketConnectQR from "@/components/MyTicketConnectQR";
@@ -203,9 +203,14 @@ const MyTickets = () => {
               <h1 className="font-bold text-3xl text-foreground">{t("pgTickets.pageTitle")}</h1>
               <p className="text-muted-foreground mt-1">{t("pgTickets.pageSubtitle")}</p>
             </div>
-            <Button variant="outline" size="sm" className="rounded-full" asChild>
-              <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> {t("pgTickets.notifications")}</Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="default" size="sm" className="rounded-full" asChild>
+                <Link to="/my/cards"><IdCardIcon className="w-4 h-4 ms-2" /> بطاقاتي</Link>
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-full" asChild>
+                <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> {t("pgTickets.notifications")}</Link>
+              </Button>
+            </div>
           </div>
 
           {loading ? (
