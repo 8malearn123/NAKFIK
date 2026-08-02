@@ -29,6 +29,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePlanScope } from "@/hooks/usePlanScope";
 
 type NavItem = {
   icon: typeof LayoutDashboard;
@@ -36,10 +37,12 @@ type NavItem = {
   path: string;
   // ميزة معطّلة مؤقتاً — تظهر بشارة "قريباً" وغير قابلة للنقر
   soon?: boolean;
+  // العنصر يظهر فقط إذا كانت باقة المنظم تشمل هذا النطاق
+  scope?: "public" | "private";
 };
 type NavSection = {
   section?: string;
-  cta?: { icon: typeof LayoutDashboard; label: string; path: string };
+  cta?: { icon: typeof LayoutDashboard; label: string; path: string; scope?: "public" | "private" };
   items: NavItem[];
 };
 
@@ -49,10 +52,10 @@ const navSections: NavSection[] = [
   },
   {
     section: "الفعاليات",
-    cta: { icon: PlusCircle, label: "إنشاء فعالية", path: "/dashboard/events/create" },
+    cta: { icon: PlusCircle, label: "إنشاء فعالية", path: "/dashboard/events/create", scope: "public" },
     items: [
-      { icon: Calendar, label: "جميع الفعاليات", path: "/dashboard/events" },
-      { icon: ClipboardCheck, label: "مراجعة الفعاليات", path: "/dashboard/events?status=pending_review" },
+      { icon: Calendar, label: "جميع الفعاليات", path: "/dashboard/events", scope: "public" },
+      { icon: ClipboardCheck, label: "مراجعة الفعاليات", path: "/dashboard/events?status=pending_review", scope: "public" },
     ],
   },
   {
@@ -60,12 +63,12 @@ const navSections: NavSection[] = [
       { icon: ScanLine, label: "تسجيل الحضور", path: "/dashboard/check-in" },
       { icon: Users, label: "إدارة الفريق", path: "/dashboard/team" },
       { icon: BarChart3, label: "التقارير", path: "/dashboard/reports" },
-      { icon: Wallet, label: "الأرباح والتسويات", path: "/dashboard/earnings" },
+      { icon: Wallet, label: "الأرباح والتسويات", path: "/dashboard/earnings", scope: "public" },
       { icon: CreditCard, label: "الاشتراك", path: "/dashboard/subscription" },
       { icon: ShoppingBag, label: "سوق الخدمات", path: "/dashboard/services" },
       { icon: Tag, label: "خصومات الشركاء", path: "/dashboard/discounts" },
-      { icon: Mail, label: "الدعوات الخاصة", path: "/dashboard/invitations" },
-      { icon: Database, label: "قواعد بيانات المدعوين", path: "/dashboard/guest-lists" },
+      { icon: Mail, label: "الدعوات الخاصة", path: "/dashboard/invitations", scope: "private" },
+      { icon: Database, label: "قواعد بيانات المدعوين", path: "/dashboard/guest-lists", scope: "private" },
       { icon: Award, label: "الشهادات", path: "/dashboard/certificates", soon: true },
       { icon: Bell, label: "الإشعارات", path: "/dashboard/notifications" },
       { icon: Settings, label: "الإعدادات", path: "/dashboard/settings" },
@@ -84,6 +87,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { signOut, profile } = useAuth();
   const { t } = useLanguage();
+  const { canPublic, canPrivate } = usePlanScope();
+
+  // إخفاء العناصر خارج نطاق الباقة نهائياً (وليس تعطيلها فقط)
+  const scopeAllows = (scope?: "public" | "private") =>
+    !scope || (scope === "public" ? canPublic : canPrivate);
+  const visibleSections = navSections
+    .map((sec) => ({
+      ...sec,
+      cta: sec.cta && scopeAllows(sec.cta.scope) ? sec.cta : undefined,
+      items: sec.items.filter((i) => scopeAllows(i.scope)),
+    }))
+    .filter((sec) => sec.cta || sec.items.length > 0);
 
   const handleSignOut = async () => {
     await signOut();
@@ -113,7 +128,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         {/* Nav */}
         <nav className="flex-1 py-4 space-y-4 px-3 overflow-y-auto">
-          {navSections.map((sec, idx) => {
+          {visibleSections.map((sec, idx) => {
             const isReviewPath = (path: string) =>
               path.includes("status=pending_review") &&
               location.pathname === "/dashboard/events" &&

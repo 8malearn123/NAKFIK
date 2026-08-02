@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
 import logo from "@/assets/logo.png";
-import { User, Building2, Mail, Lock, Phone, ArrowLeft } from "lucide-react";
+import { User, Building2, Mail, Lock, Phone, ArrowLeft, Calendar, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { PlanScope } from "@/hooks/usePlanScope";
 
 type AccountType = "attendee" | "organizer" | null;
 
@@ -16,6 +17,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [accountType, setAccountType] = useState<AccountType>(null);
+  // باقة المنظم — تحدد الميزات الظاهرة في حسابه (دعوات خاصة / فعاليات عامة / الاثنتان)
+  const [planScope, setPlanScope] = useState<PlanScope | null>(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -60,6 +63,10 @@ const Register = () => {
 
     // المنظم: البيانات المالية إلزامية منذ التسجيل — تُستخدم لاحقاً للتسويات تلقائياً
     if (accountType === "organizer") {
+      if (!planScope) {
+        toast.error(t("pgAuth.register.planRequired"));
+        return;
+      }
       if (!formData.bankName.trim() || !formData.iban.trim() || !formData.accountHolder.trim()) {
         toast.error(t("pgAuth.register.bankRequired"));
         return;
@@ -103,13 +110,21 @@ const Register = () => {
 
         // Auto-create organization for organizers
         if (accountType === "organizer" && formData.orgName) {
-          await supabase.from("organizations").insert({
+          const orgPayload = {
             name: formData.orgName,
             owner_id: data.user.id,
             bank_name: formData.bankName.trim(),
             iban: formData.iban.replace(/\s/g, "").toUpperCase(),
             bank_account_holder: formData.accountHolder.trim(),
+          };
+          // مع الباقة المختارة — ولو عمود plan_scope غير موجود بعد نحفظ بدونه حتى لا يفشل التسجيل
+          const { error: orgErr } = await supabase.from("organizations").insert({
+            ...orgPayload,
+            plan_scope: planScope,
           } as any);
+          if (orgErr) {
+            await supabase.from("organizations").insert(orgPayload as any);
+          }
         }
 
         if (data.session) {
@@ -244,6 +259,38 @@ const Register = () => {
                   <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pl-10" dir="ltr" required />
                 </div>
               </div>
+
+              {/* اختيار الباقة — تتحكم بالميزات الظاهرة في حساب المنظم */}
+              {accountType === "organizer" && (
+                <div className="space-y-2">
+                  <div>
+                    <p className="font-bold text-sm">{t("pgAuth.register.planSectionTitle")} *</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{t("pgAuth.register.planSectionDesc")}</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {([
+                      { key: "private" as PlanScope, Icon: Mail, title: t("pgAuth.register.planPrivateTitle"), desc: t("pgAuth.register.planPrivateDesc") },
+                      { key: "public" as PlanScope, Icon: Calendar, title: t("pgAuth.register.planPublicTitle"), desc: t("pgAuth.register.planPublicDesc") },
+                      { key: "both" as PlanScope, Icon: Sparkles, title: t("pgAuth.register.planBothTitle"), desc: t("pgAuth.register.planBothDesc") },
+                    ]).map((p) => (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setPlanScope(p.key)}
+                        className={`rounded-xl border-2 p-3 text-start transition-all ${
+                          planScope === p.key
+                            ? "border-primary bg-primary/5 shadow-sm"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <p.Icon className={`w-5 h-5 mb-1.5 ${planScope === p.key ? "text-primary" : "text-muted-foreground"}`} />
+                        <p className="font-bold text-xs">{p.title}</p>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{p.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* البيانات المالية — إلزامية لحساب المنظم منذ التسجيل */}
               {accountType === "organizer" && (

@@ -5,11 +5,34 @@ import SubscriptionUsageCard from "@/components/dashboard/SubscriptionUsageCard"
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlanScope, PLAN_SCOPE_META, type PlanScope } from "@/hooks/usePlanScope";
+import { Mail, Calendar, Sparkles, Check } from "lucide-react";
+
+const SCOPE_ICONS: Record<PlanScope, typeof Mail> = { private: Mail, public: Calendar, both: Sparkles };
 
 const OrganizerSubscription = () => {
-  const { user } = useAuth();
+  const { user, organization, refreshProfile } = useAuth();
+  const { scope } = usePlanScope();
   const [activating, setActivating] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [switching, setSwitching] = useState(false);
+
+  // تغيير نطاق الباقة — يتحكم مباشرة بالميزات الظاهرة في الحساب
+  const switchScope = async (next: PlanScope) => {
+    if (!organization || next === scope) return;
+    setSwitching(true);
+    const { error } = await supabase
+      .from("organizations")
+      .update({ plan_scope: next } as any)
+      .eq("id", organization.id);
+    setSwitching(false);
+    if (error) {
+      toast.error("تعذّر تغيير الباقة — شغّل ملف nakfik_plan_scope.sql في Supabase أولاً");
+      return;
+    }
+    toast.success(`تم التحويل إلى ${PLAN_SCOPE_META[next].label} ✅`);
+    await refreshProfile();
+  };
 
   const handleSelect = async (planId: string) => {
     if (!user) {
@@ -54,6 +77,41 @@ const OrganizerSubscription = () => {
           <p className="text-muted-foreground text-sm mt-1">
             اختر الباقة المناسبة — كل باقة تحتوي على عدد محدد من الفعاليات وصلاحية زمنية
           </p>
+        </div>
+
+        {/* نوع الباقة — يحدد الميزات الظاهرة في الحساب (دعوات خاصة / فعاليات عامة / شاملة) */}
+        <div className="bg-card rounded-2xl border border-border/50 p-5">
+          <h2 className="font-bold text-foreground mb-1">نوع الباقة</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            يحدد الميزات والصفحات الظاهرة في حسابك — الصفحات خارج باقتك تُخفى بالكامل
+          </p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {(Object.keys(PLAN_SCOPE_META) as PlanScope[]).map((k) => {
+              const Icon = SCOPE_ICONS[k];
+              const active = scope === k;
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  disabled={switching}
+                  onClick={() => switchScope(k)}
+                  className={`relative rounded-xl border-2 p-4 text-start transition-all ${
+                    active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40"
+                  } ${switching ? "opacity-60" : ""}`}
+                >
+                  {active && (
+                    <span className="absolute top-2 start-2 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                      <Check className="w-3 h-3" />
+                    </span>
+                  )}
+                  <Icon className={`w-6 h-6 mb-2 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <p className="font-bold text-sm">{PLAN_SCOPE_META[k].label}</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">{PLAN_SCOPE_META[k].desc}</p>
+                  {active && <p className="text-[10px] font-bold text-primary mt-2">باقتك الحالية</p>}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div key={refreshKey}>

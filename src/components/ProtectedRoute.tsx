@@ -2,15 +2,18 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { normalizeScope } from "@/hooks/usePlanScope";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredAccountType?: string;
   requireSuperAdmin?: boolean;
+  // الميزة تتطلب أن تشمل باقة المنظم هذا النطاق (public = فعاليات عامة، private = دعوات خاصة)
+  requiredScope?: "public" | "private";
 }
 
-const ProtectedRoute = ({ children, requiredAccountType, requireSuperAdmin }: ProtectedRouteProps) => {
-  const { user, profile, loading, isSuperAdmin } = useAuth();
+const ProtectedRoute = ({ children, requiredAccountType, requireSuperAdmin, requiredScope }: ProtectedRouteProps) => {
+  const { user, profile, organization, loading, isSuperAdmin } = useAuth();
   const { isImpersonating, impersonatedUser } = useImpersonation();
   const { t } = useLanguage();
 
@@ -45,6 +48,13 @@ const ProtectedRoute = ({ children, requiredAccountType, requireSuperAdmin }: Pr
   // Normal account type check
   if (requiredAccountType && profile?.account_type !== requiredAccountType && !isSuperAdmin) {
     return <Navigate to="/" replace />;
+  }
+
+  // باقة المنظم: صفحة خارج نطاق الباقة → رجوع للوحة التحكم (السوبر أدمن مستثنى)
+  if (requiredScope && !isSuperAdmin && profile?.account_type === "organizer") {
+    const scope = normalizeScope((organization as any)?.plan_scope);
+    const allowed = scope === "both" || scope === requiredScope;
+    if (!allowed) return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

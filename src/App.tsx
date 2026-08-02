@@ -128,27 +128,27 @@ const App = () => (
 
                 {/* Organizer Dashboard */}
                 <Route path="/dashboard" element={<ProtectedRoute requiredAccountType="organizer"><DashboardHome /></ProtectedRoute>} />
-                <Route path="/dashboard/events" element={<ProtectedRoute requiredAccountType="organizer"><MyEvents /></ProtectedRoute>} />
-                <Route path="/dashboard/events/create" element={<ProtectedRoute requiredAccountType="organizer"><CreateEvent /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/edit" element={<ProtectedRoute requiredAccountType="organizer"><EditEvent /></ProtectedRoute>} />
+                <Route path="/dashboard/events" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><MyEvents /></ProtectedRoute>} />
+                <Route path="/dashboard/events/create" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><CreateEvent /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/edit" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EditEvent /></ProtectedRoute>} />
                 <Route path="/dashboard/check-in" element={<ProtectedRoute requiredAccountType="organizer"><CheckIn /></ProtectedRoute>} />
                 
                 <Route path="/dashboard/settings" element={<ProtectedRoute requiredAccountType="organizer"><Settings /></ProtectedRoute>} />
                 <Route path="/dashboard/notifications" element={<ProtectedRoute requiredAccountType="organizer"><Notifications /></ProtectedRoute>} />
                 <Route path="/dashboard/team" element={<ProtectedRoute requiredAccountType="organizer"><Team /></ProtectedRoute>} />
                 <Route path="/dashboard/reports" element={<ProtectedRoute requiredAccountType="organizer"><Reports /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/guests" element={<ProtectedRoute requiredAccountType="organizer"><EventGuests /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/checkpoints" element={<ProtectedRoute requiredAccountType="organizer"><EventCheckpoints /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/attendance" element={<ProtectedRoute requiredAccountType="organizer"><EventAttendance /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/days" element={<ProtectedRoute requiredAccountType="organizer"><EventDays /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/heatmap" element={<ProtectedRoute requiredAccountType="organizer"><EventHeatmap /></ProtectedRoute>} />
-                <Route path="/dashboard/events/:eventId/featured-cards" element={<ProtectedRoute requiredAccountType="organizer"><EventFeaturedCards /></ProtectedRoute>} />
-                <Route path="/dashboard/earnings" element={<ProtectedRoute requiredAccountType="organizer"><OrganizerEarnings /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/guests" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EventGuests /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/checkpoints" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EventCheckpoints /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/attendance" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EventAttendance /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/days" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EventDays /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/heatmap" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EventHeatmap /></ProtectedRoute>} />
+                <Route path="/dashboard/events/:eventId/featured-cards" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><EventFeaturedCards /></ProtectedRoute>} />
+                <Route path="/dashboard/earnings" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="public"><OrganizerEarnings /></ProtectedRoute>} />
                 <Route path="/dashboard/subscription" element={<ProtectedRoute requiredAccountType="organizer"><OrganizerSubscription /></ProtectedRoute>} />
                 <Route path="/dashboard/services" element={<ProtectedRoute requiredAccountType="organizer"><ServiceMarket /></ProtectedRoute>} />
                 <Route path="/dashboard/discounts" element={<ProtectedRoute requiredAccountType="organizer"><PartnerDiscounts /></ProtectedRoute>} />
-                <Route path="/dashboard/invitations" element={<ProtectedRoute requiredAccountType="organizer"><PrivateInvitations /></ProtectedRoute>} />
-                <Route path="/dashboard/guest-lists" element={<ProtectedRoute requiredAccountType="organizer"><GuestLists /></ProtectedRoute>} />
+                <Route path="/dashboard/invitations" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="private"><PrivateInvitations /></ProtectedRoute>} />
+                <Route path="/dashboard/guest-lists" element={<ProtectedRoute requiredAccountType="organizer" requiredScope="private"><GuestLists /></ProtectedRoute>} />
                 <Route path="/dashboard/certificates" element={<ProtectedRoute requiredAccountType="organizer"><FeatureComingSoon title="الشهادات" /></ProtectedRoute>} />
 
                 {/* Super Admin */}

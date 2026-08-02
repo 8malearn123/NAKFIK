@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calendar, Users, Ticket, DollarSign, TrendingUp, ArrowUpLeft, Clock, AlertCircle } from "lucide-react";
+import { Calendar, Users, Ticket, DollarSign, TrendingUp, ArrowUpLeft, Clock, AlertCircle, Mail } from "lucide-react";
+import { usePlanScope } from "@/hooks/usePlanScope";
 import { getMissingOrgFields, isOrgReady } from "@/lib/orgCompleteness";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ interface Stats {
 
 const DashboardHome = () => {
   const { effectiveProfile: profile, effectiveOrganization: organization } = useEffectiveUser();
+  const { canPublic } = usePlanScope();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [stats, setStats] = useState<Stats>({ totalEvents: 0, totalRegistrations: 0, totalTicketsSold: 0, totalRevenue: 0 });
   const [loading, setLoading] = useState(true);
@@ -86,12 +88,21 @@ const DashboardHome = () => {
             <h1 className="font-bold text-2xl text-foreground">مرحباً، {profile?.full_name || "منظّم"} 👋</h1>
             <p className="text-muted-foreground text-sm">إليك نظرة عامة على فعالياتك</p>
           </div>
-          <Button className="rounded-full" asChild disabled={!isOrgReady(organization as any)}>
-            <Link to={isOrgReady(organization as any) ? "/dashboard/events/create" : "/dashboard/settings"}>
-              <Calendar className="w-4 h-4" />
-              {isOrgReady(organization as any) ? "إنشاء فعالية جديدة" : "أكمل ملف المؤسسة"}
-            </Link>
-          </Button>
+          {canPublic ? (
+            <Button className="rounded-full" asChild disabled={!isOrgReady(organization as any)}>
+              <Link to={isOrgReady(organization as any) ? "/dashboard/events/create" : "/dashboard/settings"}>
+                <Calendar className="w-4 h-4" />
+                {isOrgReady(organization as any) ? "إنشاء فعالية جديدة" : "أكمل ملف المؤسسة"}
+              </Link>
+            </Button>
+          ) : (
+            // باقة الدعوات الخاصة — لا يظهر أي زر لإنشاء فعاليات عامة
+            <Button className="rounded-full" asChild>
+              <Link to="/dashboard/invitations">
+                <Mail className="w-4 h-4" /> دعوة خاصة جديدة
+              </Link>
+            </Button>
+          )}
         </div>
 
         {!isOrgReady(organization as any) && (
@@ -185,9 +196,11 @@ const DashboardHome = () => {
             <div className="text-center py-8">
               <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
               <p className="text-muted-foreground text-sm">لا توجد فعاليات بعد</p>
-              <Button className="rounded-full mt-3" size="sm" asChild>
-                <Link to="/dashboard/events/create">إنشاء فعالية</Link>
-              </Button>
+              {canPublic && (
+                <Button className="rounded-full mt-3" size="sm" asChild>
+                  <Link to="/dashboard/events/create">إنشاء فعالية</Link>
+                </Button>
+              )}
             </div>
           )}
         </motion.div>
