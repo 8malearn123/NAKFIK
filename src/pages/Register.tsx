@@ -52,6 +52,12 @@ const Register = () => {
       return;
     }
 
+    // رقم الجوال إلزامي لجميع الحسابات
+    if (!formData.phone.trim() || formData.phone.replace(/\D/g, "").length < 9) {
+      toast.error(t("pgAuth.register.phoneRequired"));
+      return;
+    }
+
     // المنظم: البيانات المالية إلزامية منذ التسجيل — تُستخدم لاحقاً للتسويات تلقائياً
     if (accountType === "organizer") {
       if (!formData.bankName.trim() || !formData.iban.trim() || !formData.accountHolder.trim()) {
@@ -235,7 +241,7 @@ const Register = () => {
                 <Label htmlFor="phone">{t("pgAuth.register.phone")}</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pl-10" dir="ltr" />
+                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pl-10" dir="ltr" required />
                 </div>
               </div>
 

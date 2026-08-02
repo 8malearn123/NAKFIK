@@ -67,6 +67,16 @@ const Settings = () => {
 
   const handleOrgSave = async () => {
     if (!organization) { toast.error(t("pgSettings.toastNoOrganization")); return; }
+    // البيانات البنكية إلزامية — لا يمكن حفظ الملف بدونها أو بمسحها
+    if (!org.bank_name?.trim() || !org.iban?.trim() || !org.bank_account_holder?.trim()) {
+      toast.error("البيانات البنكية إلزامية: اسم البنك، الآيبان، واسم صاحب الحساب");
+      return;
+    }
+    const cleanIban = org.iban.replace(/\s/g, "").toUpperCase();
+    if (!/^SA\d{22}$/.test(cleanIban)) {
+      toast.error("رقم IBAN غير صحيح — يبدأ بـ SA ويتكوّن من 24 خانة");
+      return;
+    }
     setSavingOrg(true);
     const { error } = await supabase.from("organizations").update({
       name: org.name, description: org.description,
@@ -76,7 +86,7 @@ const Settings = () => {
       twitter_url: org.twitter_url, instagram_url: org.instagram_url, linkedin_url: org.linkedin_url,
       tiktok_url: org.tiktok_url, snapchat_url: org.snapchat_url,
       terms_text: org.terms_text, refund_policy: org.refund_policy, privacy_policy: org.privacy_policy,
-      bank_name: org.bank_name, iban: org.iban, bank_account_holder: org.bank_account_holder,
+      bank_name: org.bank_name.trim(), iban: cleanIban, bank_account_holder: org.bank_account_holder.trim(),
       billing_address: org.billing_address, billing_name: org.billing_name, billing_tax_number: org.billing_tax_number,
     } as any).eq("id", organization.id);
     if (error) toast.error(t("pgSettings.toastOrgSaveError"));
