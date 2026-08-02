@@ -22,6 +22,7 @@ import {
   UserPlus,
   PlusCircle,
   Flame,
+  DoorOpen,
   Briefcase,
   Tag,
   ClipboardList,
@@ -59,6 +60,7 @@ const navItems: NavEntry[] = [
       { icon: Calendar, label: "جميع الفعاليات", path: "/admin/events" },
       { icon: PlusCircle, label: "إنشاء فعالية", path: "/admin/events/create" },
       { icon: Flame, label: "الخارطة الحرارية", path: "/admin/heatmap" },
+      { icon: DoorOpen, label: "تعيين البوابات", path: "/admin/gates" },
     ],
   },
   {

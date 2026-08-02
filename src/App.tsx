@@ -48,6 +48,7 @@ import PaymentCallback from "./pages/PaymentCallback";
 import MyCards from "./pages/MyCards";
 import EventHeatmap from "./pages/dashboard/EventHeatmap";
 import AdminHeatmap from "./pages/admin/AdminHeatmap";
+import GateAssignments from "./pages/admin/GateAssignments";
 import AdminFinance from "./pages/admin/AdminFinance";
 import OrganizerEarnings from "./pages/dashboard/Earnings";
 import OrganizerSubscription from "./pages/dashboard/Subscription";
@@ -162,6 +163,7 @@ const App = () => (
                 <Route path="/admin/announcements" element={<ProtectedRoute requireSuperAdmin><Announcements /></ProtectedRoute>} />
                 <Route path="/admin/finance" element={<ProtectedRoute requireSuperAdmin><AdminFinance /></ProtectedRoute>} />
                 <Route path="/admin/heatmap" element={<ProtectedRoute requireSuperAdmin><AdminHeatmap /></ProtectedRoute>} />
+                <Route path="/admin/gates" element={<ProtectedRoute requireSuperAdmin><GateAssignments /></ProtectedRoute>} />
                 <Route path="/admin/provider-categories" element={<ProtectedRoute requireSuperAdmin><AdminProviderCategories /></ProtectedRoute>} />
                 <Route path="/admin/service-providers" element={<ProtectedRoute requireSuperAdmin><AdminServiceProviders /></ProtectedRoute>} />
                 <Route path="/admin/service-requests" element={<ProtectedRoute requireSuperAdmin><AdminServiceRequests /></ProtectedRoute>} />

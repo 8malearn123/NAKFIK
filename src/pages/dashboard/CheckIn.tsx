@@ -44,10 +44,40 @@ const CheckIn = () => {
   const [selectedEvent, setSelectedEvent] = useState<string>(() => localStorage.getItem(LS_EVENT) || "");
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<string>(() => localStorage.getItem(LS_CP) || "");
   const [gatePressure, setGatePressure] = useState<{ count: number; cap: number }>({ count: 0, cap: 0 });
+  // بوابات المستخدم المعيَّنة من الإدارة — وجودها يقفل الاختيار عليها حصراً
+  const [assignedGates, setAssignedGates] = useState<any[]>([]);
+  const locked = assignedGates.length > 0;
+
+  // بوابات معيَّنة لهذا المستخدم؟ (التعيين من الإدارة فقط)
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("checkpoints")
+      .select("id, name_ar, capacity, color, event_id, events(title_ar)")
+      .eq("assigned_user_id", user.id)
+      .eq("is_active", true)
+      .then(({ data }) => {
+        const list = (data as any) || [];
+        setAssignedGates(list);
+        if (list.length) {
+          // فعاليات البوابات المعيَّنة فقط
+          const evts = [...new Map(
+            list.map((c: any) => [c.event_id, { id: c.event_id, title_ar: c.events?.title_ar || "فعالية" }])
+          ).values()];
+          setEvents(evts as any);
+          const first = list[0];
+          setSelectedEvent(first.event_id);
+          setSelectedCheckpoint(first.id);
+          localStorage.setItem(LS_EVENT, first.event_id);
+          localStorage.setItem(LS_CP, first.id);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // Load events for the organizer
   useEffect(() => {
-    if (!organization) return;
+    if (!organization || locked) return;
     supabase.from("events").select("id, title_ar").eq("organization_id", organization.id).in("status", ["published", "approved"]).order("start_date", { ascending: false }).then(({ data }) => {
       const list = (data as any) || [];
       setEvents(list);
@@ -58,11 +88,21 @@ const CheckIn = () => {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [organization]);
+  }, [organization, locked]);
 
   // Load checkpoints for selected event
   useEffect(() => {
     if (!selectedEvent) { setCheckpoints([]); return; }
+    // موظف معيَّن: بواباته المعيَّنة لهذه الفعالية فقط — بلا أي خيارات أخرى
+    if (locked) {
+      const mine = assignedGates.filter((c: any) => c.event_id === selectedEvent);
+      setCheckpoints(mine as any);
+      if (mine.length && !mine.find((c: any) => c.id === selectedCheckpoint)) {
+        setSelectedCheckpoint(mine[0].id);
+        localStorage.setItem(LS_CP, mine[0].id);
+      }
+      return;
+    }
     supabase.from("checkpoints").select("id, name_ar, capacity, color").eq("event_id", selectedEvent).eq("is_active", true).order("display_order").then(({ data }) => {
       const list = (data as any) || [];
       setCheckpoints(list);
@@ -72,7 +112,7 @@ const CheckIn = () => {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEvent]);
+  }, [selectedEvent, locked, assignedGates]);
 
   // Load stats + gate pressure
   const refreshStats = useCallback(async () => {
@@ -253,20 +293,25 @@ const CheckIn = () => {
 
         {/* Event + Checkpoint selectors */}
         <div className="bg-card rounded-2xl border border-border/50 p-4 mb-4 space-y-3">
+          {locked && (
+            <div className="rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-semibold p-3">
+              🔒 أنت معيَّن على بوابة محددة من الإدارة — جميع عمليات مسحك تُسجَّل عليها ولا يمكنك الوصول لأي بوابة أخرى.
+            </div>
+          )}
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> الفعالية</label>
-              <select value={selectedEvent} onChange={e => onChangeEvent(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <select value={selectedEvent} onChange={e => onChangeEvent(e.target.value)} disabled={locked && events.length <= 1}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
                 <option value="">— اختر —</option>
                 {events.map(e => <option key={e.id} value={e.id}>{e.title_ar}</option>)}
               </select>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> البوابة الحالية</label>
-              <select value={selectedCheckpoint} onChange={e => onChangeCheckpoint(e.target.value)} disabled={!selectedEvent || checkpoints.length === 0}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50">
-                <option value="">— بدون بوابة —</option>
+              <select value={selectedCheckpoint} onChange={e => onChangeCheckpoint(e.target.value)} disabled={locked || !selectedEvent || checkpoints.length === 0}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
+                {!locked && <option value="">— بدون بوابة —</option>}
                 {checkpoints.map(c => <option key={c.id} value={c.id}>{c.name_ar}</option>)}
               </select>
             </div>

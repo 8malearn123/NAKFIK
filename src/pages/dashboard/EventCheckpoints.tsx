@@ -16,6 +16,7 @@ interface Checkpoint {
   color: string;
   is_active: boolean;
   display_order: number;
+  assigned_user_id?: string | null;
 }
 
 const TYPE_OPTIONS = [
@@ -34,6 +35,8 @@ const EventCheckpoints = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [staffNames, setStaffNames] = useState<Record<string, string>>({});
+
   const load = useCallback(async () => {
     if (!eventId) return;
     const [{ data: evt }, { data: cps }] = await Promise.all([
@@ -41,7 +44,16 @@ const EventCheckpoints = () => {
       supabase.from("checkpoints").select("*").eq("event_id", eventId).order("display_order"),
     ]);
     setEvent(evt as any);
-    setItems((cps as any) || []);
+    const list = ((cps as any) || []) as Checkpoint[];
+    setItems(list);
+    // أسماء الموظفين المعيَّنين (للعرض فقط — التعيين من صلاحيات الإدارة)
+    const ids = [...new Set(list.map(c => c.assigned_user_id).filter(Boolean))] as string[];
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
+      const map: Record<string, string> = {};
+      (profs || []).forEach((p: any) => { map[p.id] = p.full_name || "موظف معيَّن"; });
+      setStaffNames(map);
+    }
     setLoading(false);
   }, [eventId]);
 
@@ -150,6 +162,7 @@ const EventCheckpoints = () => {
                     <th className="text-right p-3 font-semibold text-foreground">الاسم</th>
                     <th className="text-right p-3 font-semibold text-foreground">النوع</th>
                     <th className="text-right p-3 font-semibold text-foreground">السعة</th>
+                    <th className="text-right p-3 font-semibold text-foreground">الموظف المعيَّن</th>
                     <th className="text-right p-3 font-semibold text-foreground">مفعّلة</th>
                     <th className="p-3 w-12"></th>
                   </tr>
@@ -179,6 +192,17 @@ const EventCheckpoints = () => {
                       <td className="p-3 w-24">
                         <Input type="number" min={0} value={it.capacity} onChange={e => update(i, { capacity: parseInt(e.target.value) || 0 })} className="h-9 w-20" />
                       </td>
+                      <td className="p-3 min-w-[130px]">
+                        {it.assigned_user_id ? (
+                          <span className="text-[11px] font-bold rounded-full px-2.5 py-1 bg-primary/10 text-primary inline-block">
+                            {staffNames[it.assigned_user_id] || "موظف معيَّن"}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2.5 py-1 inline-block" title="تعيين الموظفين من صلاحيات إدارة نكفيك فقط">
+                            لم يُعيَّن — من الإدارة
+                          </span>
+                        )}
+                      </td>
                       <td className="p-3">
                         <button type="button" onClick={() => update(i, { is_active: !it.is_active })}
                           className={`w-11 h-6 rounded-full transition-colors relative ${it.is_active ? "bg-brand-teal" : "bg-muted"}`}>
@@ -201,8 +225,9 @@ const EventCheckpoints = () => {
         <div className="bg-muted/30 rounded-xl p-4 text-xs text-muted-foreground">
           <p className="font-semibold text-foreground mb-1">ℹ️ كيف تعمل البوابات؟</p>
           <ul className="list-disc list-inside space-y-1 mr-2">
-            <li>كل موظف عند التشيك-إن يختار البوابة من قائمة منسدلة في أعلى الشاشة</li>
-            <li>كل عملية مسح تُسجَّل تلقائياً مع البوابة المختارة</li>
+            <li>دورك كمنظم: إنشاء البوابات وتحديد عددها وأسمائها فقط</li>
+            <li>كل موظف يتم تعيينه على بوابة محددة مسبقًا، وجميع عمليات المسح تُسجل تلقائيًا على تلك البوابة</li>
+            <li>تعيين الموظفين على البوابات من صلاحيات إدارة نكفيك تيكت أو المسؤول المخوَّل فقط</li>
             <li>السعة تُستخدم لحساب نسبة الضغط في الخارطة الحرارية</li>
           </ul>
         </div>
