@@ -9,6 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { classifyAttendee, ATTENDEE_CLASS_META } from "@/lib/attendeeClass";
+import AddToWalletButton from "@/components/AddToWalletButton";
 import {
   IdCard, Copy, ExternalLink, Calendar, MapPin, CheckCircle2, Ticket as TicketIcon, UserSquare2, Sparkles,
 } from "lucide-react";
@@ -277,6 +278,9 @@ const MyCards = () => {
                       </p>
                     </div>
                   )}
+                  <div className="flex justify-center mt-3">
+                    <AddToWalletButton registrationId={activeCard.id} />
+                  </div>
                 </div>
               </div>
             );

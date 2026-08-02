@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import MyTicketConnectQR from "@/components/MyTicketConnectQR";
+import AddToWalletButton from "@/components/AddToWalletButton";
 import EventFeaturedCardsView from "@/components/EventFeaturedCardsView";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -104,6 +105,7 @@ const TicketCard = ({ reg, onCancelled }: { reg: RegistrationRow; onCancelled: (
               </Link>
             </Button>
             {!isPast && <MyTicketConnectQR />}
+            {!isPast && <AddToWalletButton registrationId={reg.id} compact />}
             {canCancel && (
               <Button
                 size="sm"
