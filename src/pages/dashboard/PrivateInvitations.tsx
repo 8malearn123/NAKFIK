@@ -1214,14 +1214,19 @@ const PrivateInvitations = () => {
                                 ))}
                               </div>
                               {addable.length > 0 && (
-                                <select
-                                  defaultValue=""
-                                  onChange={e => { if (e.target.value) { linkInvGate(e.target.value, d.id); e.target.value = ""; } }}
-                                  className="h-7 rounded-lg border border-border bg-background px-2 text-[11px]"
-                                >
-                                  <option value="">+ إسناد بوابة لهذا اليوم</option>
-                                  {addable.map(g => <option key={g.id} value={g.id}>{g.name_ar} ({g.gate_type === "exit" ? "خروج" : "دخول"})</option>)}
-                                </select>
+                                <div className="flex flex-wrap gap-1 items-center">
+                                  <span className="text-[10px] text-muted-foreground">اضغط للإسناد:</span>
+                                  {addable.map(g => (
+                                    <button
+                                      key={g.id}
+                                      type="button"
+                                      onClick={() => linkInvGate(g.id, d.id)}
+                                      className="text-[10px] font-bold rounded-full px-2 py-0.5 border-2 border-dashed border-primary/40 text-primary hover:bg-primary/10 transition"
+                                    >
+                                      + {g.name_ar} · {g.gate_type === "exit" ? "خروج" : "دخول"}
+                                    </button>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           </details>

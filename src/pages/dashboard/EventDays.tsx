@@ -322,14 +322,19 @@ const EventDays = () => {
                         ))}
                       </div>
                       {linksSupported && addableGates.length > 0 && (
-                        <select
-                          defaultValue=""
-                          onChange={e => { if (e.target.value) { linkGate(e.target.value, d.id); e.target.value = ""; } }}
-                          className="h-8 rounded-lg border border-border bg-background px-2 text-xs"
-                        >
-                          <option value="">+ إسناد بوابة لهذا اليوم</option>
-                          {addableGates.map(g => <option key={g.id} value={g.id}>{g.name_ar} ({g.checkpoint_type === "exit" ? "خروج" : "دخول"})</option>)}
-                        </select>
+                        <div className="flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[10px] text-muted-foreground">اضغط للإسناد:</span>
+                          {addableGates.map(g => (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => linkGate(g.id, d.id)}
+                              className="text-[11px] font-bold rounded-full px-2.5 py-1 border-2 border-dashed border-primary/40 text-primary hover:bg-primary/10 transition"
+                            >
+                              + {g.name_ar} · {g.checkpoint_type === "exit" ? "خروج" : "دخول"}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
