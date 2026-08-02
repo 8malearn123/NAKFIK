@@ -61,6 +61,10 @@ const CheckIn = () => {
   // أيام الدعوة الخاصة — نفس الفكرة للمناسبات متعددة الأيام
   const [invDays, setInvDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null }[]>([]);
   const [selectedInvDay, setSelectedInvDay] = useState<string>("");
+  // بوابات الدعوة (اختيارية للمناسبات الكبيرة) — وجودها يستبدل أزرار دخول/خروج
+  const [invGates, setInvGates] = useState<{ id: string; name_ar: string; gate_type: string }[]>([]);
+  const [invGateLinks, setInvGateLinks] = useState<{ gate_id: string; day_id: string }[]>([]);
+  const [selectedInvGate, setSelectedInvGate] = useState<string>("");
 
   // بوابات معيَّنة لهذا المستخدم؟ (التعيين من الإدارة فقط)
   useEffect(() => {
@@ -133,7 +137,44 @@ const CheckIn = () => {
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
         setSelectedInvDay(list.find(d => d.day_date === todayStr)?.id || "");
       });
+    // بوابات الدعوة وروابطها بالأيام (تُتجاهل الأخطاء قبل تنفيذ SQL)
+    supabase
+      .from("invitation_gates" as any)
+      .select("id, name_ar, gate_type")
+      .eq("invitation_id", selectedEvent.slice(4))
+      .eq("is_active", true)
+      .order("display_order")
+      .then(async ({ data, error }) => {
+        if (error) { setInvGates([]); setInvGateLinks([]); return; }
+        const gates = ((data as any) || []) as { id: string; name_ar: string; gate_type: string }[];
+        setInvGates(gates);
+        if (gates.length) {
+          const linksRes = await supabase
+            .from("invitation_gate_days" as any)
+            .select("gate_id, day_id")
+            .in("gate_id", gates.map(g => g.id));
+          setInvGateLinks(linksRes.error ? [] : (((linksRes.data as any) || []) as any));
+        } else {
+          setInvGateLinks([]);
+        }
+      });
   }, [selectedEvent]);
+
+  // بوابات الدعوة الظاهرة لليوم المختار: المرتبطة به + غير المرتبطة بأي يوم
+  const visibleInvGates = invGates.filter(g => {
+    if (!selectedInvDay) return true;
+    const links = invGateLinks.filter(l => l.gate_id === g.id);
+    return links.length === 0 || links.some(l => l.day_id === selectedInvDay);
+  });
+
+  // اختيار أول بوابة ظاهرة تلقائياً عند تغير القائمة
+  useEffect(() => {
+    if (!isInvMode || invGates.length === 0) { setSelectedInvGate(""); return; }
+    if (!visibleInvGates.find(g => g.id === selectedInvGate)) {
+      setSelectedInvGate(visibleInvGates[0]?.id || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInvMode, invGates, invGateLinks, selectedInvDay]);
 
   // أيام الفعالية — تُحمَّل بصمت وتُختار تلقائياً حسب تاريخ اليوم
   useEffect(() => {
@@ -260,16 +301,20 @@ const CheckIn = () => {
         return;
       }
       const nowIso = new Date().toISOString();
+      // بوابة مختارة تحدد نوع المسحة — وإلا أزرار دخول/خروج
+      const activeGate = invGates.find(g => g.id === selectedInvGate);
+      const isExitScan = activeGate ? activeGate.gate_type === "exit" : scanMode === "exit";
       // سجل المسح اليومي للضيف (يتجاهل الخطأ إن لم يُنفذ ملف SQL بعد)
       const logGuestScan = (type: "entry" | "exit") =>
         supabase.from("invitation_guest_scans" as any).insert({
           invitation_id: invId,
           guest_id: (guest as any).id,
           day_id: selectedInvDay || null,
+          gate_id: activeGate?.id || null,
           scan_type: type,
           scanned_by: user?.id || null,
         } as any).then(() => {});
-      if (scanMode === "exit") {
+      if (isExitScan) {
         const { error: outErr } = await supabase
           .from("private_invitation_guests")
           .update({ checked_out_at: nowIso, checked_in_at: (guest as any).checked_in_at || nowIso } as any)
@@ -280,7 +325,7 @@ const CheckIn = () => {
         }
         await logGuestScan("exit");
         setResult({ status: "success", message: `${(guest as any).guest_name} — تم تسجيل الخروج` });
-      } else if ((guest as any).checked_in_at && !selectedInvDay) {
+      } else if ((guest as any).checked_in_at && !selectedInvDay && !activeGate) {
         setResult({ status: "already", message: `${(guest as any).guest_name} مسجَّل دخوله مسبقاً` });
       } else {
         await supabase
@@ -454,7 +499,7 @@ const CheckIn = () => {
       data: regData as any,
       message: isAlready ? "تم تسجيل حضور هذا الشخص مسبقاً" : "تم تسجيل الحضور بنجاح!",
     });
-  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats, selectedDay, selectedInvDay]);
+  }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats, selectedDay, selectedInvDay, invGates, selectedInvGate]);
 
   const handleManualSubmit = (e: React.FormEvent) => { e.preventDefault(); lookupCode(manualCode); };
 
@@ -549,7 +594,20 @@ const CheckIn = () => {
               </select>
             </div>
             <div>
-              {isInvMode ? (
+              {isInvMode && invGates.length > 0 ? (
+                <>
+                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> البوابة الحالية</label>
+                  <select
+                    value={selectedInvGate}
+                    onChange={e => { setSelectedInvGate(e.target.value); setResult(null); }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    {visibleInvGates.map(g => (
+                      <option key={g.id} value={g.id}>{g.name_ar} ({g.gate_type === "exit" ? "خروج" : "دخول"})</option>
+                    ))}
+                  </select>
+                </>
+              ) : isInvMode ? (
                 <>
                   <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> وضع المسح</label>
                   <div className="grid grid-cols-2 gap-2">

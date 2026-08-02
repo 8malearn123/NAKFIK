@@ -17,7 +17,7 @@ import {
   Mail, Plus, Pencil, Trash2, Users, ExternalLink, Copy, QrCode, Palette,
   Calendar, MapPin, Shirt, Phone, Gift, Send, CheckCircle2, X,
   Heart, Flower2, GraduationCap, Cake, Landmark, Mic2, Scissors, Crown, Briefcase, Sparkles,
-  Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList, CalendarDays, Save,
+  Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList, CalendarDays, Save, DoorOpen,
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
@@ -149,6 +149,33 @@ const PrivateInvitations = () => {
   const [invDays, setInvDays] = useState<{ id: string; day_number: number; day_date: string; title: string | null; notes: string | null }[]>([]);
   const [invDaysSupported, setInvDaysSupported] = useState(true);
 
+  // بوابات الدعوة — تُدار من داخل نافذة الأيام (تظهر عند الحاجة فقط)
+  const [invGates, setInvGates] = useState<{ id: string; name_ar: string; gate_type: string }[]>([]);
+  const [invGateLinks, setInvGateLinks] = useState<{ id: string; gate_id: string; day_id: string }[]>([]);
+  const [invGatesSupported, setInvGatesSupported] = useState(true);
+  const [newGate, setNewGate] = useState({ name: "", type: "entry" });
+
+  const loadInvGates = async (invId: string) => {
+    const gatesRes = await supabase
+      .from("invitation_gates" as any)
+      .select("id, name_ar, gate_type")
+      .eq("invitation_id", invId)
+      .order("display_order");
+    if (gatesRes.error) { setInvGatesSupported(false); setInvGates([]); setInvGateLinks([]); return; }
+    setInvGatesSupported(true);
+    const gates = ((gatesRes.data as any) || []) as any[];
+    setInvGates(gates);
+    if (gates.length) {
+      const linksRes = await supabase
+        .from("invitation_gate_days" as any)
+        .select("id, gate_id, day_id")
+        .in("gate_id", gates.map(g => g.id));
+      setInvGateLinks(linksRes.error ? [] : (((linksRes.data as any) || []) as any));
+    } else {
+      setInvGateLinks([]);
+    }
+  };
+
   const openDays = async (inv: Inv) => {
     setDaysInv(inv);
     const { data, error } = await supabase
@@ -159,6 +186,44 @@ const PrivateInvitations = () => {
     if (error) { setInvDaysSupported(false); setInvDays([]); return; }
     setInvDaysSupported(true);
     setInvDays(((data as any) || []) as any);
+    loadInvGates(inv.id);
+  };
+
+  const addInvGate = async () => {
+    if (!daysInv || !newGate.name.trim()) return;
+    const { error } = await supabase.from("invitation_gates" as any).insert({
+      invitation_id: daysInv.id,
+      name_ar: newGate.name.trim(),
+      gate_type: newGate.type,
+      display_order: invGates.length,
+    } as any);
+    if (error) {
+      setInvGatesSupported(false);
+      return toast.error("نفّذ ملف SQL الخاص ببوابات الدعوات أولاً");
+    }
+    setNewGate({ name: "", type: "entry" });
+    loadInvGates(daysInv.id);
+  };
+
+  const removeInvGate = async (gateId: string) => {
+    if (!confirm("حذف هذه البوابة؟")) return;
+    await supabase.from("invitation_gates" as any).delete().eq("id", gateId);
+    if (daysInv) loadInvGates(daysInv.id);
+  };
+
+  const linkInvGate = async (gateId: string, dayId: string) => {
+    const { data, error } = await supabase
+      .from("invitation_gate_days" as any)
+      .insert({ gate_id: gateId, day_id: dayId } as any)
+      .select()
+      .single();
+    if (error) return toast.error(error.message.includes("duplicate") ? "مسندة لهذا اليوم مسبقاً" : error.message);
+    setInvGateLinks(prev => [...prev, data as any]);
+  };
+
+  const unlinkInvGate = async (linkId: string) => {
+    await supabase.from("invitation_gate_days" as any).delete().eq("id", linkId);
+    setInvGateLinks(prev => prev.filter(l => l.id !== linkId));
   };
 
   const DAY_ORDINALS = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع"];
@@ -1049,6 +1114,58 @@ const PrivateInvitations = () => {
                 <p className="text-[11px] text-muted-foreground -mt-2">
                   للمناسبات الممتدة لعدة أيام — حضور كل يوم يُسجل مستقلاً وتشوفه في قائمة الحضور
                 </p>
+
+                {/* بوابات المناسبة — قسم قابل للطي حتى لا تزدحم الواجهة */}
+                <details className="border rounded-xl overflow-hidden group">
+                  <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-bold flex items-center gap-2 bg-muted/30 hover:bg-muted/50">
+                    <DoorOpen className="w-4 h-4 text-primary" /> بوابات المناسبة
+                    <span className="text-[10px] font-normal text-muted-foreground">
+                      {invGates.length ? `${invGates.length} بوابة` : "اختياري — للمناسبات الكبيرة"}
+                    </span>
+                  </summary>
+                  <div className="p-3 space-y-2">
+                    {!invGatesSupported ? (
+                      <p className="text-[11px] text-amber-700 bg-amber-500/10 rounded-lg px-2 py-1.5">
+                        نفّذ ملف SQL الخاص ببوابات الدعوات (invitation_gates) لتفعيل هذا القسم
+                      </p>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-1.5">
+                          {invGates.length === 0 && (
+                            <span className="text-[11px] text-muted-foreground">
+                              بدون بوابات تستخدم أزرار دخول/خروج البسيطة في شاشة المسح
+                            </span>
+                          )}
+                          {invGates.map(g => (
+                            <span key={g.id} className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1 ${g.gate_type === "exit" ? "bg-amber-500/10 text-amber-700" : "bg-teal/10 text-teal-700"}`}>
+                              {g.name_ar} · {g.gate_type === "exit" ? "خروج" : "دخول"}
+                              <button type="button" onClick={() => removeInvGate(g.id)} className="hover:text-destructive"><X className="w-3 h-3" /></button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap items-center">
+                          <Input
+                            value={newGate.name}
+                            onChange={e => setNewGate({ ...newGate, name: e.target.value })}
+                            placeholder="اسم البوابة (البوابة الرئيسية...)"
+                            className="h-8 w-44 text-xs"
+                          />
+                          <select
+                            value={newGate.type}
+                            onChange={e => setNewGate({ ...newGate, type: e.target.value })}
+                            className="h-8 rounded-lg border border-border bg-background px-2 text-xs"
+                          >
+                            <option value="entry">دخول</option>
+                            <option value="exit">خروج</option>
+                          </select>
+                          <Button size="sm" variant="outline" className="h-8 rounded-full text-xs" onClick={addInvGate} disabled={!newGate.name.trim()}>
+                            <Plus className="w-3 h-3" /> إضافة بوابة
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </details>
                 {invDays.length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-6">لا أيام بعد — أضف اليوم الأول</p>
                 )}
@@ -1072,6 +1189,44 @@ const PrivateInvitations = () => {
                         placeholder="التجهيزات اليومية (القاعة، الضيافة...)"
                         className="h-8 text-xs"
                       />
+                      {invGatesSupported && invGates.length > 0 && (() => {
+                        const dayLinks = invGateLinks.filter(l => l.day_id === d.id);
+                        const linked = dayLinks
+                          .map(l => ({ link: l, gate: invGates.find(g => g.id === l.gate_id) }))
+                          .filter(x => x.gate) as { link: { id: string }; gate: { id: string; name_ar: string; gate_type: string } }[];
+                        const addable = invGates.filter(g => !dayLinks.some(l => l.gate_id === g.id));
+                        return (
+                          <details className="border rounded-lg overflow-hidden">
+                            <summary className="cursor-pointer select-none px-2.5 py-1.5 text-[11px] font-bold flex items-center gap-1.5 bg-muted/20 hover:bg-muted/40">
+                              <DoorOpen className="w-3 h-3 text-primary" /> بوابات هذا اليوم
+                              <span className="font-normal text-muted-foreground">({linked.length ? `${linked.length} مسندة` : "الكل يعمل"})</span>
+                            </summary>
+                            <div className="p-2 space-y-1.5">
+                              <div className="flex flex-wrap gap-1">
+                                {linked.length === 0 && (
+                                  <span className="text-[10px] text-muted-foreground">لا بوابات مسندة — كل بوابات المناسبة تعمل في هذا اليوم</span>
+                                )}
+                                {linked.map(({ link, gate }) => (
+                                  <span key={link.id} className="inline-flex items-center gap-1 text-[10px] font-bold bg-teal/10 text-teal-700 rounded-full px-2 py-0.5">
+                                    {gate.name_ar} · {gate.gate_type === "exit" ? "خروج" : "دخول"}
+                                    <button type="button" onClick={() => unlinkInvGate(link.id)} className="hover:text-destructive"><X className="w-2.5 h-2.5" /></button>
+                                  </span>
+                                ))}
+                              </div>
+                              {addable.length > 0 && (
+                                <select
+                                  defaultValue=""
+                                  onChange={e => { if (e.target.value) { linkInvGate(e.target.value, d.id); e.target.value = ""; } }}
+                                  className="h-7 rounded-lg border border-border bg-background px-2 text-[11px]"
+                                >
+                                  <option value="">+ إسناد بوابة لهذا اليوم</option>
+                                  {addable.map(g => <option key={g.id} value={g.id}>{g.name_ar} ({g.gate_type === "exit" ? "خروج" : "دخول"})</option>)}
+                                </select>
+                              )}
+                            </div>
+                          </details>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>
