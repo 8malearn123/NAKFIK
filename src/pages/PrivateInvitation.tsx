@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Calendar, MapPin, Shirt, Phone, Gift, CheckCircle2, X, Copy,
-  MessageCircle, Mail, ExternalLink,
+  MessageCircle, Mail, ExternalLink, Clock, HeartHandshake,
 } from "lucide-react";
 import DesignPreview from "@/components/design/DesignPreview";
 import CustomTemplateRender from "@/components/design/CustomTemplateRender";
@@ -21,6 +22,7 @@ const PrivateInvitation = () => {
   const [loading, setLoading] = useState(true);
   const [companions, setCompanions] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -52,7 +54,8 @@ const PrivateInvitation = () => {
     });
     setSubmitting(false);
     if (error || !data) return toast.error("تعذر حفظ ردك");
-    toast.success(status === "confirmed" ? "تم تأكيد حضورك ❤" : "تم تسجيل اعتذارك");
+    if (status === "confirmed") toast.success("تم تأكيد حضورك ❤");
+    else setDeclineModalOpen(true); // الاعتذار يظهر في نافذة منبثقة
     const result = data as any;
     setGuest({
       ...guest,
@@ -123,15 +126,42 @@ const PrivateInvitation = () => {
         <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl overflow-hidden">
           <div className="p-6 space-y-5">
 
+            {/* التاريخ والوقت — بطاقتان بارزتان */}
+            <div className="grid grid-cols-2 gap-3">
+              <div
+                className="rounded-2xl p-4 text-center border-2"
+                style={{ borderColor: inv.accent_color + "55", background: inv.accent_color + "0d" }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white shadow-md"
+                  style={{ background: inv.accent_color }}
+                >
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <p className="text-xs text-gray-500 mb-1">التاريخ</p>
+                <p className="font-bold text-gray-800 leading-snug">
+                  {eventDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </p>
+              </div>
+              <div
+                className="rounded-2xl p-4 text-center border-2"
+                style={{ borderColor: inv.accent_color + "55", background: inv.accent_color + "0d" }}
+              >
+                <div
+                  className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white shadow-md"
+                  style={{ background: inv.accent_color }}
+                >
+                  <Clock className="w-6 h-6" />
+                </div>
+                <p className="text-xs text-gray-500 mb-1">الوقت</p>
+                <p className="font-bold text-gray-800 text-lg">
+                  {eventDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            </div>
+
             {/* Details */}
             <div className="space-y-3 border-t border-b py-4">
-              <Row icon={<Calendar className="w-4 h-4" />} color={inv.accent_color} label="التاريخ والوقت">
-                {eventDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                <br />
-                <span className="text-xs text-gray-500">
-                  {eventDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </Row>
               {inv.venue_name && (
                 <Row icon={<MapPin className="w-4 h-4" />} color={inv.accent_color} label="الموقع">
                   <p>{inv.venue_name}</p>
@@ -211,7 +241,9 @@ const PrivateInvitation = () => {
                 </div>
               ) : guest.rsvp_status === "declined" ? (
                 <div className="text-center">
-                  <p className="text-gray-600">تم تسجيل اعتذارك. نتمنى لقاءك في مناسبة قادمة.</p>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-700 font-bold">
+                    <CheckCircle2 className="w-5 h-5" /> تم تسجيل اعتذارك
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -249,6 +281,31 @@ const PrivateInvitation = () => {
 
         <p className="text-center text-xs text-white/70 mt-6">دعوة عبر نكفيك تيكت</p>
       </div>
+
+      {/* نافذة تأكيد الاعتذار */}
+      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
+        <DialogContent dir="rtl" className="max-w-sm rounded-3xl text-center font-cairo">
+          <div className="py-4">
+            <div
+              className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white shadow-lg"
+              style={{ background: inv.theme_color }}
+            >
+              <HeartHandshake className="w-8 h-8" />
+            </div>
+            <h2 className="font-bold text-xl text-gray-800 mb-2">تم تسجيل اعتذارك بنجاح</h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              نشكر لك إبلاغنا، ونتمنى رؤيتك في مناسبة قادمة.
+            </p>
+            <Button
+              className="mt-5 rounded-full px-8 text-white"
+              style={{ background: inv.theme_color }}
+              onClick={() => setDeclineModalOpen(false)}
+            >
+              حسناً
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
