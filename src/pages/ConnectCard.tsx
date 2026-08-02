@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,11 +31,15 @@ function buildVCard(p: any) {
 
 export default function ConnectCard() {
   const { code } = useParams();
+  const [searchParams] = useSearchParams();
+  const eventId = searchParams.get("event");
   const { user } = useAuth();
   const { t, dir } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [owner, setOwner] = useState<any>(null);
+  // سياق الفعالية (من QR بطاقة الفعالية) — يلبس الصفحة هوية الفعالية
+  const [eventCtx, setEventCtx] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const captureRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +73,16 @@ export default function ConnectCard() {
       setLoading(false);
     })();
   }, [code]);
+
+  useEffect(() => {
+    if (!eventId) { setEventCtx(null); return; }
+    supabase
+      .from("events")
+      .select("id, title_ar, cover_image_url, start_date, venue_name, is_online")
+      .eq("id", eventId)
+      .maybeSingle()
+      .then(({ data }) => setEventCtx(data || null));
+  }, [eventId]);
 
   const downloadVCard = () => {
     const vcard = buildVCard({
@@ -190,16 +204,32 @@ export default function ConnectCard() {
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         <div ref={captureRef} className="space-y-6 bg-background p-2 rounded-2xl">
-        {/* Hero */}
+        {/* Hero — يلبس هوية الفعالية عند فتح البطاقة من QR فعالية */}
         <Card className="overflow-hidden border-none shadow-lg">
           <div
-            className="h-32 sm:h-40"
+            className="h-32 sm:h-40 relative"
             style={{
-              background: profile.bg_color_from && profile.bg_color_to
+              background: eventCtx?.cover_image_url
+                ? `url(${eventCtx.cover_image_url}) center/cover`
+                : profile.bg_color_from && profile.bg_color_to
                 ? `linear-gradient(135deg, ${profile.bg_color_from}, ${profile.bg_color_to})`
                 : "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
             }}
-          />
+          >
+            {eventCtx && (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+                <div className="absolute bottom-2 inset-x-0 px-4 text-center text-white">
+                  <p className="font-bold text-sm leading-snug drop-shadow">{eventCtx.title_ar}</p>
+                  <p className="text-[11px] text-white/85 drop-shadow">
+                    {new Date(eventCtx.start_date).toLocaleDateString("ar-SA", { dateStyle: "medium" })}
+                    {" · "}
+                    {eventCtx.is_online ? "أونلاين" : eventCtx.venue_name || ""}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
           <div className="px-6 pb-6 -mt-16">
             <div className="flex flex-col items-center text-center gap-3">
               <div

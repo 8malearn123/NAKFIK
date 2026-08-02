@@ -266,8 +266,15 @@ const MyCards = () => {
                   </div>
                   {cardUrl && (
                     <div className="bg-white rounded-2xl p-4 flex flex-col items-center">
-                      <QRCodeSVG value={cardUrl} size={160} level="H" fgColor="#492C5A" />
-                      <p className="text-[10px] text-gray-400 mt-2">نفس رمزك الموحد — امسحه عند بوابة الفعالية</p>
+                      <QRCodeSVG
+                        value={`${cardUrl}?event=${activeCard.event.id}`}
+                        size={160}
+                        level="H"
+                        fgColor="#492C5A"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-2">
+                        رمزك الموحد نفسه — من يمسحه يشوف بطاقتك بهوية هذه الفعالية
+                      </p>
                     </div>
                   )}
                 </div>
