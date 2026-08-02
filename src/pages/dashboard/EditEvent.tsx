@@ -227,13 +227,33 @@ const EditEvent = () => {
           <div className="space-y-2">
             <Label>صورة الغلاف</Label>
             {coverUrl && !coverFile && (
-              <img src={coverUrl} alt="cover" className="w-full max-w-md rounded-xl border border-border/50" />
+              <div className="relative w-full max-w-md">
+                <img src={coverUrl} alt="cover" className="w-full rounded-xl border border-border/50" />
+                <button
+                  type="button"
+                  onClick={() => setCoverUrl(null)}
+                  className="absolute top-2 end-2 bg-destructive text-destructive-foreground rounded-full p-2 shadow-lg hover:opacity-90 transition"
+                  title="حذف صورة الغلاف"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             )}
-            <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-border cursor-pointer hover:bg-muted/30 w-fit">
-              <Upload className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">{coverFile ? coverFile.name : "اختر صورة جديدة"}</span>
-              <input type="file" accept="image/*" className="hidden" onChange={e => setCoverFile(e.target.files?.[0] || null)} />
-            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-border cursor-pointer hover:bg-muted/30 w-fit">
+                <Upload className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">{coverFile ? coverFile.name : "اختر صورة جديدة"}</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => setCoverFile(e.target.files?.[0] || null)} />
+              </label>
+              {coverFile && (
+                <Button type="button" variant="ghost" size="sm" className="text-destructive rounded-full" onClick={() => setCoverFile(null)}>
+                  <Trash2 className="w-3.5 h-3.5 ml-1" /> إلغاء الصورة المختارة
+                </Button>
+              )}
+            </div>
+            {!coverUrl && !coverFile && (
+              <p className="text-[11px] text-muted-foreground">لا توجد صورة غلاف — احفظ التعديلات لتأكيد الحذف، أو اختر صورة جديدة.</p>
+            )}
           </div>
         </div>
 
