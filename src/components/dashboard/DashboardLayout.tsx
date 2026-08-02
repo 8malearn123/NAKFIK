@@ -34,6 +34,8 @@ type NavItem = {
   icon: typeof LayoutDashboard;
   label: string;
   path: string;
+  // ميزة معطّلة مؤقتاً — تظهر بشارة "قريباً" وغير قابلة للنقر
+  soon?: boolean;
 };
 type NavSection = {
   section?: string;
@@ -64,7 +66,7 @@ const navSections: NavSection[] = [
       { icon: Tag, label: "خصومات الشركاء", path: "/dashboard/discounts" },
       { icon: Mail, label: "الدعوات الخاصة", path: "/dashboard/invitations" },
       { icon: Database, label: "قواعد بيانات المدعوين", path: "/dashboard/guest-lists" },
-      { icon: Award, label: "الشهادات", path: "/dashboard/certificates" },
+      { icon: Award, label: "الشهادات", path: "/dashboard/certificates", soon: true },
       { icon: Bell, label: "الإشعارات", path: "/dashboard/notifications" },
       { icon: Settings, label: "الإعدادات", path: "/dashboard/settings" },
     ],
@@ -147,6 +149,25 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 )}
                 {sec.items.map((item) => {
                   const isActive = isActiveItem(item.path);
+                  if (item.soon) {
+                    return (
+                      <div
+                        key={item.path}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-primary-foreground/30 cursor-not-allowed select-none"
+                        title="غير متاحة حالياً"
+                      >
+                        <item.icon className="w-5 h-5 flex-shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span>{item.label}</span>
+                            <span className="mr-auto text-[10px] font-bold bg-primary-foreground/10 text-primary-foreground/50 rounded-full px-2 py-0.5">
+                              قريباً
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
                   return (
                     <Link
                       key={item.path}

@@ -72,8 +72,8 @@ import PrivateInvitations from "./pages/dashboard/PrivateInvitations";
 import GuestLists from "./pages/dashboard/GuestLists";
 import PrivateInvitation from "./pages/PrivateInvitation";
 import AdminPrivateInvitations from "./pages/admin/AdminPrivateInvitations";
-import CertificateDesigns from "./pages/dashboard/CertificateDesigns";
-import CertificateView from "./pages/CertificateView";
+// ميزة الشهادات معطّلة مؤقتاً — CertificateDesigns و CertificateView محفوظان لإعادة التفعيل لاحقاً
+import FeatureComingSoon from "./pages/dashboard/FeatureComingSoon";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -105,7 +105,6 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/register-provider" element={<RegisterProvider />} />
                 <Route path="/invite/:token" element={<PrivateInvitation />} />
-                <Route path="/certificate/:token" element={<CertificateView />} />
 
                 {/* Attendee */}
                 <Route path="/my-tickets" element={
@@ -150,7 +149,7 @@ const App = () => (
                 <Route path="/dashboard/discounts" element={<ProtectedRoute requiredAccountType="organizer"><PartnerDiscounts /></ProtectedRoute>} />
                 <Route path="/dashboard/invitations" element={<ProtectedRoute requiredAccountType="organizer"><PrivateInvitations /></ProtectedRoute>} />
                 <Route path="/dashboard/guest-lists" element={<ProtectedRoute requiredAccountType="organizer"><GuestLists /></ProtectedRoute>} />
-                <Route path="/dashboard/certificates" element={<ProtectedRoute requiredAccountType="organizer"><CertificateDesigns /></ProtectedRoute>} />
+                <Route path="/dashboard/certificates" element={<ProtectedRoute requiredAccountType="organizer"><FeatureComingSoon title="الشهادات" /></ProtectedRoute>} />
 
                 {/* Super Admin */}
                 <Route path="/admin" element={<ProtectedRoute requireSuperAdmin><AdminHome /></ProtectedRoute>} />
