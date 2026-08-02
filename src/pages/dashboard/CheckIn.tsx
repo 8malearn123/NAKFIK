@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { classifyAttendee, ATTENDEE_CLASS_META } from "@/lib/attendeeClass";
+import jsQR from "jsqr";
 import {
   Camera, Search, CheckCircle, XCircle, User, Mail, Ticket, Calendar, RotateCcw, Keyboard, DoorOpen, Activity,
 } from "lucide-react";
@@ -38,6 +39,9 @@ const CheckIn = () => {
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const scanCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+  const lookupRef = useRef<(code: string) => void>(() => {});
 
   const [events, setEvents] = useState<EventOption[]>([]);
   const [checkpoints, setCheckpoints] = useState<CheckpointOption[]>([]);
@@ -379,6 +383,36 @@ const CheckIn = () => {
   }, [selectedEvent, selectedCheckpoint, organization, user, checkpoints, scanMode, refreshStats]);
 
   const handleManualSubmit = (e: React.FormEvent) => { e.preventDefault(); lookupCode(manualCode); };
+
+  useEffect(() => { lookupRef.current = lookupCode; }, [lookupCode]);
+
+  // حلقة المسح الفعلية: قراءة إطارات الكاميرا وفك رمز QR (تعمل على iOS Safari)
+  useEffect(() => {
+    if (!cameraActive) return;
+    if (!scanCanvasRef.current) scanCanvasRef.current = document.createElement("canvas");
+    const canvas = scanCanvasRef.current;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const timer = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video || !ctx || video.readyState < 2 || !video.videoWidth) return;
+      // تصغير الإطار لأداء أفضل مع دقة كافية للفك
+      const scale = Math.min(1, 640 / video.videoWidth);
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const qr = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+      if (qr?.data) {
+        const now = Date.now();
+        // تجاهل تكرار نفس الرمز خلال 4 ثوانٍ
+        if (qr.data === lastScanRef.current.code && now - lastScanRef.current.at < 4000) return;
+        lastScanRef.current = { code: qr.data, at: now };
+        if (navigator.vibrate) navigator.vibrate(120);
+        lookupRef.current(qr.data);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [cameraActive]);
 
   const startCamera = async () => {
     try {
