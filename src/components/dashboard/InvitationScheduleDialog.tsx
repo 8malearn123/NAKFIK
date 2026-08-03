@@ -138,18 +138,27 @@ const InvitationScheduleDialog = ({ inv, onOpenChange, onDone }: Props) => {
       error = retry.error;
       if (!error) toast.warning(SQL_HINT);
     }
-    if (!error) await writeLog("rescheduled", iso);
+    if (!error) {
+      await writeLog("rescheduled", iso);
+      // إعادة فتح خيارَي التأكيد والاعتذار: من رد سابقاً (تأكيد أو اعتذار)
+      // يرجع لحالة "أُرسلت الدعوة" ليؤكد من جديد على الموعد الجديد
+      await supabase
+        .from("private_invitation_guests")
+        .update({ rsvp_status: "invited", confirmed_at: null } as any)
+        .eq("invitation_id", inv.id)
+        .in("rsvp_status", ["confirmed", "declined"]);
+    }
     setBusy(false);
     if (error) {
       toast.error("تعذّر تحديث الموعد");
       return;
     }
-    toast.success("تم تحديث الموعد — دعوات المدعوين تعرض الموعد الجديد تلقائياً");
+    toast.success("تم تحديث الموعد — وأُعيد فتح تأكيد الحضور لجميع المدعوين للموعد الجديد");
     onDone(fullPatch);
     setShareText(
       `تنبيه بتغيير الموعد 📅\nتم تأجيل "${inv.title}" إلى موعد جديد: ${fmt(iso)}.` +
       (reason.trim() ? `\nالسبب: ${reason.trim()}` : "") +
-      `\nرابط دعوتكم كما هو ويعرض الموعد الجديد تلقائياً — نتشرف بحضوركم.`
+      `\nرابط دعوتكم كما هو ويعرض الموعد الجديد — نرجو تأكيد حضوركم من جديد عبر الرابط. نتشرف بكم.`
     );
     setMode(null);
   };
@@ -243,6 +252,7 @@ const InvitationScheduleDialog = ({ inv, onOpenChange, onDone }: Props) => {
             </div>
             <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-xs leading-relaxed text-muted-foreground">
               ستعرض كل الدعوات الموعد الجديد تلقائياً مع تنبيه واضح "تم تغيير الموعد" — وروابط المدعوين تبقى كما هي.
+              كما يُعاد فتح خيارَي <b>التأكيد والاعتذار</b> لجميع من ردّ سابقاً ليؤكدوا حضورهم على الموعد الجديد.
             </div>
             <Button className="w-full" onClick={doReschedule} disabled={busy}>
               {busy ? "جارٍ التحديث..." : "تأكيد التأجيل"}
