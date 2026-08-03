@@ -10,9 +10,10 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock, AlertTriangle, ClipboardList, CalendarDays,
+  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock, AlertTriangle, ClipboardList, CalendarDays, CalendarClock,
 } from "lucide-react";
 import { computeEventReadiness, READINESS_THRESHOLD, type EventReadiness } from "@/lib/eventHealth";
+import EventScheduleDialog from "@/components/dashboard/EventScheduleDialog";
 
 type EventStatus = "draft" | "pending_review" | "approved" | "published" | "rejected" | "completed" | "cancelled";
 
@@ -88,6 +89,9 @@ const MyEvents = () => {
       toast.success("تم حذف الفعالية");
     }
   };
+
+  // فعالية مفتوح لها حوار الإلغاء / إعادة الجدولة
+  const [schedEvent, setSchedEvent] = useState<EventRow | null>(null);
 
   const [duplicating, setDuplicating] = useState<string | null>(null);
   // حالة صلاحية النسخ حسب الباقة: allowed | notInPlan | expired
@@ -361,6 +365,17 @@ const MyEvents = () => {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" asChild title="تعديل">
                       <Link to={`/dashboard/events/${event.id}/edit`}><Pencil className="w-4 h-4" /></Link>
                     </Button>
+                    {event.status !== "completed" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-amber-600 hover:text-amber-700"
+                        onClick={() => setSchedEvent(event)}
+                        title="إلغاء / إعادة جدولة — مع إشعار جميع المسجلين تلقائياً"
+                      >
+                        <CalendarClock className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -390,6 +405,17 @@ const MyEvents = () => {
           )}
         </div>
       </div>
+
+      {/* حوار إلغاء / إعادة جدولة الفعالية — يُشعر جميع المسجلين ويحفظ في السجل */}
+      <EventScheduleDialog
+        event={schedEvent}
+        onOpenChange={(o) => !o && setSchedEvent(null)}
+        onDone={(patch) => {
+          if (schedEvent) {
+            setEvents((prev) => prev.map((e) => (e.id === schedEvent.id ? { ...e, ...patch } as EventRow : e)));
+          }
+        }}
+      />
 
       {/* نافذة توضيح عدم توفر ميزة النسخ */}
       <Dialog open={dupBlockOpen} onOpenChange={setDupBlockOpen}>
