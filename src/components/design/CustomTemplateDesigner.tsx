@@ -37,6 +37,8 @@ export interface OverlayField {
   prefix: string;
   suffix: string;
   shadow: boolean;
+  // خلفية للنص — تغطي ما تحتها من التصميم (مفيدة لتصحيح تاريخ أو نص مطبوع في الصورة)
+  bgColor?: string | null;
 }
 
 // Backward-compatible: NameOverlay is now { fields: OverlayField[] } but legacy
@@ -57,7 +59,7 @@ export const DEFAULT_FIELD = (field: FieldKey = "guest_name", yPct = 22): Overla
   xPct: 50, yPct, widthPct: 70,
   fontSize: 32, fontFamily: "Amiri", fontWeight: 700,
   color: "#FFFFFF", textAlign: "center", letterSpacing: 0,
-  prefix: "", suffix: "", shadow: true,
+  prefix: "", suffix: "", shadow: true, bgColor: null,
 });
 
 export const DEFAULT_OVERLAY: NameOverlay = { fields: [DEFAULT_FIELD("guest_name")] };
@@ -273,7 +275,9 @@ export default function CustomTemplateDesigner({
                         direction: "rtl",
                         outline: isSel ? "2px dashed hsl(var(--primary))" : "none",
                         outlineOffset: 4,
-                        borderRadius: 4,
+                        borderRadius: f.bgColor ? 8 : 4,
+                        background: f.bgColor || "transparent",
+                        padding: f.bgColor ? "0.3em 0.5em" : undefined,
                       }}
                     >
                       {f.prefix && <span>{f.prefix} </span>}
@@ -443,6 +447,29 @@ export default function CustomTemplateDesigner({
                     onChange={(e) => updateSelected({ color: e.target.value })}
                     className="h-9 flex-1 font-mono text-xs"
                   />
+                </div>
+              </div>
+
+              <div className="col-span-2">
+                <Label className="text-xs">خلفية النص — تغطي ما تحتها من التصميم (مثلاً لتصحيح تاريخ مطبوع في الصورة)</Label>
+                <div className="flex gap-2 mt-1 items-center">
+                  <Input
+                    type="color"
+                    value={selected.bgColor || "#1d1849"}
+                    onChange={(e) => updateSelected({ bgColor: e.target.value })}
+                    className="h-9 w-14 p-1 cursor-pointer"
+                  />
+                  <Input
+                    value={selected.bgColor || ""}
+                    onChange={(e) => updateSelected({ bgColor: e.target.value || null })}
+                    placeholder="بدون خلفية"
+                    className="h-9 flex-1 font-mono text-xs"
+                  />
+                  {selected.bgColor && (
+                    <Button type="button" size="sm" variant="ghost" className="h-9 text-xs" onClick={() => updateSelected({ bgColor: null })}>
+                      إزالة
+                    </Button>
+                  )}
                 </div>
               </div>
 

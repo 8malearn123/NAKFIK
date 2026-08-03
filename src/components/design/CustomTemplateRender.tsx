@@ -63,6 +63,10 @@ export default function CustomTemplateRender({
                 ? "0 2px 12px rgba(0,0,0,0.55), 0 0 4px rgba(0,0,0,0.4)"
                 : "none",
               direction: "rtl",
+              // خلفية اختيارية تغطي ما تحتها من التصميم (تصحيح تاريخ/نص مطبوع)
+              background: f.bgColor || "transparent",
+              padding: f.bgColor ? "0.3em 0.5em" : undefined,
+              borderRadius: f.bgColor ? 8 : undefined,
             }}
           >
             {f.prefix && <span>{f.prefix} </span>}
