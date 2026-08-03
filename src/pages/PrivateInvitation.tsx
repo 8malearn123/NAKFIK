@@ -145,13 +145,6 @@ const PrivateInvitation = () => {
               <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 text-center">
                 <Clock className="w-6 h-6 text-amber-600 mx-auto mb-1.5" />
                 <p className="font-bold text-amber-800">تنبيه: تم تغيير موعد المناسبة</p>
-                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                  الموعد السابق:{" "}
-                  <span className="line-through">
-                    {new Date(inv.rescheduled_from).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" })}
-                  </span>
-                  {" "}— الموعد الجديد موضح أدناه
-                </p>
                 {inv.reschedule_note && (
                   <p className="text-xs text-amber-700 mt-1">{inv.reschedule_note}</p>
                 )}
