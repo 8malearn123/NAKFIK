@@ -499,16 +499,60 @@ const PrivateInvitations = () => {
 
   const copy = (txt: string) => { navigator.clipboard.writeText(txt); toast.success("تم النسخ"); };
 
-  const sendWhatsApp = (g: Guest) => {
-    if (!g.guest_phone) return toast.error("لا يوجد رقم جوال");
-    const url = inviteUrl(g.token);
-    const msg = encodeURIComponent(`مرحباً ${g.guest_name}،\nيسعدنا دعوتك إلى ${activeInv?.title}\nرابط الدعوة: ${url}`);
-    const phone = g.guest_phone.replace(/\D/g, "");
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  // ===== رسالة المشاركة التلقائية — تتولد حسب حالة الدعوة وحالة المدعو =====
+  const fmtShareDate = (d: string) =>
+    new Date(d).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" });
+
+  const autoShareMessage = (inv: Inv, g?: Guest | null): string => {
+    const hello = g?.guest_name ? `مرحباً ${g.guest_name}،\n` : "";
+    // الدعوة ملغاة → رسالة اعتذار
+    if (inv.status === "cancelled")
+      return `${hello}نعتذر عن إلغاء "${inv.title}"${(inv as any).cancel_reason ? ` — السبب: ${(inv as any).cancel_reason}` : ""}.\nنشكر تفهمكم ونعتذر عن أي إزعاج، ونتطلع للقائكم في مناسبة قادمة.`;
+    // المدعو أكد حضوره → رسالة تأكيد
+    if (g?.rsvp_status === "confirmed")
+      return `${hello}تم تأكيد حضورك لـ"${inv.title}" بتاريخ ${fmtShareDate(inv.event_date)} 🎉\nأبرز رمز الدخول من رابط دعوتك عند البوابة.`;
+    // المدعو اعتذر → رسالة شكر على الإبلاغ
+    if (g?.rsvp_status === "declined")
+      return `${hello}نشكر لك إبلاغنا باعتذارك عن حضور "${inv.title}"، ونتمنى رؤيتك في مناسبة قادمة بإذن الله.`;
+    // الدعوة معاد جدولتها → رسالة الموعد الجديد
+    if ((inv as any).rescheduled_from)
+      return `${hello}نعتذر، تم إعادة جدولة "${inv.title}" إلى الموعد الجديد: ${fmtShareDate(inv.event_date)}.\nنرجو تأكيد حضوركم عبر رابط الدعوة.`;
+    // دعوة جديدة
+    return `${hello}يسعدنا دعوتك لحضور "${inv.title}"${inv.host_name ? ` — ${inv.formality === "business" ? "من" : "بضيافة"} ${inv.host_name}` : ""} بتاريخ ${fmtShareDate(inv.event_date)}.\nنتشرف بحضورك.`;
+  };
+
+  // ===== حوار المشاركة: رسالة تلقائية أو مخصصة قبل الإرسال =====
+  const [shareGuest, setShareGuest] = useState<Guest | null>(null);
+  const [shareMode, setShareMode] = useState<"auto" | "custom">("auto");
+  const [shareCustom, setShareCustom] = useState("");
+
+  const openShare = (g: Guest) => {
+    setShareMode("auto");
+    setShareCustom("");
+    setShareGuest(g);
+  };
+
+  // الرسالة النهائية: المخصصة إن كُتبت، وإلا التلقائية — والرابط يُلحق دائماً
+  const finalShareMessage = (g: Guest): string => {
+    const base = shareMode === "custom" && shareCustom.trim()
+      ? shareCustom.trim()
+      : (activeInv ? autoShareMessage(activeInv, g) : "");
+    return `${base}\n\nرابط الدعوة: ${inviteUrl(g.token)}`;
+  };
+
+  const markInviteSent = (g: Guest) => {
     supabase.from("private_invitation_guests").update({
       invite_sent_at: new Date().toISOString(),
       rsvp_status: g.rsvp_status === "pending" ? "invited" : g.rsvp_status,
-    }).eq("id", g.id).then(() => activeInv && loadGuests(activeInv.id));
+    } as any).eq("id", g.id).then(() => activeInv && loadGuests(activeInv.id));
+  };
+
+  const sendWhatsApp = (g: Guest, message?: string) => {
+    if (!g.guest_phone) return toast.error("لا يوجد رقم جوال");
+    const text = message ?? `${activeInv ? autoShareMessage(activeInv, g) : ""}\n\nرابط الدعوة: ${inviteUrl(g.token)}`;
+    const phone = g.guest_phone.replace(/\D/g, "");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+    markInviteSent(g);
   };
 
   const statusBadge = (s: string) => {
@@ -1096,8 +1140,8 @@ const PrivateInvitations = () => {
                     <Button size="sm" variant="outline" onClick={() => window.open(inviteUrl(g.token), "_blank")}>
                       <ExternalLink className="w-3 h-3" />
                     </Button>
-                    <Button size="sm" onClick={() => sendWhatsApp(g)}>
-                      <Send className="w-3 h-3 ml-1" /> واتساب
+                    <Button size="sm" onClick={() => openShare(g)}>
+                      <Send className="w-3 h-3 ml-1" /> مشاركة
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => removeGuest(g.id)}>
                       <Trash2 className="w-3 h-3 text-destructive" />
@@ -1423,6 +1467,91 @@ const PrivateInvitations = () => {
             onOpenChange={(v) => { if (!v) setReminderInv(null); }}
           />
         )}
+
+        {/* حوار مشاركة الدعوة — رسالة تلقائية حسب الحالة أو رسالة مخصصة */}
+        <Dialog open={!!shareGuest} onOpenChange={(o) => !o && setShareGuest(null)}>
+          <DialogContent dir="rtl" className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>مشاركة الدعوة — {shareGuest?.guest_name}</DialogTitle>
+            </DialogHeader>
+            {shareGuest && activeInv && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShareMode("auto")}
+                    className={`rounded-xl border-2 p-3 text-right transition ${
+                      shareMode === "auto" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <p className="font-bold text-xs">رسالة تلقائية</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                      تتولد حسب حالة الدعوة (جديدة، معاد جدولتها، ملغاة...) وحالة المدعو
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShareMode("custom");
+                      if (!shareCustom.trim()) setShareCustom(autoShareMessage(activeInv, shareGuest));
+                    }}
+                    className={`rounded-xl border-2 p-3 text-right transition ${
+                      shareMode === "custom" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <p className="font-bold text-xs">رسالة مخصصة</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                      عدّل النص بنفسك قبل الإرسال — لو تركتها فارغة تُستخدم التلقائية
+                    </p>
+                  </button>
+                </div>
+
+                {shareMode === "auto" ? (
+                  <div className="rounded-xl bg-muted/40 border border-border/50 p-3 text-sm whitespace-pre-wrap leading-relaxed">
+                    {autoShareMessage(activeInv, shareGuest)}
+                    <p className="text-[11px] text-muted-foreground mt-2 break-all border-t pt-2" dir="ltr">
+                      رابط الدعوة: {inviteUrl(shareGuest.token)}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Textarea
+                      value={shareCustom}
+                      onChange={(e) => setShareCustom(e.target.value)}
+                      rows={5}
+                      placeholder="اكتب رسالتك... لو تركتها فارغة تُرسل الرسالة التلقائية"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">رابط الدعوة يُضاف تلقائياً في نهاية الرسالة.</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => {
+                      sendWhatsApp(shareGuest, finalShareMessage(shareGuest));
+                      setShareGuest(null);
+                    }}
+                    disabled={!shareGuest.guest_phone}
+                    title={shareGuest.guest_phone ? undefined : "لا يوجد رقم جوال لهذا المدعو"}
+                  >
+                    <Send className="w-4 h-4 ml-1" /> إرسال واتساب
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      copy(finalShareMessage(shareGuest));
+                      markInviteSent(shareGuest);
+                      setShareGuest(null);
+                    }}
+                  >
+                    <Copy className="w-4 h-4 ml-1" /> نسخ الرسالة والرابط
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* حوار إلغاء / إعادة جدولة المناسبة — التحديث يظهر لكل المدعوين تلقائياً */}
         <InvitationScheduleDialog
