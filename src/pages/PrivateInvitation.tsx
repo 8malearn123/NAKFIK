@@ -155,11 +155,6 @@ const PrivateInvitation = () => {
                 {inv.reschedule_note && (
                   <p className="text-xs text-amber-700 mt-1">{inv.reschedule_note}</p>
                 )}
-                {guest.rsvp_status !== "confirmed" && guest.rsvp_status !== "declined" && (
-                  <p className="text-xs font-bold text-amber-800 mt-2">
-                    نرجو تأكيد حضوركم من جديد على الموعد الجديد بالأسفل 👇
-                  </p>
-                )}
               </div>
             )}
 
