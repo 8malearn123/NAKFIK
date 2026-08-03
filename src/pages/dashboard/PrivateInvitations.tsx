@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import InvitationScheduleDialog from "@/components/dashboard/InvitationScheduleDialog";
 import ReminderSettings from "@/components/dashboard/ReminderSettings";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
@@ -128,6 +129,8 @@ const PrivateInvitations = () => {
 
   const [open, setOpen] = useState(false);
   const [reminderInv, setReminderInv] = useState<Inv | null>(null);
+  // دعوة مفتوح لها حوار الإلغاء / إعادة الجدولة
+  const [schedInv, setSchedInv] = useState<Inv | null>(null);
   const [editing, setEditing] = useState<Inv | null>(null);
   const [mode, setMode] = useState<"nakfeek" | "custom" | null>(null);
   const [form, setForm] = useState<Partial<Inv>>(emptyForm);
@@ -602,9 +605,9 @@ const PrivateInvitations = () => {
                   </div>
                   <Badge
                     className="absolute top-2 left-2"
-                    variant={inv.status === "active" ? "default" : "secondary"}
+                    variant={inv.status === "active" ? "default" : inv.status === "cancelled" ? "destructive" : "secondary"}
                   >
-                    {inv.status === "active" ? "نشطة" : inv.status === "draft" ? "مسودة" : "مغلقة"}
+                    {inv.status === "active" ? "نشطة" : inv.status === "draft" ? "مسودة" : inv.status === "cancelled" ? "ملغاة" : "مغلقة"}
                   </Badge>
                 </div>
                 <div className="p-4 space-y-2 flex-1 flex flex-col">
@@ -624,6 +627,15 @@ const PrivateInvitations = () => {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openDays(inv)}>
                       <CalendarDays className="w-3 h-3 ml-1" /> الأيام
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                      onClick={() => setSchedInv(inv)}
+                      title="إلغاء أو تأجيل المناسبة — يظهر التحديث لكل المدعوين تلقائياً"
+                    >
+                      إلغاء/تأجيل
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => openEdit(inv)}>
                       <Pencil className="w-3 h-3 ml-1" /> تعديل
@@ -1411,6 +1423,17 @@ const PrivateInvitations = () => {
             onOpenChange={(v) => { if (!v) setReminderInv(null); }}
           />
         )}
+
+        {/* حوار إلغاء / إعادة جدولة المناسبة — التحديث يظهر لكل المدعوين تلقائياً */}
+        <InvitationScheduleDialog
+          inv={schedInv}
+          onOpenChange={(o) => !o && setSchedInv(null)}
+          onDone={(patch) => {
+            if (schedInv) {
+              setItems((prev) => prev.map((i) => (i.id === schedInv.id ? ({ ...i, ...patch } as Inv) : i)));
+            }
+          }}
+        />
       </div>
     </DashboardLayout>
   );

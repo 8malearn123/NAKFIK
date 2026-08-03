@@ -126,6 +126,38 @@ const PrivateInvitation = () => {
         <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl overflow-hidden">
           <div className="p-6 space-y-5">
 
+            {/* إشعار الإلغاء — يظهر لكل مدعو فور فتح دعوته */}
+            {inv.status === "cancelled" && (
+              <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-4 text-center">
+                <X className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                <p className="font-bold text-red-700 text-lg">نعتذر منكم — تم إلغاء المناسبة</p>
+                {inv.cancel_reason && (
+                  <p className="text-sm text-red-600 mt-1 leading-relaxed">السبب: {inv.cancel_reason}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                  نشكر تفهمكم ونعتذر عن أي إزعاج، ونتطلع للقائكم في مناسبة قادمة بإذن الله.
+                </p>
+              </div>
+            )}
+
+            {/* إشعار تغيير الموعد — الموعد الجديد معروض في البطاقات أدناه تلقائياً */}
+            {inv.status !== "cancelled" && inv.rescheduled_from && (
+              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 text-center">
+                <Clock className="w-6 h-6 text-amber-600 mx-auto mb-1.5" />
+                <p className="font-bold text-amber-800">تنبيه: تم تغيير موعد المناسبة</p>
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                  الموعد السابق:{" "}
+                  <span className="line-through">
+                    {new Date(inv.rescheduled_from).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                  {" "}— الموعد الجديد موضح أدناه
+                </p>
+                {inv.reschedule_note && (
+                  <p className="text-xs text-amber-700 mt-1">{inv.reschedule_note}</p>
+                )}
+              </div>
+            )}
+
             {/* التاريخ والوقت — بطاقتان بارزتان */}
             <div className="grid grid-cols-2 gap-3">
               <div
@@ -223,9 +255,11 @@ const PrivateInvitation = () => {
               </div>
             )}
 
-            {/* RSVP */}
+            {/* RSVP — مخفي بالكامل عند إلغاء المناسبة */}
             <div className="border-t pt-5">
-              {guest.rsvp_status === "confirmed" ? (
+              {inv.status === "cancelled" ? (
+                <p className="text-center text-sm text-gray-400">أُلغيت هذه المناسبة — لا حاجة لتأكيد الحضور</p>
+              ) : guest.rsvp_status === "confirmed" ? (
                 <div className="text-center space-y-3">
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 text-green-700 font-bold">
                     <CheckCircle2 className="w-5 h-5" /> تم تأكيد حضورك
