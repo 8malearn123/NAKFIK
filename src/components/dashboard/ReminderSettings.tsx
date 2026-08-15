@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Clock, Mail, MessageCircle, Smartphone } from "lucide-react";
+import { Bell, Clock, Mail, MessageCircle, Smartphone, RefreshCw, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +14,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// إعدادات تذكير المدعوين — واجهة فقط في هذه المرحلة (تُحفظ محلياً،
-// ويُربط الإرسال الفعلي بالواجهة الخلفية لاحقاً دون تغيير التصميم).
+// تذكيرات المدعوين: القسم العلوي إعدادات القنوات الخارجية (تُفعّل عند ربط
+// التكاملات)، والقسم السفلي حالة التذكيرات المجدولة الفعلية من قاعدة البيانات
+// (scheduled / sent / failed) التي يعالجها مشغّل pg_cron كل 5 دقائق.
 
 interface ReminderConfig {
   enabled: boolean;
@@ -63,12 +65,71 @@ interface Props {
   onOpenChange: (v: boolean) => void;
 }
 
+interface ReminderRow {
+  id: string;
+  guest_id: string;
+  scheduled_at: string;
+  status: "scheduled" | "sent" | "failed" | "cancelled";
+  channel: string;
+  sent_at: string | null;
+  error_message: string | null;
+  guest_name?: string;
+}
+
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  scheduled: { label: "مجدول", cls: "bg-blue-500/10 text-blue-700" },
+  sent: { label: "مُرسل ✓", cls: "bg-green-500/10 text-green-700" },
+  failed: { label: "فشل", cls: "bg-destructive/10 text-destructive" },
+  cancelled: { label: "ملغي", cls: "bg-muted text-muted-foreground" },
+};
+
 const ReminderSettings = ({ invitationId, invitationTitle, open, onOpenChange }: Props) => {
   const [config, setConfig] = useState<ReminderConfig>(defaultConfig);
+  const [rows, setRows] = useState<ReminderRow[]>([]);
+  const [remindersReady, setRemindersReady] = useState(true);
+  const [processing, setProcessing] = useState(false);
+
+  const loadRows = async () => {
+    const { data, error } = await (supabase as any)
+      .from("invitation_reminders")
+      .select("*")
+      .eq("invitation_id", invitationId)
+      .order("scheduled_at", { ascending: true });
+    if (error) {
+      setRemindersReady(false);
+      return;
+    }
+    setRemindersReady(true);
+    const list = (data || []) as ReminderRow[];
+    if (list.length) {
+      const { data: guests } = await supabase
+        .from("private_invitation_guests")
+        .select("id, guest_name")
+        .in("id", list.map((r) => r.guest_id));
+      list.forEach((r) => {
+        r.guest_name = (guests || []).find((g: any) => g.id === r.guest_id)?.guest_name;
+      });
+    }
+    setRows(list);
+  };
 
   useEffect(() => {
-    if (open) setConfig(loadReminderConfig(invitationId));
+    if (open) {
+      setConfig(loadReminderConfig(invitationId));
+      loadRows();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, invitationId]);
+
+  // تشغيل المعالج يدوياً (نفس ما يشغله pg_cron كل 5 دقائق) — مفيد للاختبار
+  const runNow = async () => {
+    setProcessing(true);
+    const { data, error } = await (supabase as any).rpc("process_due_invitation_reminders");
+    setProcessing(false);
+    if (error) return toast.error("شغّل ملف nakfik_reminders.sql في Supabase أولاً");
+    toast.success(`تمت معالجة ${Number(data) || 0} تذكير`);
+    loadRows();
+  };
 
   const toggleIn = (list: string[], id: string) =>
     list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
@@ -176,9 +237,59 @@ const ReminderSettings = ({ invitationId, invitationTitle, open, onOpenChange }:
             />
           </div>
 
-          <p className="text-[11px] text-muted-foreground bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3">
-            معاينة تصميم — جدولة الإرسال الفعلي (واتساب/SMS/بريد) ستُفعّل في مرحلة الربط القادمة.
-          </p>
+          {/* حالة التذكيرات المجدولة الفعلية — من قاعدة البيانات */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-primary" /> التذكيرات المجدولة فعلياً ({rows.length})
+              </p>
+              <div className="flex gap-1">
+                <Button type="button" size="sm" variant="ghost" className="h-7 text-[11px]" onClick={loadRows}>
+                  <RefreshCw className="w-3 h-3 ml-1" /> تحديث
+                </Button>
+                <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={runNow} disabled={processing}>
+                  <Play className="w-3 h-3 ml-1" /> {processing ? "جارٍ..." : "معالجة الآن"}
+                </Button>
+              </div>
+            </div>
+
+            {!remindersReady ? (
+              <p className="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 leading-relaxed">
+                ⚠️ نظام الجدولة الفعلي غير مفعّل بعد — شغّل ملف <b>nakfik_reminders.sql</b> في Supabase.
+                بدونه يبقى التذكير قيمة محفوظة بلا إرسال فعلي.
+              </p>
+            ) : rows.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground bg-muted/40 rounded-xl p-3 leading-relaxed">
+                لا توجد تذكيرات مجدولة — حدد "تذكير المستفيد قبل الموعد" (1-12 ساعة) من تعديل الدعوة ← تبويب إضافات،
+                وستُجدول التذكيرات تلقائياً لكل المدعوين.
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                {rows.map((r) => (
+                  <div key={r.id} className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-1.5 text-[11px]">
+                    <span className="flex-1 truncate font-semibold">{r.guest_name || "مدعو"}</span>
+                    <span className="text-muted-foreground" dir="ltr">
+                      {new Date(r.status === "sent" && r.sent_at ? r.sent_at : r.scheduled_at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 font-bold ${STATUS_META[r.status]?.cls || ""}`}
+                      title={r.status === "failed" ? "لا توجد قناة إرسال: المدعو بلا حساب مسجل، والبريد/واتساب يتطلبان ربط تكامل" : r.status === "sent" ? "أُرسل إشعاراً داخل المنصة" : undefined}
+                    >
+                      {STATUS_META[r.status]?.label || r.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* توضيح صريح لقنوات الإرسال — لا نعتبر التذكير منفذاً بمجرد ظهوره */}
+            <p className="text-[11px] leading-relaxed bg-blue-50 border border-blue-200 text-blue-900 rounded-xl p-3 mt-2">
+              <b>قناة الإرسال الفعلية حالياً:</b> إشعار داخل منصة نكفيك يصل تلقائياً للمدعو الذي يملك حساباً
+              مسجلاً بنفس بريده أو جواله (يعالجها النظام كل 5 دقائق)، إضافة إلى تنبيه التذكير الذي يظهر في صفحة
+              دعوته. <b>أما الإرسال عبر واتساب / SMS / البريد فيتطلب ربط تكامل خارجي</b> (مثل WhatsApp Business API
+              أو Resend) — وحتى يتم الربط، تُعلَّم تذكيرات المدعوين بلا حساب بحالة "فشل" مع السبب، ولا تُعتبر مرسلة.
+            </p>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
