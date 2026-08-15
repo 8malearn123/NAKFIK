@@ -132,7 +132,7 @@ const GIFT_TYPES: { key: string; label: string; emoji: string; amount: number | 
   { key: "box", label: "بوكس", emoji: "🎁", amount: 300 },
   { key: "cheque", label: "شيك", emoji: "📝", amount: 500 },
   { key: "transfer", label: "تحويل", emoji: "💳", amount: null },
-  { key: "other", label: "أخرى", emoji: "🎀", amount: null },
+  { key: "other", label: "أخرى", emoji: "", amount: null },
 ];
 
 // طرق الدفع المتاحة للتحويل في الدعوات الخاصة
@@ -1032,7 +1032,7 @@ const PrivateInvitations = () => {
                             active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
                           }`}
                         >
-                          <span className="block">{t.emoji} {t.label}</span>
+                          <span className="block">{t.emoji ? `${t.emoji} ` : ""}{t.label}</span>
                           <span className="block text-[10px] font-normal text-muted-foreground mt-0.5">
                             {t.amount ? `${t.amount} ريال` : t.key === "transfer" ? "المستفيد يحدد المبلغ" : "المستفيد يحدد النوع والقيمة"}
                           </span>

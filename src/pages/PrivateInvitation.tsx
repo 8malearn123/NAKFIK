@@ -107,7 +107,7 @@ const PrivateInvitation = () => {
     box: { label: "بوكس", emoji: "🎁", amount: 300 },
     cheque: { label: "شيك", emoji: "📝", amount: 500 },
     transfer: { label: "تحويل", emoji: "💳", amount: null },
-    other: { label: "أخرى", emoji: "🎀", amount: null },
+    other: { label: "أخرى", emoji: "", amount: null },
   };
   const PAY_METHOD_LABELS: Record<string, string> = { bank: "تحويل بنكي", tabby: "Tabby", tamara: "Tamara" };
   const attachments: { name: string; url: string; size?: number }[] = Array.isArray(inv.attachments) ? inv.attachments : [];
@@ -312,7 +312,7 @@ const PrivateInvitation = () => {
                           className={`rounded-xl py-2 px-1 text-center bg-white shadow-sm transition border-2 ${active ? "" : "border-transparent"}`}
                           style={active ? { borderColor: inv.theme_color } : undefined}
                         >
-                          <span className="block text-lg">{meta.emoji}</span>
+                          <span className="block text-lg">{meta.emoji || "•"}</span>
                           <span className="block text-xs font-bold" style={{ color: inv.theme_color }}>{meta.label}</span>
                           <span className="block text-[10px] text-gray-500 mt-0.5">
                             {meta.amount ? `${meta.amount} ريال` : t === "transfer" ? "بمبلغك" : "باختيارك"}
