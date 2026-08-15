@@ -17,6 +17,8 @@ const PAY_METHODS = [
   { key: "stcpay", label: "STC Pay", labelEn: "STC Pay", Icon: Wallet },
   { key: "visa", label: "Visa", labelEn: "Visa", Icon: CreditCard },
   { key: "mastercard", label: "Mastercard", labelEn: "Mastercard", Icon: CreditCard },
+  { key: "tabby", label: "Tabby", labelEn: "Tabby", Icon: CreditCard },
+  { key: "tamara", label: "Tamara", labelEn: "Tamara", Icon: CreditCard },
 ];
 
 interface EventInfo {

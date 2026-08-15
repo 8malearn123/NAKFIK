@@ -355,6 +355,11 @@ const MyEvents = () => {
                       </Link>
                     </Button>
                     <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
+                      <Link to={`/dashboard/events/${event.id}/staff`} title="فريق الفعالية — أدوار بصلاحيات محددة">
+                        <Users className="w-3.5 h-3.5" /> الفريق
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
                       <Link to={`/dashboard/events/${event.id}/featured-cards`}>
                         <IdCard className="w-3.5 h-3.5" /> البطاقات الخاصة
                       </Link>

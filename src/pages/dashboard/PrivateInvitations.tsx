@@ -65,6 +65,10 @@ interface Inv {
   use_custom_template: boolean;
   name_overlay: NameOverlay;
   design_extras?: Record<string, unknown> | null;
+  // مرفقات الدعوة + خيارات الهدايا وطرق الدفع + تذكير المستفيد قبل الموعد
+  attachments?: { name: string; url: string; size?: number }[] | null;
+  gift_options?: { types?: string[]; payment_methods?: string[] } | null;
+  reminder_hours_before?: number | null;
 }
 
 interface Guest {
@@ -119,7 +123,23 @@ const emptyForm: Partial<Inv> = {
   text_color: "#FFFFFF", template_key: null,
   custom_template_url: null, use_custom_template: false, name_overlay: DEFAULT_OVERLAY,
   design_extras: {},
+  attachments: [], gift_options: {}, reminder_hours_before: null,
 };
+
+// خيارات الهدايا المتاحة في الدعوة
+const GIFT_TYPES: { key: string; label: string; emoji: string }[] = [
+  { key: "flowers", label: "ورد", emoji: "🌹" },
+  { key: "transfer", label: "تحويل", emoji: "💳" },
+  { key: "cheque", label: "شيك", emoji: "📝" },
+  { key: "other", label: "أخرى", emoji: "🎁" },
+];
+
+// طرق الدفع المتاحة للتحويل في الدعوات الخاصة
+const GIFT_PAY_METHODS: { key: string; label: string }[] = [
+  { key: "bank", label: "تحويل بنكي" },
+  { key: "tabby", label: "Tabby" },
+  { key: "tamara", label: "Tamara" },
+];
 
 const PrivateInvitations = () => {
   const { user } = useAuth();
@@ -383,11 +403,18 @@ const PrivateInvitations = () => {
         ? supabase.from("private_invitations").update(p).eq("id", editing.id)
         : supabase.from("private_invitations").insert(p);
     let { error } = await run(payload);
-    // توافقية: إذا لم يُنفَّذ ملف SQL الخاص بحقل التخصيصات بعد
-    if (error?.message?.includes("design_extras")) {
-      const { design_extras: _omit, ...rest } = payload;
-      ({ error } = await run(rest));
-      if (!error) toast.info("حُفظت الدعوة بدون خيارات التخصيص المتقدم — نفّذ ملف SQL الخاص بها أولاً");
+    // توافقية: أزل تدريجياً أي عمود جديد لم يُنفَّذ ملف SQL الخاص به بعد
+    const strippable = ["design_extras", "attachments", "gift_options", "reminder_hours_before"];
+    let stripped = false;
+    let attempt = { ...payload };
+    while (error && strippable.some((c) => error!.message?.includes(c))) {
+      const col = strippable.find((c) => error!.message?.includes(c))!;
+      delete attempt[col];
+      stripped = true;
+      ({ error } = await run(attempt));
+    }
+    if (!error && stripped) {
+      toast.info("حُفظت الدعوة بدون بعض الخيارات الجديدة — نفّذ ملف nakfik_invitation_v2.sql في Supabase لتفعيلها كاملة");
     }
     if (error) return toast.error(error.message);
     toast.success(editing ? "تم التحديث" : "تم إنشاء الدعوة");
@@ -927,9 +954,118 @@ const PrivateInvitations = () => {
                 {form.allow_companions && (
                   <div><Label>الحد الأقصى للمرافقين</Label><Input type="number" min={0} value={form.max_companions || 0} onChange={(e) => setForm({ ...form, max_companions: Number(e.target.value) })} /></div>
                 )}
+                {/* تذكير المستفيد قبل الموعد — يظهر له في صفحة دعوته */}
+                <div className="border-t pt-3 space-y-2">
+                  <Label className="flex items-center gap-1"><Bell className="w-4 h-4" /> تذكير المستفيد قبل الموعد</Label>
+                  <select
+                    value={form.reminder_hours_before ?? ""}
+                    onChange={(e) => setForm({ ...form, reminder_hours_before: e.target.value === "" ? null : Number(e.target.value) })}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">بدون تذكير</option>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                      <option key={h} value={h}>قبل الموعد بـ {h} {h === 1 ? "ساعة" : h === 2 ? "ساعتين" : h <= 10 ? "ساعات" : "ساعة"}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-muted-foreground">يظهر تنبيه تذكير واضح للمدعو عند فتح دعوته خلال هذه المدة قبل بداية المناسبة.</p>
+                </div>
+
+                {/* مرفقات الدعوة — ملفات ومحتويات المناسبة في مكان منظم */}
+                <div className="border-t pt-3 space-y-2">
+                  <Label className="flex items-center gap-1"><ClipboardList className="w-4 h-4" /> مرفقات الدعوة</Label>
+                  <p className="text-[11px] text-muted-foreground">جدول الفقرات، خريطة الموقع، تعليمات الدخول... تظهر للمدعو في قسم منظم داخل دعوته.</p>
+                  {(form.attachments || []).map((a, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs">
+                      <span className="flex-1 truncate font-semibold">{a.name}</span>
+                      {a.size ? <span className="text-muted-foreground">{(a.size / 1024).toFixed(0)} KB</span> : null}
+                      <button type="button" className="text-destructive" onClick={() => setForm({ ...form, attachments: (form.attachments || []).filter((_, j) => j !== i) })}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="block">
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!f || !user) return;
+                        if (f.size > 10 * 1024 * 1024) return toast.error("الحد الأقصى للمرفق 10 ميجا");
+                        const path = `invitations/attachments/${user.id}/${Date.now()}-${f.name.replace(/[^\w.\-]+/g, "_")}`;
+                        const { error } = await supabase.storage.from("event-covers").upload(path, f);
+                        if (error) return toast.error("فشل رفع المرفق");
+                        const { data } = supabase.storage.from("event-covers").getPublicUrl(path);
+                        setForm((prev) => ({ ...prev, attachments: [...(prev.attachments || []), { name: f.name, url: data.publicUrl, size: f.size }] }));
+                        toast.success("تمت إضافة المرفق");
+                      }}
+                    />
+                    <span className="inline-flex items-center gap-2 text-xs bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-full cursor-pointer">
+                      <Plus className="w-3.5 h-3.5" /> إضافة مرفق (PDF، صورة، مستند...)
+                    </span>
+                  </label>
+                </div>
+
                 <div className="border-t pt-3">
                   <Label className="flex items-center gap-1"><Gift className="w-4 h-4" /> قائمة الهدايا / التحويلات</Label>
                 </div>
+                {/* خيارات الهدايا المتاحة للمدعوين */}
+                <div>
+                  <Label className="text-xs">خيارات الهدايا المتاحة</Label>
+                  <div className="grid grid-cols-4 gap-2 mt-1.5">
+                    {GIFT_TYPES.map((t) => {
+                      const types = form.gift_options?.types || [];
+                      const active = types.includes(t.key);
+                      return (
+                        <button
+                          key={t.key}
+                          type="button"
+                          onClick={() => setForm({
+                            ...form,
+                            gift_options: {
+                              ...(form.gift_options || {}),
+                              types: active ? types.filter((x) => x !== t.key) : [...types, t.key],
+                            },
+                          })}
+                          className={`rounded-xl border-2 py-2 text-xs font-semibold transition ${
+                            active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                          }`}
+                        >
+                          {t.emoji} {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {(form.gift_options?.types || []).includes("transfer") && (
+                  <div>
+                    <Label className="text-xs">طرق الدفع المقبولة للتحويل</Label>
+                    <div className="grid grid-cols-3 gap-2 mt-1.5">
+                      {GIFT_PAY_METHODS.map((m) => {
+                        const methods = form.gift_options?.payment_methods || [];
+                        const active = methods.includes(m.key);
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            onClick={() => setForm({
+                              ...form,
+                              gift_options: {
+                                ...(form.gift_options || {}),
+                                payment_methods: active ? methods.filter((x) => x !== m.key) : [...methods, m.key],
+                              },
+                            })}
+                            className={`rounded-xl border-2 py-2 text-xs font-semibold transition ${
+                              active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div><Label>ملاحظات الهدايا</Label><Textarea rows={2} value={form.gift_notes || ""} onChange={(e) => setForm({ ...form, gift_notes: e.target.value })} placeholder="تكفون يا أحبابنا، حضوركم هديتنا..." /></div>
                 <div className="grid grid-cols-3 gap-2">
                   <div><Label>اسم البنك</Label><Input value={form.gift_bank_name || ""} onChange={(e) => setForm({ ...form, gift_bank_name: e.target.value })} /></div>

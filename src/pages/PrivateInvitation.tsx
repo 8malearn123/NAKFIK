@@ -84,6 +84,23 @@ const PrivateInvitation = () => {
 
   const eventDate = new Date(inv.event_date);
 
+  // تذكير المستفيد: يظهر بوضوح إذا حان وقت التذكير الذي حدده المنظم (1-12 ساعة قبل الموعد)
+  const now = Date.now();
+  const msToEvent = eventDate.getTime() - now;
+  const reminderActive =
+    inv.status !== "cancelled" &&
+    inv.reminder_hours_before &&
+    msToEvent > 0 &&
+    msToEvent <= inv.reminder_hours_before * 60 * 60 * 1000;
+  const hoursLeft = Math.floor(msToEvent / 3600000);
+  const minsLeft = Math.floor((msToEvent % 3600000) / 60000);
+
+  const giftTypes: string[] = inv.gift_options?.types || [];
+  const giftPayMethods: string[] = inv.gift_options?.payment_methods || [];
+  const GIFT_TYPE_LABELS: Record<string, string> = { flowers: "🌹 ورد", transfer: "💳 تحويل", cheque: "📝 شيك", other: "🎁 أخرى" };
+  const PAY_METHOD_LABELS: Record<string, string> = { bank: "تحويل بنكي", tabby: "Tabby", tamara: "Tamara" };
+  const attachments: { name: string; url: string; size?: number }[] = Array.isArray(inv.attachments) ? inv.attachments : [];
+
   return (
     <div
       dir="rtl"
@@ -148,6 +165,18 @@ const PrivateInvitation = () => {
                 {inv.reschedule_note && (
                   <p className="text-xs text-amber-700 mt-1">{inv.reschedule_note}</p>
                 )}
+              </div>
+            )}
+
+            {/* تذكير قبل الموعد — بمدة يحددها المنظم (1-12 ساعة) */}
+            {reminderActive && (
+              <div className="rounded-2xl border-2 p-4 text-center" style={{ borderColor: inv.accent_color, background: inv.accent_color + "15" }}>
+                <p className="font-bold text-lg" style={{ color: inv.theme_color }}>
+                  ⏰ تذكير: مناسبتك تبدأ {hoursLeft > 0 ? `بعد ${hoursLeft} ${hoursLeft === 1 ? "ساعة" : hoursLeft === 2 ? "ساعتين" : hoursLeft <= 10 ? "ساعات" : "ساعة"}` : `بعد ${minsLeft} دقيقة`}
+                </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {eventDate.toLocaleString("ar-SA", { dateStyle: "full", timeStyle: "short" })} — نتشرف بحضورك في الموعد
+                </p>
               </div>
             )}
 
@@ -226,12 +255,59 @@ const PrivateInvitation = () => {
               )}
             </div>
 
+            {/* المرفقات — ملفات ومحتويات المناسبة في مكان منظم */}
+            {attachments.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ background: inv.accent_color + "10" }}>
+                <h3 className="font-bold flex items-center gap-1 text-sm mb-2" style={{ color: inv.theme_color }}>
+                  📎 مرفقات المناسبة
+                </h3>
+                <div className="space-y-2">
+                  {attachments.map((a, i) => (
+                    <a
+                      key={i}
+                      href={a.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 bg-white rounded-xl px-3 py-2.5 text-sm text-gray-800 shadow-sm hover:shadow transition"
+                    >
+                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0" style={{ background: inv.accent_color }}>
+                        <ExternalLink className="w-4 h-4" />
+                      </span>
+                      <span className="flex-1 truncate font-semibold">{a.name}</span>
+                      {a.size ? <span className="text-[10px] text-gray-400">{(a.size / 1024).toFixed(0)} KB</span> : null}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Gifts */}
-            {(inv.gift_notes || inv.gift_iban) && (
+            {(inv.gift_notes || inv.gift_iban || giftTypes.length > 0) && (
               <div className="rounded-2xl p-4" style={{ background: inv.accent_color + "15" }}>
                 <h3 className="font-bold flex items-center gap-1 text-sm" style={{ color: inv.theme_color }}>
                   <Gift className="w-4 h-4" /> الهدايا والتحويلات
                 </h3>
+                {giftTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {giftTypes.map((t) => (
+                      <span key={t} className="text-xs font-bold bg-white rounded-full px-3 py-1.5 shadow-sm" style={{ color: inv.theme_color }}>
+                        {GIFT_TYPE_LABELS[t] || t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {giftTypes.includes("transfer") && giftPayMethods.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[11px] text-gray-500 mb-1">طرق الدفع المقبولة:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {giftPayMethods.map((m) => (
+                        <span key={m} className="text-[11px] font-bold rounded-full px-2.5 py-1 text-white" style={{ background: inv.theme_color }}>
+                          {PAY_METHOD_LABELS[m] || m}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {inv.gift_notes && <p className="text-sm text-gray-700 mt-2">{inv.gift_notes}</p>}
                 {inv.gift_iban && (
                   <div className="mt-3 bg-white rounded-xl p-3 text-xs space-y-1">
@@ -260,10 +336,20 @@ const PrivateInvitation = () => {
                   {guest.companions_count > 0 && (
                     <p className="text-sm text-gray-600">عدد المرافقين: {guest.companions_count}</p>
                   )}
+                  {/* بعد المسح: الدعوة والرمز يبقيان — فقط تتحدث الحالة لتوضيح الاستخدام */}
+                  {guest.checked_in_at && (
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold text-white" style={{ background: inv.theme_color }}>
+                      ✓ تم استخدام الدعوة للدخول — {new Date(guest.checked_in_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  )}
                   <div className="bg-white rounded-2xl p-4 inline-block border-2" style={{ borderColor: inv.accent_color }}>
                     <p className="text-xs text-gray-500 mb-2">QR للدخول</p>
                     <QRCodeSVG value={inviteUrl} size={160} />
-                    <p className="text-[10px] text-gray-400 mt-2">يرجى إبراز هذا الرمز عند الباب</p>
+                    <p className="text-[10px] text-gray-400 mt-2">
+                      {guest.checked_in_at
+                        ? "دعوتك تبقى متاحة دائماً — يمكن الرجوع إليها واستخدامها عند الحاجة"
+                        : "يرجى إبراز هذا الرمز عند الباب"}
+                    </p>
                   </div>
                 </div>
               ) : guest.rsvp_status === "declined" ? (
