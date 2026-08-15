@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Calendar, MapPin, Shirt, Phone, Gift, CheckCircle2, X, Copy,
-  MessageCircle, Mail, ExternalLink, Clock, HeartHandshake,
+  MessageCircle, Mail, ExternalLink, Clock, HeartHandshake, ChevronDown,
 } from "lucide-react";
 import DesignPreview from "@/components/design/DesignPreview";
 import CustomTemplateRender from "@/components/design/CustomTemplateRender";
@@ -27,6 +27,8 @@ const PrivateInvitation = () => {
   const [giftPick, setGiftPick] = useState<string | null>(null);
   const [giftAmount, setGiftAmount] = useState("");
   const [giftOtherType, setGiftOtherType] = useState("");
+  // قسم الهدايا مطوي افتراضياً — يظهر عند الحاجة فقط ولا يزاحم محتوى الدعوة
+  const [giftOpen, setGiftOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -292,12 +294,28 @@ const PrivateInvitation = () => {
               </div>
             )}
 
-            {/* Gifts */}
+            {/* الهدايا — قسم مطوي مختصر: شريط أنيق يُفتح عند الحاجة فقط */}
             {(inv.gift_notes || inv.gift_iban || giftTypes.length > 0) && (
-              <div className="rounded-2xl p-4" style={{ background: inv.accent_color + "15" }}>
-                <h3 className="font-bold flex items-center gap-1 text-sm" style={{ color: inv.theme_color }}>
-                  <Gift className="w-4 h-4" /> الهدايا والتحويلات
-                </h3>
+              <div className="rounded-2xl overflow-hidden" style={{ background: inv.accent_color + "15" }}>
+                <button
+                  type="button"
+                  onClick={() => setGiftOpen(!giftOpen)}
+                  className="w-full flex items-center gap-2 p-3.5 text-right"
+                >
+                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0" style={{ background: inv.accent_color }}>
+                    <Gift className="w-4 h-4" />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block font-bold text-sm" style={{ color: inv.theme_color }}>الهدايا والتحويلات</span>
+                    {giftTypes.length > 0 && !giftOpen && (
+                      <span className="block text-[11px] text-gray-500">{giftTypes.length} خيارات متاحة — اضغط للاطلاع</span>
+                    )}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${giftOpen ? "rotate-180" : ""}`} style={{ color: inv.theme_color }} />
+                </button>
+
+                {giftOpen && (
+                <div className="px-4 pb-4">
                 {giftTypes.length > 0 && (
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
                     {giftTypes.map((t) => {
@@ -384,6 +402,8 @@ const PrivateInvitation = () => {
                       </button>
                     </div>
                   </div>
+                )}
+                </div>
                 )}
               </div>
             )}
