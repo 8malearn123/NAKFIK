@@ -126,12 +126,13 @@ const emptyForm: Partial<Inv> = {
   attachments: [], gift_options: {}, reminder_hours_before: null,
 };
 
-// خيارات الهدايا المتاحة في الدعوة
-const GIFT_TYPES: { key: string; label: string; emoji: string }[] = [
-  { key: "flowers", label: "ورد", emoji: "🌹" },
-  { key: "transfer", label: "تحويل", emoji: "💳" },
-  { key: "cheque", label: "شيك", emoji: "📝" },
-  { key: "other", label: "أخرى", emoji: "🎁" },
+// خيارات الهدايا المتاحة في الدعوة — قيم ثابتة، والتحويل وأخرى يحددها المستفيد بنفسه
+const GIFT_TYPES: { key: string; label: string; emoji: string; amount: number | null }[] = [
+  { key: "flowers", label: "ورد", emoji: "🌹", amount: 100 },
+  { key: "box", label: "بوكس", emoji: "🎁", amount: 300 },
+  { key: "cheque", label: "شيك", emoji: "📝", amount: 500 },
+  { key: "transfer", label: "تحويل", emoji: "💳", amount: null },
+  { key: "other", label: "أخرى", emoji: "🎀", amount: null },
 ];
 
 // طرق الدفع المتاحة للتحويل في الدعوات الخاصة
@@ -1012,7 +1013,7 @@ const PrivateInvitations = () => {
                 {/* خيارات الهدايا المتاحة للمدعوين */}
                 <div>
                   <Label className="text-xs">خيارات الهدايا المتاحة</Label>
-                  <div className="grid grid-cols-4 gap-2 mt-1.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-1.5">
                     {GIFT_TYPES.map((t) => {
                       const types = form.gift_options?.types || [];
                       const active = types.includes(t.key);
@@ -1031,7 +1032,10 @@ const PrivateInvitations = () => {
                             active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
                           }`}
                         >
-                          {t.emoji} {t.label}
+                          <span className="block">{t.emoji} {t.label}</span>
+                          <span className="block text-[10px] font-normal text-muted-foreground mt-0.5">
+                            {t.amount ? `${t.amount} ريال` : t.key === "transfer" ? "المستفيد يحدد المبلغ" : "المستفيد يحدد النوع والقيمة"}
+                          </span>
                         </button>
                       );
                     })}

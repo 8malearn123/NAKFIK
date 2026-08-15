@@ -23,6 +23,10 @@ const PrivateInvitation = () => {
   const [companions, setCompanions] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  // اختيار المستفيد لهديته: التحويل وأخرى يكتب قيمتها بنفسه
+  const [giftPick, setGiftPick] = useState<string | null>(null);
+  const [giftAmount, setGiftAmount] = useState("");
+  const [giftOtherType, setGiftOtherType] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -97,7 +101,14 @@ const PrivateInvitation = () => {
 
   const giftTypes: string[] = inv.gift_options?.types || [];
   const giftPayMethods: string[] = inv.gift_options?.payment_methods || [];
-  const GIFT_TYPE_LABELS: Record<string, string> = { flowers: "🌹 ورد", transfer: "💳 تحويل", cheque: "📝 شيك", other: "🎁 أخرى" };
+  // ورد/بوكس/شيك بقيم ثابتة — التحويل وأخرى يحددها المستفيد بنفسه
+  const GIFT_META: Record<string, { label: string; emoji: string; amount: number | null }> = {
+    flowers: { label: "ورد", emoji: "🌹", amount: 100 },
+    box: { label: "بوكس", emoji: "🎁", amount: 300 },
+    cheque: { label: "شيك", emoji: "📝", amount: 500 },
+    transfer: { label: "تحويل", emoji: "💳", amount: null },
+    other: { label: "أخرى", emoji: "🎀", amount: null },
+  };
   const PAY_METHOD_LABELS: Record<string, string> = { bank: "تحويل بنكي", tabby: "Tabby", tamara: "Tamara" };
   const attachments: { name: string; url: string; size?: number }[] = Array.isArray(inv.attachments) ? inv.attachments : [];
 
@@ -288,24 +299,77 @@ const PrivateInvitation = () => {
                   <Gift className="w-4 h-4" /> الهدايا والتحويلات
                 </h3>
                 {giftTypes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {giftTypes.map((t) => (
-                      <span key={t} className="text-xs font-bold bg-white rounded-full px-3 py-1.5 shadow-sm" style={{ color: inv.theme_color }}>
-                        {GIFT_TYPE_LABELS[t] || t}
-                      </span>
-                    ))}
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
+                    {giftTypes.map((t) => {
+                      const meta = GIFT_META[t];
+                      if (!meta) return null;
+                      const active = giftPick === t;
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setGiftPick(active ? null : t)}
+                          className={`rounded-xl py-2 px-1 text-center bg-white shadow-sm transition border-2 ${active ? "" : "border-transparent"}`}
+                          style={active ? { borderColor: inv.theme_color } : undefined}
+                        >
+                          <span className="block text-lg">{meta.emoji}</span>
+                          <span className="block text-xs font-bold" style={{ color: inv.theme_color }}>{meta.label}</span>
+                          <span className="block text-[10px] text-gray-500 mt-0.5">
+                            {meta.amount ? `${meta.amount} ريال` : t === "transfer" ? "بمبلغك" : "باختيارك"}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
-                {giftTypes.includes("transfer") && giftPayMethods.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-[11px] text-gray-500 mb-1">طرق الدفع المقبولة:</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {giftPayMethods.map((m) => (
-                        <span key={m} className="text-[11px] font-bold rounded-full px-2.5 py-1 text-white" style={{ background: inv.theme_color }}>
-                          {PAY_METHOD_LABELS[m] || m}
-                        </span>
-                      ))}
-                    </div>
+
+                {/* تفاصيل الهدية المختارة */}
+                {giftPick && GIFT_META[giftPick] && (
+                  <div className="mt-3 bg-white rounded-xl p-3 space-y-2">
+                    {GIFT_META[giftPick].amount ? (
+                      <p className="text-sm font-bold text-gray-800">
+                        {GIFT_META[giftPick].emoji} قيمة الهدية: {GIFT_META[giftPick].amount} ريال
+                      </p>
+                    ) : giftPick === "transfer" ? (
+                      <div>
+                        <Label className="text-xs">مبلغ التحويل (ريال) — اكتبه بنفسك</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          dir="ltr"
+                          placeholder=""
+                          value={giftAmount}
+                          onChange={(e) => setGiftAmount(e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">نوع الهدية</Label>
+                          <Input value={giftOtherType} onChange={(e) => setGiftOtherType(e.target.value)} placeholder="مثال: عطر" className="mt-1" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">القيمة (ريال)</Label>
+                          <Input type="number" min={1} dir="ltr" value={giftAmount} onChange={(e) => setGiftAmount(e.target.value)} className="mt-1" />
+                        </div>
+                      </div>
+                    )}
+                    {(giftPick === "transfer" || GIFT_META[giftPick].amount) && giftPayMethods.length > 0 && (
+                      <div>
+                        <p className="text-[11px] text-gray-500 mb-1">طرق الدفع المقبولة:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {giftPayMethods.map((m) => (
+                            <span key={m} className="text-[11px] font-bold rounded-full px-2.5 py-1 text-white" style={{ background: inv.theme_color }}>
+                              {PAY_METHOD_LABELS[m] || m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {inv.gift_iban && (giftPick === "transfer" || GIFT_META[giftPick].amount) && (
+                      <p className="text-[11px] text-gray-500">بيانات الحساب البنكي للتحويل موضحة بالأسفل 👇</p>
+                    )}
                   </div>
                 )}
                 {inv.gift_notes && <p className="text-sm text-gray-700 mt-2">{inv.gift_notes}</p>}
