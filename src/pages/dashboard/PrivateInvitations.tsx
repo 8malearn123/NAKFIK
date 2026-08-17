@@ -126,16 +126,15 @@ const emptyForm: Partial<Inv> = {
   attachments: [], gift_options: {}, reminder_hours_before: null,
 };
 
-// خيارات الهدايا المتاحة في الدعوة — قيم ثابتة، والتحويل وأخرى يحددها المستفيد بنفسه
+// خيارات الهدايا المتاحة في الدعوة — قيم ثابتة، و"أخرى" يحددها المستفيد بنفسه
 const GIFT_TYPES: { key: string; label: string; emoji: string; amount: number | null }[] = [
   { key: "flowers", label: "ورد", emoji: "🌹", amount: 100 },
   { key: "box", label: "بوكس", emoji: "🎁", amount: 300 },
   { key: "cheque", label: "شيك", emoji: "📝", amount: 500 },
-  { key: "transfer", label: "تحويل", emoji: "💳", amount: null },
   { key: "other", label: "أخرى", emoji: "", amount: null },
 ];
 
-// طرق الدفع المتاحة للتحويل في الدعوات الخاصة
+// طرق الدفع المتاحة في الدعوات الخاصة
 const GIFT_PAY_METHODS: { key: string; label: string }[] = [
   { key: "bank", label: "تحويل بنكي" },
   { key: "tabby", label: "Tabby" },
@@ -1008,12 +1007,12 @@ const PrivateInvitations = () => {
                 </div>
 
                 <div className="border-t pt-3">
-                  <Label className="flex items-center gap-1"><Gift className="w-4 h-4" /> قائمة الهدايا / التحويلات</Label>
+                  <Label className="flex items-center gap-1"><Gift className="w-4 h-4" /> قائمة الهدايا</Label>
                 </div>
                 {/* خيارات الهدايا المتاحة للمدعوين */}
                 <div>
                   <Label className="text-xs">خيارات الهدايا المتاحة</Label>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1.5">
                     {GIFT_TYPES.map((t) => {
                       const types = form.gift_options?.types || [];
                       const active = types.includes(t.key);
@@ -1034,16 +1033,16 @@ const PrivateInvitations = () => {
                         >
                           <span className="block">{t.emoji ? `${t.emoji} ` : ""}{t.label}</span>
                           <span className="block text-[10px] font-normal text-muted-foreground mt-0.5">
-                            {t.amount ? `${t.amount} ريال` : t.key === "transfer" ? "المستفيد يحدد المبلغ" : "المستفيد يحدد النوع والقيمة"}
+                            {t.amount ? `${t.amount} ريال` : "المستفيد يحدد النوع والقيمة"}
                           </span>
                         </button>
                       );
                     })}
                   </div>
                 </div>
-                {(form.gift_options?.types || []).includes("transfer") && (
+                {(form.gift_options?.types || []).length > 0 && (
                   <div>
-                    <Label className="text-xs">طرق الدفع المقبولة للتحويل</Label>
+                    <Label className="text-xs">طرق الدفع المقبولة</Label>
                     <div className="grid grid-cols-3 gap-2 mt-1.5">
                       {GIFT_PAY_METHODS.map((m) => {
                         const methods = form.gift_options?.payment_methods || [];
@@ -1071,11 +1070,6 @@ const PrivateInvitations = () => {
                   </div>
                 )}
                 <div><Label>ملاحظات الهدايا</Label><Textarea rows={2} value={form.gift_notes || ""} onChange={(e) => setForm({ ...form, gift_notes: e.target.value })} placeholder="تكفون يا أحبابنا، حضوركم هديتنا..." /></div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><Label>اسم البنك</Label><Input value={form.gift_bank_name || ""} onChange={(e) => setForm({ ...form, gift_bank_name: e.target.value })} /></div>
-                  <div><Label>اسم المستفيد</Label><Input value={form.gift_account_holder || ""} onChange={(e) => setForm({ ...form, gift_account_holder: e.target.value })} /></div>
-                  <div><Label>IBAN</Label><Input dir="ltr" value={form.gift_iban || ""} onChange={(e) => setForm({ ...form, gift_iban: e.target.value })} /></div>
-                </div>
               </TabsContent>
 
               <TabsContent value="design" className="mt-4">

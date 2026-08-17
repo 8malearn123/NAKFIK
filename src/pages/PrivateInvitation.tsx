@@ -8,7 +8,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import {
-  Calendar, MapPin, Shirt, Phone, Gift, CheckCircle2, X, Copy,
+  Calendar, MapPin, Shirt, Phone, Gift, CheckCircle2, X,
   MessageCircle, Mail, ExternalLink, Clock, HeartHandshake, ChevronDown,
 } from "lucide-react";
 import DesignPreview from "@/components/design/DesignPreview";
@@ -101,14 +101,14 @@ const PrivateInvitation = () => {
   const hoursLeft = Math.floor(msToEvent / 3600000);
   const minsLeft = Math.floor((msToEvent % 3600000) / 60000);
 
-  const giftTypes: string[] = inv.gift_options?.types || [];
+  // خيار التحويل أُزيل من النظام — نتجاهله في الدعوات القديمة المحفوظة
+  const giftTypes: string[] = (inv.gift_options?.types || []).filter((t: string) => t !== "transfer");
   const giftPayMethods: string[] = inv.gift_options?.payment_methods || [];
-  // ورد/بوكس/شيك بقيم ثابتة — التحويل وأخرى يحددها المستفيد بنفسه
+  // ورد/بوكس/شيك بقيم ثابتة — و"أخرى" يحددها المستفيد بنفسه
   const GIFT_META: Record<string, { label: string; emoji: string; amount: number | null }> = {
     flowers: { label: "ورد", emoji: "🌹", amount: 100 },
     box: { label: "بوكس", emoji: "🎁", amount: 300 },
     cheque: { label: "شيك", emoji: "📝", amount: 500 },
-    transfer: { label: "تحويل", emoji: "💳", amount: null },
     other: { label: "أخرى", emoji: "", amount: null },
   };
   const PAY_METHOD_LABELS: Record<string, string> = { bank: "تحويل بنكي", tabby: "Tabby", tamara: "Tamara" };
@@ -295,7 +295,7 @@ const PrivateInvitation = () => {
             )}
 
             {/* الهدايا — قسم مطوي مختصر: شريط أنيق يُفتح عند الحاجة فقط */}
-            {(inv.gift_notes || inv.gift_iban || giftTypes.length > 0) && (
+            {(inv.gift_notes || giftTypes.length > 0) && (
               <div className="rounded-2xl overflow-hidden" style={{ background: inv.accent_color + "15" }}>
                 <button
                   type="button"
@@ -306,7 +306,7 @@ const PrivateInvitation = () => {
                     <Gift className="w-4 h-4" />
                   </span>
                   <span className="flex-1">
-                    <span className="block font-bold text-sm" style={{ color: inv.theme_color }}>الهدايا والتحويلات</span>
+                    <span className="block font-bold text-sm" style={{ color: inv.theme_color }}>الهدايا</span>
                     {giftTypes.length > 0 && !giftOpen && (
                       <span className="block text-[11px] text-gray-500">{giftTypes.length} خيارات متاحة — اضغط للاطلاع</span>
                     )}
@@ -317,7 +317,7 @@ const PrivateInvitation = () => {
                 {giftOpen && (
                 <div className="px-4 pb-4">
                 {giftTypes.length > 0 && (
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
                     {giftTypes.map((t) => {
                       const meta = GIFT_META[t];
                       if (!meta) return null;
@@ -333,7 +333,7 @@ const PrivateInvitation = () => {
                           <span className="block text-lg">{meta.emoji || "•"}</span>
                           <span className="block text-xs font-bold" style={{ color: inv.theme_color }}>{meta.label}</span>
                           <span className="block text-[10px] text-gray-500 mt-0.5">
-                            {meta.amount ? `${meta.amount} ريال` : t === "transfer" ? "بمبلغك" : "باختيارك"}
+                            {meta.amount ? `${meta.amount} ريال` : "باختيارك"}
                           </span>
                         </button>
                       );
@@ -348,19 +348,6 @@ const PrivateInvitation = () => {
                       <p className="text-sm font-bold text-gray-800">
                         {GIFT_META[giftPick].emoji} قيمة الهدية: {GIFT_META[giftPick].amount} ريال
                       </p>
-                    ) : giftPick === "transfer" ? (
-                      <div>
-                        <Label className="text-xs">مبلغ التحويل (ريال) — اكتبه بنفسك</Label>
-                        <Input
-                          type="number"
-                          min={1}
-                          dir="ltr"
-                          placeholder=""
-                          value={giftAmount}
-                          onChange={(e) => setGiftAmount(e.target.value)}
-                          className="mt-1"
-                        />
-                      </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -373,7 +360,7 @@ const PrivateInvitation = () => {
                         </div>
                       </div>
                     )}
-                    {(giftPick === "transfer" || GIFT_META[giftPick].amount) && giftPayMethods.length > 0 && (
+                    {giftPayMethods.length > 0 && (
                       <div>
                         <p className="text-[11px] text-gray-500 mb-1">طرق الدفع المقبولة:</p>
                         <div className="flex flex-wrap gap-1.5">
@@ -385,24 +372,9 @@ const PrivateInvitation = () => {
                         </div>
                       </div>
                     )}
-                    {inv.gift_iban && (giftPick === "transfer" || GIFT_META[giftPick].amount) && (
-                      <p className="text-[11px] text-gray-500">بيانات الحساب البنكي للتحويل موضحة بالأسفل 👇</p>
-                    )}
                   </div>
                 )}
                 {inv.gift_notes && <p className="text-sm text-gray-700 mt-2">{inv.gift_notes}</p>}
-                {inv.gift_iban && (
-                  <div className="mt-3 bg-white rounded-xl p-3 text-xs space-y-1">
-                    {inv.gift_bank_name && <p><span className="text-gray-500">البنك:</span> {inv.gift_bank_name}</p>}
-                    {inv.gift_account_holder && <p><span className="text-gray-500">المستفيد:</span> {inv.gift_account_holder}</p>}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t">
-                      <span dir="ltr" className="font-mono">{inv.gift_iban}</span>
-                      <button onClick={() => { navigator.clipboard.writeText(inv.gift_iban); toast.success("نسخ IBAN"); }}>
-                        <Copy className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                )}
                 </div>
                 )}
               </div>
