@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePlanScope } from "@/hooks/usePlanScope";
 import { User, Ticket, Users, IdCard, LogOut, LayoutDashboard, Shield, Bell, Globe } from "lucide-react";
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import logo from "@/assets/logo.png";
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
   const { user, profile, isSuperAdmin, signOut } = useAuth();
+  const { canPrivate } = usePlanScope();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -67,31 +69,47 @@ const Navbar = () => {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>{profile?.full_name || user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {/* القائمة ديناميكية حسب نوع الحساب — كل دور يرى خياراته فقط */}
                 {profile?.account_type === "organizer" && (
-                  <DropdownMenuItem asChild>
-                    <Link to="/dashboard"><LayoutDashboard className="w-4 h-4 ms-2" /> {t("navbar.dashboard")}</Link>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/dashboard"><LayoutDashboard className="w-4 h-4 ms-2" /> {t("navbar.dashboard")}</Link>
+                    </DropdownMenuItem>
+                    {canPrivate && (
+                      <DropdownMenuItem asChild>
+                        <Link to="/dashboard/invitations"><Ticket className="w-4 h-4 ms-2" /> الدعوات الخاصة</Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem asChild>
+                      <Link to="/dashboard/notifications"><Bell className="w-4 h-4 ms-2" /> {t("navbar.notifications")}</Link>
+                    </DropdownMenuItem>
+                  </>
                 )}
                 {isSuperAdmin && (
                   <DropdownMenuItem asChild>
                     <Link to="/admin"><Shield className="w-4 h-4 ms-2" /> {t("navbar.adminPanel")}</Link>
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem asChild>
-                  <Link to="/my/profile"><User className="w-4 h-4 ms-2" /> {t("navbar.myProfile")}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/my-tickets"><Ticket className="w-4 h-4 ms-2" /> {t("navbar.myTickets")}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/my/profile/networking"><IdCard className="w-4 h-4 ms-2" /> {t("navbar.connectCard")}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/my/connections"><Users className="w-4 h-4 ms-2" /> {t("navbar.myNetwork")}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> {t("navbar.notifications")}</Link>
-                </DropdownMenuItem>
+                {/* خيارات الحاضر — لا تظهر للمنظم */}
+                {profile?.account_type !== "organizer" && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/my/profile"><User className="w-4 h-4 ms-2" /> {t("navbar.myProfile")}</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/my-tickets"><Ticket className="w-4 h-4 ms-2" /> {t("navbar.myTickets")}</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/my/profile/networking"><IdCard className="w-4 h-4 ms-2" /> {t("navbar.connectCard")}</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/my/connections"><Users className="w-4 h-4 ms-2" /> {t("navbar.myNetwork")}</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/my/notifications"><Bell className="w-4 h-4 ms-2" /> {t("navbar.notifications")}</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                   <LogOut className="w-4 h-4 ms-2" /> {t("navbar.logout")}
