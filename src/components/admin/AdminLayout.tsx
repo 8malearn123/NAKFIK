@@ -5,6 +5,7 @@ import logo from "@/assets/logo.png";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
+  Home,
   LayoutDashboard,
   ClipboardCheck,
   Calendar,
@@ -137,7 +138,8 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="flex items-center gap-3 p-4 border-b border-primary-foreground/10">
+        {/* الشعار يرجع للصفحة الرئيسية */}
+        <Link to="/" title="العودة إلى الصفحة الرئيسية" className="flex items-center gap-3 p-4 border-b border-primary-foreground/10 hover:bg-primary-foreground/5 transition-colors">
           <img src={logo} alt="نكفيك تيكت" className="h-10 w-10 object-contain flex-shrink-0" />
           {!collapsed && (
             <div>
@@ -145,7 +147,7 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
               <span className="block text-[10px] text-primary-foreground/50">لوحة مدير النظام</span>
             </div>
           )}
-        </div>
+        </Link>
 
         <nav className="flex-1 py-4 space-y-1 px-3 overflow-y-auto">
           {navItems.map((entry, idx) => {
@@ -270,6 +272,9 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
           </Button>
           <span className="text-xs font-semibold bg-destructive/10 text-destructive rounded-full px-3 py-1">مدير النظام</span>
           <div className="flex-1" />
+          <Button variant="ghost" size="icon" asChild title="الصفحة الرئيسية">
+            <Link to="/"><Home className="w-5 h-5" /></Link>
+          </Button>
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="w-5 h-5" />
           </Button>

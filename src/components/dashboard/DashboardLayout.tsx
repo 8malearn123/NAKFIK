@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import logo from "@/assets/logo.png";
 import {
+  Home,
   LayoutDashboard,
   Calendar,
   PlusCircle,
@@ -120,11 +121,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         )}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 p-4 border-b border-primary-foreground/10">
+        {/* الشعار يرجع للصفحة الرئيسية */}
+        <Link to="/" title="العودة إلى الصفحة الرئيسية" className="flex items-center gap-3 p-4 border-b border-primary-foreground/10 hover:bg-primary-foreground/5 transition-colors">
           <img src={logo} alt="نكفيك تيكت" className="h-10 w-10 object-contain flex-shrink-0" />
           {!collapsed && <span className="font-bold text-lg">نكفيك تيكت</span>}
-        </div>
+        </Link>
 
         {/* Nav */}
         <nav className="flex-1 py-4 space-y-4 px-3 overflow-y-auto">
@@ -246,6 +247,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <div className="flex-1" />
 
           <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" asChild title="الصفحة الرئيسية">
+              <Link to="/"><Home className="w-5 h-5" /></Link>
+            </Button>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-0.5 -left-0.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center font-bold">3</span>
