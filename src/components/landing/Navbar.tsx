@@ -1,3 +1,4 @@
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -33,7 +34,10 @@ const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-6 font-cairo text-sm font-medium">
           <Link to="/" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.home")}</Link>
-          <Link to="/events" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.events")}</Link>
+          {/* المرحلة الأولى: رابط الفعاليات العامة مخفي مؤقتاً */}
+          {PUBLIC_EVENTS_ENABLED && (
+            <Link to="/events" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.events")}</Link>
+          )}
           <a href="/#features" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.features")}</a>
           <a href="/#pricing" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.pricing")}</a>
         </div>

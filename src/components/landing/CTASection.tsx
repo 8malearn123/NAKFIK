@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Zap } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -32,9 +33,11 @@ const CTASection = () => {
                   <Arrow className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
                 </Link>
               </Button>
+              {PUBLIC_EVENTS_ENABLED && (
               <Button variant="hero-outline" size="lg" asChild>
                 <Link to="/events">{t("cta.secondary")}</Link>
               </Button>
+              )}
             </div>
           </div>
         </motion.div>

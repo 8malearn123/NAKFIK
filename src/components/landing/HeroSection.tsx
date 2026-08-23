@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { Link } from "react-router-dom";
 import { Calendar, Ticket, Users, ArrowLeft, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
@@ -57,9 +58,11 @@ const HeroSection = () => {
                 <Arrow className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
               </Link>
             </Button>
-            <Button variant="hero-outline" size="xl" asChild>
+            {PUBLIC_EVENTS_ENABLED && (
+              <Button variant="hero-outline" size="xl" asChild>
               <Link to="/events">{t("hero.browseEvents")}</Link>
             </Button>
+              )}
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1, duration: 0.6 }} className="grid grid-cols-3 gap-8 max-w-lg mx-auto">

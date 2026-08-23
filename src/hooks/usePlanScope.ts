@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 
 // نظام الباقات للمنظمين:
 // private = الدعوات الخاصة فقط، public = الفعاليات العامة فقط، both = الاثنتان معاً.
@@ -30,7 +31,8 @@ export function usePlanScope() {
   const scope: PlanScope = isSuperAdmin ? "both" : normalizeScope((organization as any)?.plan_scope);
   return {
     scope,
-    canPublic: scope !== "private",
+    // المرحلة الأولى: الفعاليات العامة معطلة الظهور للجميع بغض النظر عن الباقة
+    canPublic: PUBLIC_EVENTS_ENABLED && scope !== "private",
     canPrivate: scope !== "public",
     loading,
   };

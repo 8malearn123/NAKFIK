@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { normalizeScope } from "@/hooks/usePlanScope";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -52,6 +53,10 @@ const ProtectedRoute = ({ children, requiredAccountType, requireSuperAdmin, requ
 
   // باقة المنظم: صفحة خارج نطاق الباقة → رجوع للوحة التحكم (السوبر أدمن مستثنى)
   if (requiredScope && !isSuperAdmin && profile?.account_type === "organizer") {
+    // المرحلة الأولى: صفحات الفعاليات العامة معطلة مؤقتاً للجميع
+    if (requiredScope === "public" && !PUBLIC_EVENTS_ENABLED) {
+      return <Navigate to="/dashboard" replace />;
+    }
     const scope = normalizeScope((organization as any)?.plan_scope);
     const allowed = scope === "both" || scope === requiredScope;
     if (!allowed) return <Navigate to="/dashboard" replace />;

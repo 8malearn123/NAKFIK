@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -92,14 +93,14 @@ const App = () => (
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
-                <Route path="/events" element={<EventsMarketplace />} />
+                <Route path="/events" element={PUBLIC_EVENTS_ENABLED ? <EventsMarketplace /> : <Navigate to="/" replace />} />
                 <Route path="/favorites" element={<Favorites />} />
-                <Route path="/events/:id" element={<EventDetail />} />
+                <Route path="/events/:id" element={PUBLIC_EVENTS_ENABLED ? <EventDetail /> : <Navigate to="/" replace />} />
                 <Route path="/o/:id" element={<OrganizerProfile />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/rsvp/:token" element={<RSVPConfirm />} />
-                <Route path="/checkout/:eventId/:ticketId" element={<Checkout />} />
+                <Route path="/checkout/:eventId/:ticketId" element={PUBLIC_EVENTS_ENABLED ? <Checkout /> : <Navigate to="/" replace />} />
                 <Route path="/payment/callback" element={<PaymentCallback />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />

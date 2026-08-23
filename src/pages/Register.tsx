@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { PlanScope } from "@/hooks/usePlanScope";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 
 type AccountType = "attendee" | "organizer" | null;
 
@@ -17,8 +18,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [accountType, setAccountType] = useState<AccountType>(null);
-  // باقة المنظم — تحدد الميزات الظاهرة في حسابه (دعوات خاصة / فعاليات عامة / الاثنتان)
-  const [planScope, setPlanScope] = useState<PlanScope | null>(null);
+  // باقة المنظم — المرحلة الأولى: الدعوات الخاصة فقط (تُختار تلقائياً بدون عرض خيارات عامة)
+  const [planScope, setPlanScope] = useState<PlanScope | null>(PUBLIC_EVENTS_ENABLED ? null : "private");
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -260,8 +261,8 @@ const Register = () => {
                 </div>
               </div>
 
-              {/* اختيار الباقة — تتحكم بالميزات الظاهرة في حساب المنظم */}
-              {accountType === "organizer" && (
+              {/* اختيار الباقة — المرحلة الأولى تعرض باقة الدعوات الخاصة فقط بلا خيارات */}
+              {accountType === "organizer" && PUBLIC_EVENTS_ENABLED && (
                 <div className="space-y-2">
                   <div>
                     <p className="font-bold text-sm">{t("pgAuth.register.planSectionTitle")} *</p>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanScope, PLAN_SCOPE_META, type PlanScope } from "@/hooks/usePlanScope";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { Mail, Calendar, Sparkles, Check } from "lucide-react";
 
 const SCOPE_ICONS: Record<PlanScope, typeof Mail> = { private: Mail, public: Calendar, both: Sparkles };
@@ -79,7 +80,23 @@ const OrganizerSubscription = () => {
           </p>
         </div>
 
+        {/* المرحلة الأولى: باقة الدعوات الخاصة فقط — لا تُعرض خيارات الفعاليات العامة */}
+        {!PUBLIC_EVENTS_ENABLED && (
+          <div className="bg-card rounded-2xl border border-border/50 p-5">
+            <h2 className="font-bold text-foreground mb-1">نوع الباقة</h2>
+            <div className="rounded-xl border-2 border-primary bg-primary/5 p-4 flex items-start gap-3">
+              <Mail className="w-6 h-6 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-bold text-sm">{PLAN_SCOPE_META.private.label}</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">{PLAN_SCOPE_META.private.desc}</p>
+              </div>
+              <span className="mr-auto text-[10px] font-bold text-primary bg-primary/10 rounded-full px-2.5 py-1 flex-shrink-0">باقتك الحالية</span>
+            </div>
+          </div>
+        )}
+
         {/* نوع الباقة — يحدد الميزات الظاهرة في الحساب (دعوات خاصة / فعاليات عامة / شاملة) */}
+        {PUBLIC_EVENTS_ENABLED && (
         <div className="bg-card rounded-2xl border border-border/50 p-5">
           <h2 className="font-bold text-foreground mb-1">نوع الباقة</h2>
           <p className="text-xs text-muted-foreground mb-4">
@@ -113,6 +130,7 @@ const OrganizerSubscription = () => {
             })}
           </div>
         </div>
+        )}
 
         <div key={refreshKey}>
           <SubscriptionUsageCard />
