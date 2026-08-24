@@ -13,6 +13,8 @@ import RecentActivity from "@/components/dashboard/RecentActivity";
 import ActionItems from "@/components/dashboard/ActionItems";
 
 const statusLabels: Record<string, { label: string; className: string }> = {
+  active: { label: "نشطة", className: "bg-teal/10 text-teal" },
+  closed: { label: "مغلقة", className: "bg-muted text-muted-foreground" },
   draft: { label: "مسودة", className: "bg-muted text-muted-foreground" },
   pending_review: { label: "قيد المراجعة", className: "bg-amber-100 text-amber-700" },
   published: { label: "منشورة", className: "bg-teal/10 text-teal" },
@@ -47,38 +49,86 @@ const DashboardHome = () => {
   useEffect(() => {
     if (!organization) return;
     const load = async () => {
-      // Fetch events
-      const { data: evts } = await supabase
-        .from("events")
-        .select("id, title_ar, start_date, status, current_attendees_count")
-        .eq("organization_id", organization.id)
-        .order("start_date", { ascending: true })
-        .limit(5);
+      if (canPublic) {
+        // المرحلة الثانية: إحصائيات الفعاليات العامة
+        const { data: evts } = await supabase
+          .from("events")
+          .select("id, title_ar, start_date, status, current_attendees_count")
+          .eq("organization_id", organization.id)
+          .order("start_date", { ascending: true })
+          .limit(5);
 
-      const eventsList = (evts || []) as EventRow[];
-      setEvents(eventsList);
+        const eventsList = (evts || []) as EventRow[];
+        setEvents(eventsList);
 
-      // Calculate stats
-      const totalEvents = eventsList.length;
-      const totalRegistrations = eventsList.reduce((sum, e) => sum + (e.current_attendees_count || 0), 0);
+        const totalEvents = eventsList.length;
+        const totalRegistrations = eventsList.reduce((sum, e) => sum + (e.current_attendees_count || 0), 0);
 
-      setStats({
-        totalEvents,
-        totalRegistrations,
-        totalTicketsSold: totalRegistrations,
-        totalRevenue: 0, // TODO: calculate from registrations
-      });
+        setStats({
+          totalEvents,
+          totalRegistrations,
+          totalTicketsSold: totalRegistrations,
+          totalRevenue: 0, // TODO: calculate from registrations
+        });
+      } else {
+        // المرحلة الأولى: نفس البطاقات تُحسب من الدعوات الخاصة فقط
+        const { data: invs } = await supabase
+          .from("private_invitations")
+          .select("id, title, event_date, status")
+          .eq("organization_id", organization.id)
+          .order("event_date", { ascending: false });
+
+        const invList = (invs || []) as any[];
+        // أقرب المناسبات للعرض في القائمة
+        const upcoming = [...invList]
+          .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+          .filter((i) => i.status !== "cancelled")
+          .slice(0, 5);
+        setEvents(upcoming.map((i) => ({
+          id: i.id,
+          title_ar: i.title,
+          start_date: i.event_date,
+          status: i.status,
+          current_attendees_count: 0,
+        })));
+
+        let totalGuests = 0, confirmed = 0, checkedIn = 0;
+        if (invList.length) {
+          const { data: guests } = await supabase
+            .from("private_invitation_guests")
+            .select("invitation_id, rsvp_status, checked_in_at")
+            .in("invitation_id", invList.map((i) => i.id));
+          const gl = guests || [];
+          totalGuests = gl.length;
+          confirmed = gl.filter((g: any) => g.rsvp_status === "confirmed").length;
+          checkedIn = gl.filter((g: any) => g.checked_in_at).length;
+        }
+        setStats({
+          totalEvents: invList.length,
+          totalRegistrations: totalGuests,
+          totalTicketsSold: confirmed,
+          totalRevenue: checkedIn,
+        });
+      }
       setLoading(false);
     };
     load();
-  }, [organization]);
+  }, [organization, canPublic]);
 
-  const statsCards = [
-    { icon: Calendar, label: "إجمالي الفعاليات", value: stats.totalEvents.toString(), color: "bg-primary/10 text-primary" },
-    { icon: Users, label: "إجمالي المسجلين", value: stats.totalRegistrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
-    { icon: Ticket, label: "التذاكر المباعة", value: stats.totalTicketsSold.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
-    { icon: DollarSign, label: "الإيرادات", value: `${stats.totalRevenue.toLocaleString("ar-SA")} ر.س`, color: "bg-gold/10 text-gold" },
-  ];
+  const statsCards = canPublic
+    ? [
+        { icon: Calendar, label: "إجمالي الفعاليات", value: stats.totalEvents.toString(), color: "bg-primary/10 text-primary" },
+        { icon: Users, label: "إجمالي المسجلين", value: stats.totalRegistrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
+        { icon: Ticket, label: "التذاكر المباعة", value: stats.totalTicketsSold.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
+        { icon: DollarSign, label: "الإيرادات", value: `${stats.totalRevenue.toLocaleString("ar-SA")} ر.س`, color: "bg-gold/10 text-gold" },
+      ]
+    : [
+        // المرحلة الأولى: نفس البطاقات بدلالات الدعوات الخاصة
+        { icon: Mail, label: "إجمالي المناسبات الخاصة", value: stats.totalEvents.toString(), color: "bg-primary/10 text-primary" },
+        { icon: Users, label: "إجمالي المدعوين", value: stats.totalRegistrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
+        { icon: Ticket, label: "تأكيدات الحضور", value: stats.totalTicketsSold.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
+        { icon: Users, label: "الحضور الفعلي (دخلوا)", value: stats.totalRevenue.toLocaleString("ar-SA"), color: "bg-gold/10 text-gold" },
+      ];
 
   return (
     <DashboardLayout>
@@ -122,8 +172,8 @@ const DashboardHome = () => {
           </div>
         )}
 
-        {/* Subscription Usage */}
-        <SubscriptionUsageCard />
+        {/* Subscription Usage — حصص الفعاليات العامة (المرحلة الثانية) */}
+        {canPublic && <SubscriptionUsageCard />}
 
         {/* Stats */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -144,8 +194,8 @@ const DashboardHome = () => {
           ))}
         </div>
 
-        {/* Action Items */}
-        <ActionItems />
+        {/* Action Items — مهام الفعاليات العامة (المرحلة الثانية) */}
+        {canPublic && <ActionItems />}
 
         {/* Upcoming Events */}
         <motion.div
@@ -155,8 +205,8 @@ const DashboardHome = () => {
           className="bg-card rounded-2xl p-5 border border-border/50"
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-foreground">الفعاليات القادمة</h3>
-            <Link to="/dashboard/events" className="text-primary text-xs font-semibold hover:underline">
+            <h3 className="font-bold text-foreground">{canPublic ? "الفعاليات القادمة" : "مناسباتك الخاصة القادمة"}</h3>
+            <Link to={canPublic ? "/dashboard/events" : "/dashboard/invitations"} className="text-primary text-xs font-semibold hover:underline">
               عرض الكل
             </Link>
           </div>
@@ -185,7 +235,9 @@ const DashboardHome = () => {
                         <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${status.className}`}>
                           {status.label}
                         </span>
-                        <span className="text-muted-foreground text-[10px]">{event.current_attendees_count} مسجّل</span>
+                        {canPublic && (
+                          <span className="text-muted-foreground text-[10px]">{event.current_attendees_count} مسجّل</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -195,18 +247,22 @@ const DashboardHome = () => {
           ) : (
             <div className="text-center py-8">
               <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-muted-foreground text-sm">لا توجد فعاليات بعد</p>
-              {canPublic && (
+              <p className="text-muted-foreground text-sm">{canPublic ? "لا توجد فعاليات بعد" : "لا توجد مناسبات خاصة بعد"}</p>
+              {canPublic ? (
                 <Button className="rounded-full mt-3" size="sm" asChild>
                   <Link to="/dashboard/events/create">إنشاء فعالية</Link>
+                </Button>
+              ) : (
+                <Button className="rounded-full mt-3" size="sm" asChild>
+                  <Link to="/dashboard/invitations">أنشئ أول دعوة خاصة</Link>
                 </Button>
               )}
             </div>
           )}
         </motion.div>
 
-        {/* Recent Activity */}
-        <RecentActivity />
+        {/* Recent Activity — نشاط تسجيلات الفعاليات العامة (المرحلة الثانية) */}
+        {canPublic && <RecentActivity />}
 
         {!organization && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">

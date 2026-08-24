@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import { usePlanScope } from "@/hooks/usePlanScope";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -91,6 +92,7 @@ const SALES_PERIODS: { key: SalesPeriod; label: string }[] = [
 
 const Reports = () => {
   const { organization } = useAuth();
+  const { canPublic } = usePlanScope();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [regs, setRegs] = useState<RegistrationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -500,6 +502,40 @@ const Reports = () => {
     { icon: TrendingUp, label: "نسبة الحضور", value: `${stats.attendanceRate}%`, color: "bg-emerald-100 text-emerald-700", delta: statDeltas.attendanceRate },
     { icon: DollarSign, label: "الإيرادات (ر.س)", value: stats.revenue.toLocaleString("ar-SA"), color: "bg-purple-100 text-purple-700", delta: statDeltas.revenue },
   ];
+
+  // المرحلة الأولى: التقارير تقتصر على الدعوات الخاصة — تقارير الفعاليات
+  // العامة (المبيعات، التذاكر، الإيرادات...) تعود كما هي عند إطلاق المرحلة الثانية
+  if (!canPublic) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
+              <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء دعواتك الخاصة</p>
+            </div>
+            <div className="flex gap-1.5">
+              {FILTER_PERIODS.map(p => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setFilterPeriod(p.key)}
+                  className={`text-xs font-bold rounded-full px-3 py-1.5 border transition ${
+                    filterPeriod === p.key
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:border-primary/40"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <InvitationsReport organizationId={organization?.id} period={filterPeriod} />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
