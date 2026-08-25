@@ -509,13 +509,7 @@ const Reports = () => {
   if (!canPublic) {
     return (
       <DashboardLayout>
-        <div className="space-y-6">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
-            <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء دعواتك الخاصة — فلاتر ورسوم وتصدير</p>
-          </div>
-          <PrivateReports organizationId={organization?.id} orgName={organization?.name} />
-        </div>
+        <PrivateReports organizationId={organization?.id} orgName={organization?.name} />
       </DashboardLayout>
     );
   }

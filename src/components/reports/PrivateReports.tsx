@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Mail, Users, CheckCircle2, DoorOpen, TrendingUp, Download, ChevronDown,
-  FileText, FileSpreadsheet, FileDown, Plus, Crown,
+  FileText, FileSpreadsheet, FileDown, Plus, Crown, SlidersHorizontal, X,
+  LineChart as LineIcon, BarChart3, PieChart as PieIcon,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -58,6 +60,9 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
   const [period, setPeriod] = useState<Period>("all");
   const [invFilter, setInvFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState<"all" | Tier>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "upcoming" | "ended" | "cancelled">("all");
+  const filtersActive = period !== "all" || invFilter !== "all" || tierFilter !== "all" || statusFilter !== "all";
+  const resetFilters = () => { setPeriod("all"); setInvFilter("all"); setTierFilter("all"); setStatusFilter("all"); };
 
   useEffect(() => {
     if (!organizationId) return;
@@ -90,10 +95,15 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     return d.getTime();
   }, [period]);
 
-  const fInvs = useMemo(
-    () => invs.filter((i) => invFilter === "all" || i.id === invFilter),
-    [invs, invFilter]
-  );
+  const fInvs = useMemo(() => invs.filter((i) => {
+    if (invFilter !== "all" && i.id !== invFilter) return false;
+    if (statusFilter !== "all") {
+      const st = i.status === "cancelled" ? "cancelled"
+        : new Date(i.event_date).getTime() > Date.now() ? "upcoming" : "ended";
+      if (st !== statusFilter) return false;
+    }
+    return true;
+  }), [invs, invFilter, statusFilter]);
 
   const fGuests = useMemo(() => {
     const ids = new Set(fInvs.map((i) => i.id));
@@ -173,11 +183,13 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     };
   }).filter((x) => x.مدعوون > 0).slice(0, 8), [fInvs, fGuests]);
 
+  const STATUS_LABELS: Record<string, string> = { all: "كل الحالات", upcoming: "قادمة", ended: "منتهية", cancelled: "ملغاة" };
   const filtersSummary = () => {
     const out: string[] = [];
     out.push(`الفترة: ${PERIODS.find((p) => p.key === period)?.label}`);
     if (invFilter !== "all") out.push(`المناسبة: ${invs.find((i) => i.id === invFilter)?.title || ""}`);
     if (tierFilter !== "all") out.push(`التصنيف: ${TIERS.find((t) => t.key === tierFilter)?.label}`);
+    if (statusFilter !== "all") out.push(`الحالة: ${STATUS_LABELS[statusFilter]}`);
     return out;
   };
 
@@ -315,80 +327,124 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
   // حالة فارغة فقط عندما لا توجد أي دعوات فعلاً في النظام
   if (invs.length === 0) {
     return (
-      <div className="text-center py-16 bg-card rounded-2xl border border-border/50">
-        <Mail className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-        <p className="text-muted-foreground font-semibold">لا توجد دعوات خاصة بعد</p>
-        <p className="text-muted-foreground text-sm mb-4">أنشئ أول دعوة لتظهر تقاريرها هنا</p>
-        <Button className="rounded-full" asChild>
-          <Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> إنشاء دعوة خاصة</Link>
-        </Button>
+      <div className="space-y-6">
+        <div>
+          <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
+          <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء دعواتك الخاصة</p>
+        </div>
+        <div className="text-center py-16 bg-card rounded-2xl border border-border/50">
+          <Mail className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-muted-foreground font-semibold">لا توجد دعوات خاصة بعد</p>
+          <p className="text-muted-foreground text-sm mb-4">أنشئ أول دعوة لتظهر تقاريرها هنا</p>
+          <Button className="rounded-full" asChild>
+            <Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> إنشاء دعوة خاصة</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div id="priv-reports" className="space-y-6">
-      {/* الفلاتر — تؤثر على كل الإحصائيات والرسوم أدناه */}
-      <div className="bg-card rounded-2xl border border-border/50 p-4 flex flex-wrap items-center gap-3">
-        <div className="flex gap-1.5 flex-wrap">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => setPeriod(p.key)}
-              className={`text-xs font-bold rounded-full px-3 py-1.5 border transition ${
-                period === p.key ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/40"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+      {/* الهيدر — بنفس تصميم صفحة التقارير الأصلية: العنوان يميناً والتصدير يساراً */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
+          <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء دعواتك الخاصة</p>
         </div>
-        <select
-          value={invFilter}
-          onChange={(e) => setInvFilter(e.target.value)}
-          className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold"
-        >
-          <option value="all">كل المناسبات</option>
-          {invs.map((i) => <option key={i.id} value={i.id}>{i.title}</option>)}
-        </select>
-        <select
-          value={tierFilter}
-          onChange={(e) => setTierFilter(e.target.value as any)}
-          className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold"
-        >
-          <option value="all">كل التصنيفات</option>
-          {TIERS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-        </select>
-        <div className="ms-auto flex gap-2">
-          <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <DropdownMenu dir="rtl">
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="rounded-full gap-1.5">
-                <Download className="w-4 h-4" /> تصدير <ChevronDown className="w-3 h-3" />
+              <Button variant="outline" className="rounded-full">
+                <Download className="w-4 h-4" /> تصدير التقرير <ChevronDown className="w-3.5 h-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={exportPDF} className="gap-2 cursor-pointer">
-                <FileText className="w-4 h-4" /> PDF
+                <FileText className="w-4 h-4 text-destructive" /> تصدير بصيغة PDF
               </DropdownMenuItem>
               <DropdownMenuItem onClick={exportExcel} className="gap-2 cursor-pointer">
-                <FileSpreadsheet className="w-4 h-4" /> Excel
+                <FileSpreadsheet className="w-4 h-4 text-green-600" /> تصدير بصيغة Excel
               </DropdownMenuItem>
               <DropdownMenuItem onClick={exportCSV} className="gap-2 cursor-pointer">
-                <FileDown className="w-4 h-4" /> CSV
+                <FileDown className="w-4 h-4 text-primary" /> تصدير بصيغة CSV
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" className="rounded-full" asChild>
+          <Button className="rounded-full" asChild>
             <Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> دعوة جديدة</Link>
           </Button>
+        </div>
+      </div>
+
+      {/* الفلاتر — تُطبَّق على كل إحصائيات ورسوم الصفحة */}
+      <div className="bg-card rounded-2xl border border-border/50 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <SlidersHorizontal className="w-4 h-4 text-primary" />
+          <span className="font-bold text-sm">الفلاتر</span>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="text-[11px] font-bold text-destructive inline-flex items-center gap-0.5 hover:underline ms-auto"
+            >
+              <X className="w-3 h-3" /> إعادة تعيين
+            </button>
+          )}
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">المناسبة</label>
+            <select
+              value={invFilter}
+              onChange={(e) => setInvFilter(e.target.value)}
+              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+            >
+              <option value="all">كل المناسبات</option>
+              {invs.map((i) => <option key={i.id} value={i.id}>{i.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">الفترة الزمنية</label>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value as Period)}
+              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+            >
+              {PERIODS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">تصنيف المدعو</label>
+            <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value as any)}
+              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+            >
+              <option value="all">كل التصنيفات</option>
+              {TIERS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">حالة المناسبة</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
+            >
+              <option value="all">كل الحالات</option>
+              <option value="upcoming">قادمة</option>
+              <option value="ended">منتهية</option>
+              <option value="cancelled">ملغاة</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* بطاقات الإحصائيات */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {statCards.map((s) => (
-          <div key={s.label} className="bg-card rounded-2xl p-5 border border-border/50">
+          <div key={s.label} className="bg-card rounded-2xl border border-border/50 p-5">
             <div className={`w-10 h-10 rounded-xl ${s.color} flex items-center justify-center mb-3`}>
               <s.icon className="w-5 h-5" />
             </div>
@@ -398,112 +454,125 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
         ))}
       </div>
 
-      {/* اتجاه الردود */}
-      <div className="bg-card rounded-2xl border border-border/50 p-5">
-        <h3 className="font-bold text-foreground mb-4">اتجاه الردود — تأكيدات واعتذارات</h3>
-        <div className="h-64" dir="ltr">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={trend}>
-              <defs>
-                <linearGradient id="gConf" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={RSVP_COLORS.confirmed} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={RSVP_COLORS.confirmed} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gDecl" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={RSVP_COLORS.declined} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={RSVP_COLORS.declined} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-              <Tooltip />
-              <Legend />
-              <Area type="monotone" dataKey="تأكيدات" stroke={RSVP_COLORS.confirmed} fill="url(#gConf)" strokeWidth={2} />
-              <Area type="monotone" dataKey="اعتذارات" stroke={RSVP_COLORS.declined} fill="url(#gDecl)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      {/* التبويبات — بنفس أسلوب تقارير المنصة */}
+      <Tabs defaultValue="trends" dir="rtl">
+        <TabsList>
+          <TabsTrigger value="trends" className="gap-1.5"><LineIcon className="w-4 h-4" /> الاتجاهات</TabsTrigger>
+          <TabsTrigger value="performance" className="gap-1.5"><BarChart3 className="w-4 h-4" /> أداء المناسبات</TabsTrigger>
+          <TabsTrigger value="distribution" className="gap-1.5"><PieIcon className="w-4 h-4" /> التوزيع</TabsTrigger>
+        </TabsList>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* توزيع الردود */}
-        <div className="bg-card rounded-2xl border border-border/50 p-5">
-          <h3 className="font-bold text-foreground mb-4">توزيع الردود</h3>
-          {rsvpDist.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
-          ) : (
-            <div className="h-56" dir="ltr">
+        <TabsContent value="trends" className="mt-4">
+          <div className="bg-card rounded-2xl border border-border/50 p-5">
+            <h3 className="font-bold text-foreground mb-4">اتجاه الردود — تأكيدات واعتذارات</h3>
+            <div className="h-64" dir="ltr">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={rsvpDist} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                    {rsvpDist.map((e, i) => <Cell key={i} fill={e.color} />)}
-                  </Pie>
+                <AreaChart data={trend}>
+                  <defs>
+                    <linearGradient id="gConf" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={RSVP_COLORS.confirmed} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={RSVP_COLORS.confirmed} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gDecl" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={RSVP_COLORS.declined} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={RSVP_COLORS.declined} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                </PieChart>
+                  <Area type="monotone" dataKey="تأكيدات" stroke={RSVP_COLORS.confirmed} fill="url(#gConf)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="اعتذارات" stroke={RSVP_COLORS.declined} fill="url(#gDecl)" strokeWidth={2} />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
-          )}
-        </div>
+          </div>
+        </TabsContent>
 
-        {/* توزيع التصنيفات VVIP / VIP / عادي */}
-        <div className="bg-card rounded-2xl border border-border/50 p-5">
-          <h3 className="font-bold text-foreground mb-4 flex items-center gap-1.5">
-            <Crown className="w-4 h-4 text-amber-500" /> توزيع تصنيفات المدعوين
-          </h3>
-          {fGuests.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
-          ) : (
-            <>
-              <div className="h-40" dir="ltr">
+        <TabsContent value="performance" className="mt-4">
+          <div className="bg-card rounded-2xl border border-border/50 p-5">
+            <h3 className="font-bold text-foreground mb-4">أداء المناسبات — المدعوون مقابل المؤكدين</h3>
+            {perInv.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
+            ) : (
+              <div className="h-64" dir="ltr">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={tierDist.filter((t) => t.count > 0)} dataKey="count" nameKey="label" innerRadius={40} outerRadius={65} paddingAngle={3}>
-                      {tierDist.filter((t) => t.count > 0).map((e, i) => <Cell key={i} fill={e.color} />)}
-                    </Pie>
+                  <BarChart data={perInv}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                     <Tooltip />
-                  </PieChart>
+                    <Legend />
+                    <Bar dataKey="مدعوون" fill="hsl(270 30% 52%)" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="مؤكدون" fill="hsl(172 55% 40%)" radius={[6, 6, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="space-y-2 mt-2">
-                {tierDist.map((t) => (
-                  <div key={t.key} className="flex items-center gap-2 text-xs">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: t.color }} />
-                    <span className="font-bold w-14">{t.label}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${t.pct}%`, background: t.color }} />
-                    </div>
-                    <span className="text-muted-foreground whitespace-nowrap">
-                      {t.count} مدعو · {t.confirmed} مؤكد · {t.pct}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* أداء المناسبات */}
-      {invFilter === "all" && perInv.length > 0 && (
-        <div className="bg-card rounded-2xl border border-border/50 p-5">
-          <h3 className="font-bold text-foreground mb-4">أداء المناسبات — المدعوون مقابل المؤكدين</h3>
-          <div className="h-64" dir="ltr">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={perInv}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="مدعوون" fill="hsl(270 30% 52%)" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="مؤكدون" fill="hsl(172 55% 40%)" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            )}
           </div>
-        </div>
-      )}
+        </TabsContent>
+
+        <TabsContent value="distribution" className="mt-4">
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="bg-card rounded-2xl border border-border/50 p-5">
+              <h3 className="font-bold text-foreground mb-4">توزيع الردود</h3>
+              {rsvpDist.length === 0 ? (
+                <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
+              ) : (
+                <div className="h-56" dir="ltr">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={rsvpDist} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                        {rsvpDist.map((e, i) => <Cell key={i} fill={e.color} />)}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-card rounded-2xl border border-border/50 p-5">
+              <h3 className="font-bold text-foreground mb-4 flex items-center gap-1.5">
+                <Crown className="w-4 h-4 text-amber-500" /> توزيع تصنيفات المدعوين
+              </h3>
+              {fGuests.length === 0 ? (
+                <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
+              ) : (
+                <>
+                  <div className="h-40" dir="ltr">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={tierDist.filter((t) => t.count > 0)} dataKey="count" nameKey="label" innerRadius={40} outerRadius={65} paddingAngle={3}>
+                          {tierDist.filter((t) => t.count > 0).map((e, i) => <Cell key={i} fill={e.color} />)}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2 mt-2">
+                    {tierDist.map((t) => (
+                      <div key={t.key} className="flex items-center gap-2 text-xs">
+                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: t.color }} />
+                        <span className="font-bold w-14">{t.label}</span>
+                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${t.pct}%`, background: t.color }} />
+                        </div>
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          {t.count} مدعو · {t.confirmed} مؤكد · {t.pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
