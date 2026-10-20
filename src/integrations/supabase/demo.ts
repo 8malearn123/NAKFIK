@@ -10,7 +10,7 @@
 
 export const DEMO_PASSWORD = "Demo@12345";
 const MODE_KEY = "nakfeek-demo-mode";
-const DB_KEY = "nakfeek-demo-db-v1";
+const DB_KEY = "nakfeek-demo-db-v3";
 const REAL_LOGIN_TIMEOUT_MS = 6000;
 
 const ORG_ID = "00000000-0000-4000-a000-000000000001";
@@ -109,6 +109,7 @@ function seed(): DB {
   );
 
   const ticketId = "00000000-0000-4000-d000-000000000001";
+  const PRO_PLAN_ID = "00000000-0000-4000-e000-000000000002";
   return {
     profiles,
     user_roles: [
@@ -117,9 +118,9 @@ function seed(): DB {
     ],
     organizations: [{
       id: ORG_ID, name: "منظمة تجريبية", owner_id: org.id, subscription_plan: "pro", plan_scope: "both", is_active: true,
-      description: "حساب منظم تجريبي", logo_url: null, cover_image_url: null, brand_color: "#492C5A", phone: "0500000000",
-      public_email: "org1@nakfeek.sa", address: "الرياض", website: null, commercial_register: null, tax_number: null,
-      bank_name: null, iban: null, bank_account_holder: null, billing_name: null, billing_address: null, billing_tax_number: null,
+      description: "حساب منظم تجريبي", logo_url: "/favicon.svg", cover_image_url: null, brand_color: "#492C5A", phone: "0500000000",
+      public_email: "org1@nakfeek.sa", address: "الرياض", website: null, commercial_register: "1010000000", tax_number: "300000000000003",
+      bank_name: "البنك التجريبي", iban: "SA0000000000000000000000", bank_account_holder: "منظمة تجريبية", billing_name: null, billing_address: null, billing_tax_number: null,
       instagram_url: null, linkedin_url: null, snapchat_url: null, tiktok_url: null, twitter_url: null,
       privacy_policy: null, refund_policy: null, terms_text: null, subscription_expires_at: daysFromNow(300), created_at: now, updated_at: now,
     }],
@@ -134,11 +135,17 @@ function seed(): DB {
       { id: uuid(), event_id: events[0].id, attendee_id: att.id, ticket_id: ticketId, status: "confirmed", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-1", registered_at: now, checked_in_at: null },
       { id: uuid(), event_id: events[2].id, attendee_id: att.id, ticket_id: null, status: "checked_in", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-2", registered_at: now, checked_in_at: now },
     ],
+    account_subscriptions: [{
+      id: uuid(), account_id: org.id, account_type: "organizer", plan_id: PRO_PLAN_ID, status: "active",
+      billing_cycle: "yearly", amount: 4990, currency: "SAR", events_quota: 50, events_used: 3,
+      current_period_start: now, current_period_end: daysFromNow(300), expires_at: daysFromNow(300),
+      cancel_at_period_end: false, cancelled_at: null, created_at: now, updated_at: now,
+    }],
     private_invitations: invitations,
     private_invitation_guests: guests,
     subscription_plans: [
       { id: uuid(), name_ar: "الأساسية", name_en: "Basic", target_type: "organizer", price: 0, price_monthly: 0, price_yearly: 0, price_per_event: 0, validity_months: 12, is_active: true, display_order: 1, features: [], max_events: 3, max_attendees_per_event: 100, max_total_attendees: null, max_reservations_per_month: null, whatsapp_quota: 100, badge_color: null, description_ar: null, description_en: null, created_at: now, updated_at: now },
-      { id: uuid(), name_ar: "الاحترافية", name_en: "Pro", target_type: "organizer", price: 499, price_monthly: 499, price_yearly: 4990, price_per_event: 0, validity_months: 12, is_active: true, display_order: 2, features: [], max_events: null, max_attendees_per_event: 1000, max_total_attendees: null, max_reservations_per_month: null, whatsapp_quota: 2000, badge_color: "#CC8E3D", description_ar: null, description_en: null, created_at: now, updated_at: now },
+      { id: PRO_PLAN_ID, name_ar: "الاحترافية", name_en: "Pro", target_type: "organizer", price: 499, price_monthly: 499, price_yearly: 4990, price_per_event: 0, validity_months: 12, is_active: true, display_order: 2, features: [], max_events: null, max_attendees_per_event: 1000, max_total_attendees: null, max_reservations_per_month: null, whatsapp_quota: 2000, badge_color: "#CC8E3D", description_ar: null, description_en: null, created_at: now, updated_at: now },
     ],
   };
 }
