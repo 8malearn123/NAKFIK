@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 import {
   Home,
   LayoutDashboard,
@@ -123,8 +123,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       >
         {/* الشعار يرجع للصفحة الرئيسية */}
         <Link to="/" title="العودة إلى الصفحة الرئيسية" className="flex items-center gap-3 p-4 border-b border-primary-foreground/10 hover:bg-primary-foreground/5 transition-colors">
-          <img src={logo} alt="نكفيك تيكت" className="h-10 w-10 object-contain flex-shrink-0" />
-          {!collapsed && <span className="font-bold text-lg">نكفيك تيكت</span>}
+          {collapsed ? (
+            <BrandLogo variant="mark" alt="نكفيك تيكت" className="h-11 w-11 flex-shrink-0 rounded-xl ring-1 ring-primary-foreground/15" />
+          ) : (
+            <BrandLogo tone="white" alt="نكفيك تيكت" className="h-12" />
+          )}
         </Link>
 
         {/* Nav */}

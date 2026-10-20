@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle, Calendar, MapPin, Clock, AlertCircle, XCircle, Download, Share2, FileText, Info, ChevronLeft, Users, Copy, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import logoHorizontal from "@/assets/brand/logo-horizontal.jpg";
+import BrandCover from "@/components/brand/BrandCover";
+import { brandLogoSrc } from "@/components/brand/BrandLogo";
 
 type PageState = "loading" | "ready" | "collect_data" | "companions_prompt" | "confirmed" | "already_confirmed" | "invalid" | "cancelled" | "passed" | "companion_form" | "companion_done" | "companions_full";
 
@@ -369,7 +370,9 @@ const RSVPConfirm = () => {
     return (
       <div className="min-h-screen bg-background font-cairo" dir="rtl">
         <div className="relative h-48 sm:h-64">
-          <img src={event?.cover_image_url || logoHorizontal} alt="" className="w-full h-full object-cover" />
+          {event?.cover_image_url
+            ? <img src={event.cover_image_url} alt="" className="w-full h-full object-cover" />
+            : <BrandCover />}
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 to-transparent" />
         </div>
         <div className="max-w-lg mx-auto -mt-16 relative z-10 px-4 pb-12">
@@ -543,7 +546,7 @@ const RSVPConfirm = () => {
             {/* Top: brand badges */}
             <div className="w-full flex items-center justify-between gap-3">
               <div className="bg-white/95 rounded-lg px-3 py-1.5 flex items-center gap-2">
-                <img src={tierLogo || logoHorizontal} alt="logo" className="h-6 w-auto object-contain" />
+                <img src={tierLogo || brandLogoSrc.full.color} alt="logo" className="h-6 w-auto object-contain" />
               </div>
               {tierLabel && (
                 <div className="bg-white/15 backdrop-blur border border-white/30 rounded-full px-3 py-1 text-[11px] font-bold tracking-wide uppercase">

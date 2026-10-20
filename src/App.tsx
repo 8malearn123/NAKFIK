@@ -59,6 +59,7 @@ import OrganizerSubscription from "./pages/dashboard/Subscription";
 import NetworkingProfile from "./pages/NetworkingProfile";
 import MyProfile from "./pages/MyProfile";
 import ConnectCard from "./pages/ConnectCard";
+import BrandGuidelines from "./pages/BrandGuidelines";
 import MyConnections from "./pages/MyConnections";
 import OrganizerProfile from "./pages/OrganizerProfile";
 import MyNotifications from "./pages/MyNotifications";
@@ -103,6 +104,7 @@ const App = () => (
                 <Route path="/checkout/:eventId/:ticketId" element={PUBLIC_EVENTS_ENABLED ? <Checkout /> : <Navigate to="/" replace />} />
                 <Route path="/payment/callback" element={<PaymentCallback />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
+                <Route path="/brand" element={<BrandGuidelines />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/register-provider" element={<RegisterProvider />} />

@@ -36,7 +36,7 @@ const FeaturesSection = () => {
   const Arrow = lang === "ar" ? ArrowLeft : ArrowRight;
 
   return (
-    <section id="features" className="py-28 bg-background relative">
+    <section id="features" className="py-28 bg-background relative overflow-hidden">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/3 blur-3xl pointer-events-none" />
       <div className="container mx-auto px-4 relative">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">

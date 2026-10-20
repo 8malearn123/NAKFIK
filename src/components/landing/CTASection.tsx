@@ -15,6 +15,8 @@ const CTASection = () => {
         <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="relative gradient-hero rounded-3xl p-10 md:p-16 text-center overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-primary-foreground/5 -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-accent/10 translate-y-1/3 -translate-x-1/4" />
+          <div className="absolute inset-0 bg-brand-pattern opacity-30" />
+          <div className="brand-slash absolute top-10 -left-16 w-1/2 h-4 opacity-80" />
           <div className="relative z-10">
             <div className="inline-flex items-center gap-2 bg-primary-foreground/10 rounded-full px-4 py-1.5 mb-6">
               <Zap className="w-4 h-4 text-accent" />

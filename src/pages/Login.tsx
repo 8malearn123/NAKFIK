@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 import { Mail, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -84,9 +84,12 @@ const Login = () => {
         <div className="absolute top-20 left-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
         <div className="absolute bottom-32 right-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
         <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
+        <div className="absolute inset-0 bg-brand-pattern opacity-40" />
+        <div className="brand-slash absolute top-[22%] -left-[15%] w-[75%] h-6 opacity-90" />
+        <div className="brand-slash absolute bottom-[18%] -right-[20%] w-[60%] h-3 opacity-40" />
 
         <div className="text-center relative z-10">
-          <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-24 w-auto mx-auto mb-8" />
+          <BrandLogo tone="white" alt={t("pgAuth.common.brandAlt")} className="h-28 mx-auto mb-10 drop-shadow-[0_10px_30px_rgba(0,0,0,0.25)]" />
           <h2 className="text-primary-foreground font-bold text-3xl mb-4">{t("pgAuth.login.brandTitle")}</h2>
           <p className="text-primary-foreground/70 text-lg max-w-md">
             {t("pgAuth.login.brandSubtitle")}
@@ -103,7 +106,7 @@ const Login = () => {
         >
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/">
-              <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
+              <BrandLogo alt={t("pgAuth.common.brandAlt")} className="h-16" />
             </Link>
           </div>
 

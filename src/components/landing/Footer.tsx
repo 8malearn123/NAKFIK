@@ -1,4 +1,4 @@
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -10,12 +10,14 @@ const Footer = () => {
   const supportItems = lang === "ar" ? supportItemsAr : supportItemsEn;
 
   return (
-    <footer className="gradient-hero py-16">
-      <div className="container mx-auto px-4">
+    <footer className="gradient-hero py-16 relative overflow-hidden">
+      <div className="absolute inset-0 bg-brand-pattern opacity-25 pointer-events-none" />
+      <div className="brand-slash absolute -top-4 -left-[10%] w-[45%] h-4 opacity-70" />
+      <div className="container mx-auto px-4 relative">
         <div className="grid md:grid-cols-4 gap-10 mb-12">
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-3 mb-4">
-              <img src={logo} alt={t("navbar.brand")} className="h-12 w-auto" />
+              <BrandLogo tone="white" alt={t("navbar.brand")} className="h-16" />
             </Link>
             <p className="text-primary-foreground/60 text-sm font-cairo leading-relaxed">{t("footer.description")}</p>
           </div>

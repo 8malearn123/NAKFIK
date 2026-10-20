@@ -10,7 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 const schema = z.object({
   business_name: z.string().trim().min(2, "اسم النشاط مطلوب").max(120),
@@ -75,7 +75,7 @@ const RegisterProvider = () => {
     <div dir="rtl" className="min-h-screen bg-muted/30 font-cairo flex items-center justify-center p-4">
       <div className="w-full max-w-2xl bg-card rounded-3xl shadow-lg border border-border p-6 lg:p-10">
         <div className="text-center mb-8">
-          <img src={logo} alt="نكفيك" className="h-14 w-14 mx-auto mb-3" />
+          <BrandLogo alt="نكفيك تيكت" className="h-16 mx-auto mb-4" />
           <h1 className="font-display text-2xl text-primary">سجّل كمزود خدمة</h1>
           <p className="text-sm text-muted-foreground mt-1">
             انضم لشبكة مزودي نكفيك واستقبل طلبات منظمي الفعاليات

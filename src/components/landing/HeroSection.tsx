@@ -14,10 +14,10 @@ const HeroSection = () => {
     <section className="relative min-h-[92vh] flex items-center justify-center gradient-hero overflow-hidden">
       {/* Animated background grid */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 opacity-[0.04]" style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, hsl(0 0% 100%) 1px, transparent 0)",
-          backgroundSize: "40px 40px",
-        }} />
+        <div className="absolute inset-0 bg-brand-pattern opacity-[0.35]" />
+        {/* الضربة الذهبية — العنصر المميز المأخوذ من حرف k في الشعار */}
+        <motion.div initial={{ opacity: 0, x: -80 }} animate={{ opacity: 0.9, x: 0 }} transition={{ delay: 0.4, duration: 1.2, ease: [0.22, 1, 0.36, 1] }} className="brand-slash absolute top-[30%] -left-[12%] w-[55%] h-5 sm:h-7" />
+        <motion.div initial={{ opacity: 0, x: 80 }} animate={{ opacity: 0.35, x: 0 }} transition={{ delay: 0.7, duration: 1.2, ease: [0.22, 1, 0.36, 1] }} className="brand-slash absolute bottom-[14%] -right-[10%] w-[40%] h-3 sm:h-4" />
         <motion.div animate={{ rotate: 360 }} transition={{ duration: 80, repeat: Infinity, ease: "linear" }} className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full border border-primary-foreground/5" />
         <motion.div animate={{ rotate: -360 }} transition={{ duration: 100, repeat: Infinity, ease: "linear" }} className="absolute -bottom-60 -left-40 w-[600px] h-[600px] rounded-full border border-primary-foreground/5" />
         <div className="absolute top-24 left-[15%] w-20 h-20 rounded-full bg-accent/15 blur-xl animate-float" />

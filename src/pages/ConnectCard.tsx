@@ -12,7 +12,7 @@ import {
   Loader2, Linkedin, Phone, Mail, Globe, UserPlus, MessageCircle,
   Instagram, Ghost, Save, Briefcase, Building2, Sparkles, Target, Share2,
 } from "lucide-react";
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 const LOOKING_FOR_KEYS = ["partnerships", "funding", "career", "jobs", "learning"];
 
@@ -194,7 +194,7 @@ export default function ConnectCard() {
       <header className="border-b bg-background/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt={t("pgNetworking.card.brand")} className="h-8" />
+            <BrandLogo variant="wordmark" alt={t("pgNetworking.card.brand")} className="h-8" />
           </Link>
           <Button variant="ghost" size="sm" onClick={sharePage}>
             <Share2 className="w-4 h-4 ms-2" /> {t("pgNetworking.card.share")}

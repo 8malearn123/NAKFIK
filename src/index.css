@@ -3,12 +3,13 @@
 @tailwind utilities;
 
 /* ===========================================================
-   Nakvik Brand Identity — official palette
-   Primary    #492C5A  271 35% 26%   (deep purple)
-   Brick      #A03C4A  353 45% 43%
-   Gold       #CC8E3D   34 58% 52%
-   Teal       #006962  176 100% 21%
-   Secondary muted variants for social/marketing contexts
+   Ticket by Nakfeek Commercial — brand identity
+   Logo assets: src/assets/brand/ticket-*.svg  (use <BrandLogo />)
+   Primary    #492C5A  271 35% 26%   (deep purple — "ticket" wordmark)
+   Gold       #CC8E3D   34 58% 52%   (the signature slash through the "k")
+   Brick      #A03C4A  353 45% 43%   ("By Nakfeek Commercial")
+   Teal       #006962  176 100% 21%  (functional / success only)
+   Signature motif: the gold slash at ~31° — .brand-slash / .bg-brand-pattern
    =========================================================== */
 
 @layer base {
@@ -156,7 +157,7 @@
   .gradient-warm    { background: var(--gradient-warm); }
 
   .text-gradient {
-    background: linear-gradient(135deg, hsl(34 58% 52%), hsl(271 35% 40%));
+    background: linear-gradient(135deg, hsl(36 72% 66%), hsl(34 58% 52%) 55%, hsl(353 55% 68%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -172,16 +173,25 @@
   .shadow-elegant { box-shadow: var(--shadow-elegant); }
   .shadow-gold    { box-shadow: var(--shadow-gold); }
 
-  /* Brand pattern background (decorative) */
+  /* Brand pattern — scattered slashes taken from the logo's "k" (decorative) */
   .bg-brand-pattern {
-    background-image: url('/src/assets/brand/pattern.jpg');
+    background-image: url('./assets/brand/pattern-slash.svg');
     background-repeat: repeat;
-    background-size: 320px auto;
+    background-size: 280px 280px;
   }
   .bg-brand-pattern-soft {
-    background-image: url('/src/assets/brand/pattern.jpg');
+    background-image: url('./assets/brand/pattern-slash.svg');
     background-repeat: repeat;
-    background-size: 320px auto;
+    background-size: 280px 280px;
     opacity: 0.06;
+  }
+
+  /* The signature gold slash (same angle as the logo's "k") */
+  .brand-slash {
+    background: linear-gradient(90deg, hsl(34 58% 52% / 0), hsl(34 58% 52%) 35%, hsl(34 62% 58%));
+    border-radius: 9999px;
+    /* individual `rotate` so it composes with Tailwind/framer-motion transforms */
+    rotate: -31deg;
+    pointer-events: none;
   }
 }
