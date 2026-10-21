@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import MyTickets from "@/pages/MyTickets";
 import MyConnections from "@/pages/MyConnections";
 import AttendeeCard from "@/components/networking/AttendeeCard";
+import EntryPassCard, { type EntryPass } from "@/components/networking/EntryPassCard";
+import { Switch } from "@/components/ui/switch";
 import AvatarCropDialog from "@/components/networking/AvatarCropDialog";
 import { toast } from "sonner";
 import {
@@ -57,6 +59,9 @@ const MyProfile = () => {
   const [loading, setLoading] = useState(true);
   // تذاكري / اتصالاتي تُفتح في نافذة فوق الصفحة بدل الانتقال لصفحة مستقلة
   const [panel, setPanel] = useState<"tickets" | "connections" | null>(null);
+  // مفتاح بطاقة التواصل: عند إيقافه تبقى بطاقة دخول مختصرة فقط بدون بيانات تواصل
+  const [networkingEnabled, setNetworkingEnabled] = useState(true);
+  const [nextPass, setNextPass] = useState<EntryPass | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -109,7 +114,7 @@ const MyProfile = () => {
     if (!user) return;
     (async () => {
       const [{ data: net }, regsRes, connRes, ptsRes] = await Promise.all([
-        supabase.from("networking_profiles").select("connect_code, privacy_level, expertise, looking_for, card_logo_url, ring_color, bg_color_from, bg_color_to, tier_label").eq("user_id", user.id).maybeSingle(),
+        supabase.from("networking_profiles").select("connect_code, privacy_level, networking_enabled, expertise, looking_for, card_logo_url, ring_color, bg_color_from, bg_color_to, tier_label").eq("user_id", user.id).maybeSingle(),
         supabase.from("registrations").select("event_id, events!inner(start_date)", { count: "exact" }).eq("attendee_id", user.id),
         supabase.from("networking_connections").select("id", { count: "exact", head: true }).or(`scanner_id.eq.${user.id},scanned_id.eq.${user.id}`),
         supabase.from("attendee_points").select("points").eq("user_id", user.id),
@@ -118,6 +123,8 @@ const MyProfile = () => {
         const n: any = net;
         setConnectCode(n.connect_code || "");
         setPrivacyLevel(n.privacy_level || "event_only");
+        setNetworkingEnabled(n.networking_enabled !== false);
+        if (n.networking_enabled === false) setActiveTab("personal");
         setExpertise(n.expertise || []);
         setLookingFor(n.looking_for || []);
         if (n.card_logo_url) setCardLogoUrl(n.card_logo_url);
@@ -126,6 +133,19 @@ const MyProfile = () => {
         if (n.bg_color_to) setBgTo(n.bg_color_to);
         if (n.tier_label) setTierLabel(n.tier_label);
       }
+      const { data: passes } = await supabase
+        .from("registrations")
+        .select("qr_code, status, event:events!inner(title_ar, start_date, venue_name), ticket:tickets(name_ar)")
+        .eq("attendee_id", user.id)
+        .in("status", ["confirmed", "pending"]);
+      const soonest = ((passes || []) as any[])
+        .map(r => ({ ...r, event: Array.isArray(r.event) ? r.event[0] : r.event, ticket: Array.isArray(r.ticket) ? r.ticket[0] : r.ticket }))
+        .filter(r => r.event?.start_date && new Date(r.event.start_date) > new Date())
+        .sort((a, b) => +new Date(a.event.start_date) - +new Date(b.event.start_date))[0];
+      setNextPass(soonest ? {
+        event_title: soonest.event.title_ar, start_date: soonest.event.start_date, venue_name: soonest.event.venue_name,
+        ticket_name: soonest.ticket?.name_ar ?? null, qr_code: soonest.qr_code,
+      } : null);
       const upcoming = ((regsRes.data || []) as any[]).filter(r => r.events?.start_date && new Date(r.events.start_date) > new Date()).length;
       setStats({
         registrations: regsRes.count || 0,
@@ -148,6 +168,21 @@ const MyProfile = () => {
   }, [form]);
 
   const isComplete = !!(form.full_name.trim().length >= 2 && /^\+?9665\d{8}$/.test(form.phone || ""));
+
+  // يُحفظ فوراً بدون الحاجة لزر "حفظ جميع التعديلات"
+  const toggleNetworking = async (enabled: boolean) => {
+    if (!user) return;
+    setNetworkingEnabled(enabled);
+    if (!enabled) setActiveTab("personal");
+    const { error } = await supabase.from("networking_profiles")
+      .upsert({ user_id: user.id, networking_enabled: enabled } as any, { onConflict: "user_id" });
+    if (error) {
+      setNetworkingEnabled(!enabled);
+      toast.error(t("pgProfile.cardMode.failed"));
+      return;
+    }
+    toast.success(enabled ? t("pgProfile.cardMode.turnedOn") : t("pgProfile.cardMode.turnedOff"));
+  };
 
   const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -239,6 +274,7 @@ const MyProfile = () => {
       supabase.from("networking_profiles").upsert({
         user_id: user.id,
         privacy_level: privacyLevel,
+        networking_enabled: networkingEnabled,
         expertise,
         looking_for: lookingFor,
         job_title: form.job_title?.trim() || null,
@@ -341,7 +377,7 @@ const MyProfile = () => {
                 ) : (
                   <Badge className="bg-brand-brick/90 hover:bg-brand-brick text-white gap-1"><AlertCircle className="w-3 h-3" /> {t("pgProfile.header.incomplete")}</Badge>
                 )}
-                {connectCode && (
+                {connectCode && networkingEnabled && (
                   <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={copyLink}>
                     <Copy className="w-3 h-3" /> {t("pgProfile.header.copyCardLink")}
                   </Button>
@@ -349,9 +385,11 @@ const MyProfile = () => {
                 <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("tickets")}>
                   <Ticket className="w-3 h-3" /> {t("pgProfile.header.myTickets")}
                 </Button>
-                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("connections")}>
-                  <Users2 className="w-3 h-3" /> {t("pgProfile.header.myConnections")}
-                </Button>
+                {networkingEnabled && (
+                  <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("connections")}>
+                    <Users2 className="w-3 h-3" /> {t("pgProfile.header.myConnections")}
+                  </Button>
+                )}
                 <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
                   <Link to="/favorites"><Heart className="w-3 h-3" /> {t("pgProfile.header.favorites")}</Link>
                 </Button>
@@ -363,11 +401,11 @@ const MyProfile = () => {
 
       <div className="container mx-auto px-4 max-w-6xl -mt-20 relative pb-12">
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className={`grid grid-cols-2 gap-3 mb-6 ${networkingEnabled ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
           {[
             { icon: Ticket, label: t("pgProfile.stats.totalTickets"), value: stats.registrations, color: "text-primary", bg: "bg-primary/10" },
             { icon: Calendar, label: t("pgProfile.stats.upcomingEvents"), value: stats.upcoming, color: "text-brand-teal", bg: "bg-brand-teal/10" },
-            { icon: Users2, label: t("pgProfile.stats.connections"), value: stats.connections, color: "text-brand-brick", bg: "bg-brand-brick/10" },
+            ...(networkingEnabled ? [{ icon: Users2, label: t("pgProfile.stats.connections"), value: stats.connections, color: "text-brand-brick", bg: "bg-brand-brick/10" }] : []),
             { icon: Award, label: t("pgProfile.stats.myPoints"), value: stats.points, color: "text-brand-gold", bg: "bg-brand-gold/10" },
           ].map((s, i) => (
             <div key={i} className="bg-card rounded-2xl border border-border/50 p-4 flex items-center gap-3">
@@ -382,7 +420,20 @@ const MyProfile = () => {
           ))}
         </div>
 
+        {/* مفتاح بطاقة التواصل */}
+        <div className="bg-card border border-border/50 rounded-2xl p-4 mb-6 flex items-center gap-4">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${networkingEnabled ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground"}`}>
+            {networkingEnabled ? <QrCode className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm text-foreground">{t("pgProfile.cardMode.title")}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{networkingEnabled ? t("pgProfile.cardMode.onDesc") : t("pgProfile.cardMode.offDesc")}</p>
+          </div>
+          <Switch checked={networkingEnabled} onCheckedChange={toggleNetworking} aria-label={t("pgProfile.cardMode.title")} />
+        </div>
+
         {/* Completion bar */}
+        {networkingEnabled && (
         <div className="bg-card border border-border/50 rounded-2xl p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -396,6 +447,7 @@ const MyProfile = () => {
             <p className="text-[11px] text-muted-foreground mt-2">{t("pgProfile.completion.hint")}</p>
           )}
         </div>
+        )}
 
         {requiredMode && !profile?.profile_completed && (
           <div className="bg-brand-gold/10 border-2 border-brand-gold/40 rounded-2xl p-4 mb-6 flex items-start gap-3">
@@ -411,12 +463,14 @@ const MyProfile = () => {
           {/* Main editor with tabs */}
           <div className="lg:col-span-2">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
+              {networkingEnabled && (
               <TabsList className="w-full grid grid-cols-4 mb-4 h-auto p-1">
                 <TabsTrigger value="overview" className="text-xs"><Eye className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.overview")}</TabsTrigger>
                 <TabsTrigger value="personal" className="text-xs"><UserIcon className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.personal")}</TabsTrigger>
                 <TabsTrigger value="professional" className="text-xs"><Briefcase className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.professional")}</TabsTrigger>
                 <TabsTrigger value="networking" className="text-xs"><Sparkles className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.networking")}</TabsTrigger>
               </TabsList>
+              )}
 
               {/* Overview */}
               <TabsContent value="overview" className="space-y-4">
@@ -591,6 +645,12 @@ const MyProfile = () => {
 
           {/* Live preview */}
           <aside className="lg:sticky lg:top-24 self-start space-y-3 flex flex-col items-center">
+            {!networkingEnabled ? (
+              <>
+                <p className="text-xs text-muted-foreground font-semibold self-start">{t("pgProfile.entryPass.previewTitle")}</p>
+                <EntryPassCard fullName={form.full_name || t("pgProfile.aside.yourNameHere")} pass={nextPass} onShowAll={() => setPanel("tickets")} />
+              </>
+            ) : (<>
             <p className="text-xs text-muted-foreground font-semibold self-start">{t("pgProfile.aside.previewTitle")}</p>
             <AttendeeCard
               ref={cardRef}
@@ -618,6 +678,7 @@ const MyProfile = () => {
               {isComplete ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
               <span className="text-xs">{isComplete ? t("pgProfile.aside.completeStatus") : t("pgProfile.aside.incompleteStatus")}</span>
             </div>
+            </>)}
           </aside>
 
         </div>
