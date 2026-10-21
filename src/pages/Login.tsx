@@ -170,6 +170,8 @@ const Login = () => {
             <div className="grid grid-cols-2 gap-2">
               {[
                 { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
+                { label: t("pgAuth.login.demoOrganizerPublic"), email: "org-public@nakfeek.sa" },
+                { label: t("pgAuth.login.demoOrganizerPrivate"), email: "org-private@nakfeek.sa" },
                 { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
                 { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
               ].map((demo) => (

@@ -10,13 +10,17 @@
 
 export const DEMO_PASSWORD = "Demo@12345";
 const MODE_KEY = "nakfeek-demo-mode";
-const DB_KEY = "nakfeek-demo-db-v3";
+const DB_KEY = "nakfeek-demo-db-v4";
 const REAL_LOGIN_TIMEOUT_MS = 6000;
 
-const ORG_ID = "00000000-0000-4000-a000-000000000001";
+const ORG_ID = "00000000-0000-4000-a000-000000000001";        // منظم شامل (عام + خاص)
+const ORG_PUBLIC_ID = "00000000-0000-4000-a000-000000000002"; // منظم فعاليات عامة
+const ORG_PRIVATE_ID = "00000000-0000-4000-a000-000000000003"; // منظم فعاليات خاصة
 export const DEMO_USERS = {
   "admin@nakfeek.sa": { id: "00000000-0000-4000-a000-0000000000a1", full_name: "مدير المنصة", account_type: "attendee" },
-  "org1@nakfeek.sa": { id: "00000000-0000-4000-a000-0000000000b1", full_name: "منظم تجريبي", account_type: "organizer" },
+  "org1@nakfeek.sa": { id: "00000000-0000-4000-a000-0000000000b1", full_name: "منظم شامل تجريبي", account_type: "organizer" },
+  "org-public@nakfeek.sa": { id: "00000000-0000-4000-a000-0000000000b2", full_name: "منظم الفعاليات العامة", account_type: "organizer" },
+  "org-private@nakfeek.sa": { id: "00000000-0000-4000-a000-0000000000b3", full_name: "منظم الفعاليات الخاصة", account_type: "organizer" },
   "attendee1@nakfeek.sa": { id: "00000000-0000-4000-a000-0000000000c1", full_name: "حاضر تجريبي", account_type: "attendee" },
 } as const;
 type DemoEmail = keyof typeof DEMO_USERS;
@@ -56,6 +60,8 @@ function seed(): DB {
   const now = new Date().toISOString();
   const admin = DEMO_USERS["admin@nakfeek.sa"];
   const org = DEMO_USERS["org1@nakfeek.sa"];
+  const orgPub = DEMO_USERS["org-public@nakfeek.sa"];
+  const orgPriv = DEMO_USERS["org-private@nakfeek.sa"];
   const att = DEMO_USERS["attendee1@nakfeek.sa"];
 
   const profiles = (Object.keys(DEMO_USERS) as DemoEmail[]).map((email) => ({
@@ -65,9 +71,9 @@ function seed(): DB {
     x_handle: null, instagram_handle: null, profile_completed: true, created_at: now, updated_at: now,
   }));
 
-  const event = (id: string, title: string, d: number, status: string, extra: Row = {}) => ({
+  const event = (id: string, title: string, d: number, status: string, extra: Row = {}, orgId = ORG_ID, ownerId: string = org.id) => ({
     id, title_ar: title, title_en: null, description_ar: "فعالية تجريبية لعرض إمكانيات المنصة.", description_en: null,
-    category: "conference", type: "public", status, organization_id: ORG_ID, created_by: org.id,
+    category: "conference", type: "public", status, organization_id: orgId, created_by: ownerId,
     start_date: daysFromNow(d), end_date: daysFromNow(d, 23), registration_deadline: null,
     venue_name: "مركز الملك عبدالعزيز الدولي", venue_address: "الرياض", venue_map_url: null,
     is_online: false, online_link: null, is_free: true, max_attendees: 300, current_attendees_count: 0,
@@ -80,10 +86,13 @@ function seed(): DB {
     event("00000000-0000-4000-b000-000000000001", "ملتقى الرياض للابتكار", 12, "published", { current_attendees_count: 2 }),
     event("00000000-0000-4000-b000-000000000002", "ورشة تصميم تجربة المستخدم", 25, "pending_review", { category: "workshop", max_attendees: 40 }),
     event("00000000-0000-4000-b000-000000000003", "لقاء رواد الأعمال", -20, "completed", { category: "meetup" }),
+    event("00000000-0000-4000-b000-000000000011", "مهرجان جدة للتقنية", 9, "published", { current_attendees_count: 1, venue_name: "سوبر دوم جدة", venue_address: "جدة", max_attendees: 1500 }, ORG_PUBLIC_ID, orgPub.id),
+    event("00000000-0000-4000-b000-000000000012", "مؤتمر التسويق الرقمي", 33, "published", { is_free: false, venue_name: "فندق الريتز كارلتون", max_attendees: 500 }, ORG_PUBLIC_ID, orgPub.id),
+    event("00000000-0000-4000-b000-000000000013", "ندوة ريادة الأعمال النسائية", 45, "draft", { category: "seminar" }, ORG_PUBLIC_ID, orgPub.id),
   ];
 
-  const inv = (id: string, title: string, d: number, extra: Row = {}) => ({
-    id, title, organization_id: ORG_ID, created_by: org.id, event_date: daysFromNow(d, 20), status: "active",
+  const inv = (id: string, title: string, d: number, extra: Row = {}, orgId = ORG_ID, ownerId: string = org.id) => ({
+    id, title, organization_id: orgId, created_by: ownerId, event_date: daysFromNow(d, 20), status: "active",
     scope: "private", category: "wedding", formality: "formal", host_name: "عائلة الأحمد",
     venue_name: "قاعة الفيصلية", venue_address: "الرياض", venue_map_url: null, custom_message: "يسعدنا حضوركم ومشاركتنا فرحتنا",
     dress_code: null, theme_color: "#492C5A", accent_color: "#CC8E3D", text_color: "#FFFFFF", font_family: "Cairo",
@@ -96,6 +105,9 @@ function seed(): DB {
   const invitations = [
     inv("00000000-0000-4000-c000-000000000001", "حفل زفاف خالد وسارة", 18),
     inv("00000000-0000-4000-c000-000000000002", "عشاء الشركاء السنوي", 6, { category: "corporate", host_name: "نكفيك التجارية" }),
+    inv("00000000-0000-4000-c000-000000000011", "حفل تخرج دفعة 2026", 14, { category: "graduation", host_name: "عائلة القحطاني", venue_name: "قاعة الملكية" }, ORG_PRIVATE_ID, orgPriv.id),
+    inv("00000000-0000-4000-c000-000000000012", "ملكة عبدالله وريم", 27, { host_name: "عائلة الشمري" }, ORG_PRIVATE_ID, orgPriv.id),
+    inv("00000000-0000-4000-c000-000000000013", "اجتماع مجلس الإدارة", 4, { category: "corporate", formality: "business", host_name: "شركة الأفق", venue_name: "برج المملكة" }, ORG_PRIVATE_ID, orgPriv.id),
   ];
   const names = ["أحمد العتيبي", "نورة القحطاني", "فهد الشمري", "ريم الدوسري", "سلمان الحربي", "هند الزهراني", "ماجد المطيري", "لمى السبيعي"];
   const statuses = ["confirmed", "confirmed", "confirmed", "declined", "pending", "pending", "confirmed", "pending"];
@@ -109,38 +121,52 @@ function seed(): DB {
   );
 
   const ticketId = "00000000-0000-4000-d000-000000000001";
+  const ticket = (id: string, eventId: string, name: string, extra: Row = {}) => ({
+    id, event_id: eventId, name_ar: name, name_en: null, type: "free", price: 0, currency: "SAR",
+    quantity_total: 300, quantity_sold: 0, is_active: true, is_for_sale: true, visibility: "public", description: null,
+    allow_companions: false, max_companions: 0, attachments: [], badge_color: null, badge_logo_url: null, badge_symbol: null,
+    badge_tier_label: null, sale_start: null, sale_end: null, created_at: now, ...extra,
+  });
+  const organization = (id: string, name: string, ownerId: string, email: string, planScope: string) => ({
+    id, name, owner_id: ownerId, subscription_plan: "pro", plan_scope: planScope, is_active: true,
+    description: "حساب منظم تجريبي", logo_url: "/favicon.svg", cover_image_url: null, brand_color: "#492C5A", phone: "0500000000",
+    public_email: email, address: "الرياض", website: null, commercial_register: "1010000000", tax_number: "300000000000003",
+    bank_name: "البنك التجريبي", iban: "SA0000000000000000000000", bank_account_holder: name, billing_name: null, billing_address: null, billing_tax_number: null,
+    instagram_url: null, linkedin_url: null, snapchat_url: null, tiktok_url: null, twitter_url: null,
+    privacy_policy: null, refund_policy: null, terms_text: null, subscription_expires_at: daysFromNow(300), created_at: now, updated_at: now,
+  });
+  const subscription = (accountId: string, used: number) => ({
+    id: uuid(), account_id: accountId, account_type: "organizer", plan_id: PRO_PLAN_ID, status: "active",
+    billing_cycle: "yearly", amount: 4990, currency: "SAR", events_quota: 50, events_used: used,
+    current_period_start: now, current_period_end: daysFromNow(300), expires_at: daysFromNow(300),
+    cancel_at_period_end: false, cancelled_at: null, created_at: now, updated_at: now,
+  });
   const PRO_PLAN_ID = "00000000-0000-4000-e000-000000000002";
   return {
     profiles,
     user_roles: [
       { id: uuid(), user_id: admin.id, role: "super_admin" },
       { id: uuid(), user_id: org.id, role: "organizer" },
+      { id: uuid(), user_id: orgPub.id, role: "organizer" },
+      { id: uuid(), user_id: orgPriv.id, role: "organizer" },
     ],
-    organizations: [{
-      id: ORG_ID, name: "منظمة تجريبية", owner_id: org.id, subscription_plan: "pro", plan_scope: "both", is_active: true,
-      description: "حساب منظم تجريبي", logo_url: "/favicon.svg", cover_image_url: null, brand_color: "#492C5A", phone: "0500000000",
-      public_email: "org1@nakfeek.sa", address: "الرياض", website: null, commercial_register: "1010000000", tax_number: "300000000000003",
-      bank_name: "البنك التجريبي", iban: "SA0000000000000000000000", bank_account_holder: "منظمة تجريبية", billing_name: null, billing_address: null, billing_tax_number: null,
-      instagram_url: null, linkedin_url: null, snapchat_url: null, tiktok_url: null, twitter_url: null,
-      privacy_policy: null, refund_policy: null, terms_text: null, subscription_expires_at: daysFromNow(300), created_at: now, updated_at: now,
-    }],
+    organizations: [
+      organization(ORG_ID, "منظمة تجريبية شاملة", org.id, "org1@nakfeek.sa", "both"),
+      organization(ORG_PUBLIC_ID, "شركة الفعاليات العامة", orgPub.id, "org-public@nakfeek.sa", "public"),
+      organization(ORG_PRIVATE_ID, "مؤسسة المناسبات الخاصة", orgPriv.id, "org-private@nakfeek.sa", "private"),
+    ],
     events,
-    tickets: [{
-      id: ticketId, event_id: events[0].id, name_ar: "دخول عام", name_en: null, type: "free", price: 0, currency: "SAR",
-      quantity_total: 300, quantity_sold: 2, is_active: true, is_for_sale: true, visibility: "public", description: null,
-      allow_companions: false, max_companions: 0, attachments: [], badge_color: null, badge_logo_url: null, badge_symbol: null,
-      badge_tier_label: null, sale_start: null, sale_end: null, created_at: now,
-    }],
+    tickets: [
+      ticket(ticketId, events[0].id, "دخول عام", { quantity_sold: 2 }),
+      ticket("00000000-0000-4000-d000-000000000011", "00000000-0000-4000-b000-000000000011", "دخول عام", { quantity_total: 1500, quantity_sold: 1 }),
+      ticket("00000000-0000-4000-d000-000000000012", "00000000-0000-4000-b000-000000000012", "تذكرة VIP", { type: "vip", price: 350, quantity_total: 100 }),
+    ],
     registrations: [
       { id: uuid(), event_id: events[0].id, attendee_id: att.id, ticket_id: ticketId, status: "confirmed", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-1", registered_at: now, checked_in_at: null },
       { id: uuid(), event_id: events[2].id, attendee_id: att.id, ticket_id: null, status: "checked_in", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-2", registered_at: now, checked_in_at: now },
+      { id: uuid(), event_id: events[3].id, attendee_id: att.id, ticket_id: "00000000-0000-4000-d000-000000000011", status: "confirmed", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-3", registered_at: now, checked_in_at: null },
     ],
-    account_subscriptions: [{
-      id: uuid(), account_id: org.id, account_type: "organizer", plan_id: PRO_PLAN_ID, status: "active",
-      billing_cycle: "yearly", amount: 4990, currency: "SAR", events_quota: 50, events_used: 3,
-      current_period_start: now, current_period_end: daysFromNow(300), expires_at: daysFromNow(300),
-      cancel_at_period_end: false, cancelled_at: null, created_at: now, updated_at: now,
-    }],
+    account_subscriptions: [subscription(org.id, 3), subscription(orgPub.id, 3), subscription(orgPriv.id, 3)],
     private_invitations: invitations,
     private_invitation_guests: guests,
     subscription_plans: [
