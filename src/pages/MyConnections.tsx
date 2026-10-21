@@ -47,7 +47,7 @@ interface ConnectionRow {
   event_title?: string | null;
 }
 
-export default function MyConnections() {
+export default function MyConnections({ embedded = false }: { embedded?: boolean }) {
   const { user } = useAuth();
   const { t, lang, dir } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -159,9 +159,9 @@ export default function MyConnections() {
   };
 
   return (
-    <div className="min-h-screen bg-background" dir={dir}>
-      <Navbar />
-      <div className="container mx-auto pt-24 pb-12 px-4 max-w-5xl">
+    <div className={embedded ? "" : "min-h-screen bg-background"} dir={dir}>
+      {!embedded && <Navbar />}
+      <div className={embedded ? "" : "container mx-auto pt-24 pb-12 px-4 max-w-5xl"}>
         {/* Hero */}
         <div className="rounded-3xl bg-gradient-to-l from-primary via-brand-mauve to-brand-purple text-primary-foreground p-6 md:p-8 mb-6 shadow-elegant">
           <div className="flex flex-wrap items-center justify-between gap-4">

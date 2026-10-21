@@ -156,7 +156,7 @@ const TicketCard = ({ reg, onCancelled }: { reg: RegistrationRow; onCancelled: (
   );
 };
 
-const MyTickets = () => {
+const MyTickets = ({ embedded = false }: { embedded?: boolean }) => {
   const { user } = useAuth();
   const { t, dir } = useLanguage();
   const [registrations, setRegistrations] = useState<RegistrationRow[]>([]);
@@ -195,16 +195,15 @@ const MyTickets = () => {
   const upcoming = registrations.filter(r => new Date(r.event.start_date) >= now);
   const past = registrations.filter(r => new Date(r.event.start_date) < now);
 
-  return (
-    <div className="min-h-screen font-cairo">
-      <Navbar />
-      <section className="pt-24 pb-16 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="mb-8 flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h1 className="font-bold text-3xl text-foreground">{t("pgTickets.pageTitle")}</h1>
-              <p className="text-muted-foreground mt-1">{t("pgTickets.pageSubtitle")}</p>
-            </div>
+  const content = (
+    <>
+          <div className={embedded ? "mb-5 flex items-center justify-end gap-3 flex-wrap" : "mb-8 flex items-start justify-between gap-3 flex-wrap"}>
+            {!embedded && (
+              <div>
+                <h1 className="font-bold text-3xl text-foreground">{t("pgTickets.pageTitle")}</h1>
+                <p className="text-muted-foreground mt-1">{t("pgTickets.pageSubtitle")}</p>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button variant="default" size="sm" className="rounded-full" asChild>
                 <Link to="/my/cards"><IdCardIcon className="w-4 h-4 ms-2" /> بطاقاتي</Link>
@@ -249,7 +248,17 @@ const MyTickets = () => {
               </TabsContent>
             </Tabs>
           )}
-        </div>
+    </>
+  );
+
+  // داخل نافذة منبثقة (من صفحة الملف الشخصي) بدون شريط التنقل والتذييل
+  if (embedded) return <div className="font-cairo">{content}</div>;
+
+  return (
+    <div className="min-h-screen font-cairo">
+      <Navbar />
+      <section className="pt-24 pb-16 bg-background">
+        <div className="container mx-auto px-4">{content}</div>
       </section>
       <Footer />
     </div>

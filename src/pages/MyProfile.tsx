@@ -15,6 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Navbar from "@/components/landing/Navbar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import MyTickets from "@/pages/MyTickets";
+import MyConnections from "@/pages/MyConnections";
 import AttendeeCard from "@/components/networking/AttendeeCard";
 import AvatarCropDialog from "@/components/networking/AvatarCropDialog";
 import { toast } from "sonner";
@@ -52,6 +55,8 @@ const MyProfile = () => {
   const returnTo = search.get("return") || "";
 
   const [loading, setLoading] = useState(true);
+  // تذاكري / اتصالاتي تُفتح في نافذة فوق الصفحة بدل الانتقال لصفحة مستقلة
+  const [panel, setPanel] = useState<"tickets" | "connections" | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -341,11 +346,11 @@ const MyProfile = () => {
                     <Copy className="w-3 h-3" /> {t("pgProfile.header.copyCardLink")}
                   </Button>
                 )}
-                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
-                  <Link to="/my-tickets"><Ticket className="w-3 h-3" /> {t("pgProfile.header.myTickets")}</Link>
+                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("tickets")}>
+                  <Ticket className="w-3 h-3" /> {t("pgProfile.header.myTickets")}
                 </Button>
-                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
-                  <Link to="/my/connections"><Users2 className="w-3 h-3" /> {t("pgProfile.header.myConnections")}</Link>
+                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("connections")}>
+                  <Users2 className="w-3 h-3" /> {t("pgProfile.header.myConnections")}
                 </Button>
                 <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
                   <Link to="/favorites"><Heart className="w-3 h-3" /> {t("pgProfile.header.favorites")}</Link>
@@ -624,6 +629,22 @@ const MyProfile = () => {
         onClose={() => setCropSrc(null)}
         onCropped={handleCroppedUpload}
       />
+
+      <Dialog open={panel !== null} onOpenChange={(o) => !o && setPanel(null)}>
+        <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] max-h-[88vh] overflow-y-auto rounded-3xl p-5 sm:p-7" dir={dir}>
+          <DialogHeader className={panel === "connections" ? "sr-only" : "text-start"}>
+            <DialogTitle className="font-cairo text-2xl flex items-center gap-2">
+              {panel === "tickets" ? <Ticket className="w-5 h-5 text-accent" /> : <Users2 className="w-5 h-5 text-accent" />}
+              {panel === "tickets" ? t("pgProfile.header.myTickets") : t("pgProfile.header.myConnections")}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {panel === "tickets" ? t("pgProfile.header.myTickets") : t("pgProfile.header.myConnections")}
+            </DialogDescription>
+          </DialogHeader>
+          {panel === "tickets" && <MyTickets embedded />}
+          {panel === "connections" && <MyConnections embedded />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
