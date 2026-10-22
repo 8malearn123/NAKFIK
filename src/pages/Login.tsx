@@ -9,6 +9,7 @@ import { Mail, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getReturnPath } from "@/lib/returnPath";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -63,6 +64,12 @@ const Login = () => {
 
         toast.success(t("pgAuth.login.toastSuccess"));
 
+        const returnPath = getReturnPath(window.location.search);
+        if (returnPath) {
+          navigate(returnPath);
+          return;
+        }
+
         const accountType = profile?.account_type || "attendee";
         if (accountType === "organizer") {
           navigate("/dashboard");
@@ -111,7 +118,7 @@ const Login = () => {
             <h1 className="font-bold text-2xl text-foreground mb-2">{t("pgAuth.login.title")}</h1>
             <p className="text-muted-foreground text-sm">
               {t("pgAuth.login.noAccount")}{" "}
-              <Link to="/register" className="text-primary font-semibold hover:underline">
+              <Link to={`/register${window.location.search}`} className="text-primary font-semibold hover:underline">
                 {t("pgAuth.login.createAccountLink")}
               </Link>
             </p>

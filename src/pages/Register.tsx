@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import type { PlanScope } from "@/hooks/usePlanScope";
 import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
+import { getReturnPath } from "@/lib/returnPath";
 
 type AccountType = "attendee" | "organizer" | null;
 
@@ -79,13 +80,14 @@ const Register = () => {
       }
     }
 
+    const returnPath = getReturnPath(window.location.search);
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: window.location.origin + (returnPath || ""),
           data: {
             full_name: formData.fullName,
             account_type: accountType || "attendee",
@@ -130,14 +132,16 @@ const Register = () => {
 
         if (data.session) {
           toast.success(t("pgAuth.register.toastSuccess"));
-          if (accountType === "organizer") {
+          if (returnPath) {
+            navigate(returnPath);
+          } else if (accountType === "organizer") {
             navigate("/dashboard");
           } else {
             navigate("/my/profile");
           }
         } else {
           toast.success(t("pgAuth.register.toastSuccessConfirm"));
-          navigate("/login");
+          navigate(returnPath ? `/login?return=${encodeURIComponent(returnPath)}` : "/login");
         }
       }
     } catch (err: any) {
@@ -181,7 +185,7 @@ const Register = () => {
             <h1 className="font-bold text-2xl text-foreground mb-2">{t("pgAuth.register.title")}</h1>
             <p className="text-muted-foreground text-sm">
               {t("pgAuth.register.haveAccount")}{" "}
-              <Link to="/login" className="text-primary font-semibold hover:underline">
+              <Link to={`/login${window.location.search}`} className="text-primary font-semibold hover:underline">
                 {t("pgAuth.register.loginLink")}
               </Link>
             </p>

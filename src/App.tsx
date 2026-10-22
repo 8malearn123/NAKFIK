@@ -48,6 +48,7 @@ import Analytics from "./pages/admin/Analytics";
 import Announcements from "./pages/admin/Announcements";
 import RSVPConfirm from "./pages/RSVPConfirm";
 import Checkout from "./pages/Checkout";
+import GiftClaim from "./pages/GiftClaim";
 import PaymentCallback from "./pages/PaymentCallback";
 import MyCards from "./pages/MyCards";
 import EventHeatmap from "./pages/dashboard/EventHeatmap";
@@ -102,6 +103,7 @@ const App = () => (
                 <Route path="/rsvp/:token" element={<RSVPConfirm />} />
                 <Route path="/checkout/:eventId/:ticketId" element={PUBLIC_EVENTS_ENABLED ? <Checkout /> : <Navigate to="/" replace />} />
                 <Route path="/payment/callback" element={<PaymentCallback />} />
+                <Route path="/gift/:token" element={<GiftClaim />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />

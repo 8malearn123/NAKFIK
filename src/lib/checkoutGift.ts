@@ -7,7 +7,9 @@ const GIFT_STORAGE_KEY = "nakfik_checkout_gift";
 export interface PendingGift {
   eventId: string;
   ticketId: string;
-  recipientId: string;
+  // حساب المستلم في نكفيك، أو null إن لم يكن لديه حساب (تُرسل الهدية لجواله)
+  recipientId: string | null;
+  recipientPhone: string | null;
   recipientName: string;
   message: string;
 }

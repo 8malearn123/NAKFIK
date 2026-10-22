@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { savePendingGift } from "@/lib/checkoutGift";
 import Navbar from "@/components/landing/Navbar";
-import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info, Gift, User, CheckCircle2, Loader2 } from "lucide-react";
+import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info, Gift, User, CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 
 // وسائل الدفع المعروضة — واجهة فقط بدون ربط فعلي بأي بوابة حالياً
 const PAY_METHODS = [
@@ -55,7 +55,10 @@ const Checkout = () => {
   // الإهداء: المستلم يجب أن يملك حساباً في نكفيك لتصدر التذكرة باسمه
   const [buyFor, setBuyFor] = useState<"self" | "gift">("self");
   const [recipientInput, setRecipientInput] = useState("");
-  const [recipient, setRecipient] = useState<{ id: string; name: string } | null>(null);
+  // id = null: المستلم بلا حساب — تُرسل له الهدية على جواله برابط استلام
+  const [recipient, setRecipient] = useState<{ id: string | null; name: string; phone: string | null } | null>(null);
+  const [noAccountPhone, setNoAccountPhone] = useState<string | null>(null);
+  const [noAccountName, setNoAccountName] = useState("");
   const [recipientError, setRecipientError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
@@ -64,18 +67,23 @@ const Checkout = () => {
     if (!eventId || !recipientInput.trim()) return;
     setSearching(true);
     setRecipientError(null);
+    setNoAccountPhone(null);
     const { data, error } = await supabase.rpc("find_gift_recipient", {
       _identifier: recipientInput.trim(),
       _event_id: eventId,
     });
     setSearching(false);
     const match = !error && data?.[0];
-    if (!match) {
-      setRecipientError(t("pgCheckout.recipientNotFound"));
+    const input = recipientInput.trim();
+    const isPhone = !input.includes("@") && input.replace(/\D/g, "").length >= 9;
+    if (!match && !error && isPhone) {
+      setNoAccountPhone(input);
+    } else if (!match) {
+      setRecipientError(t(input.includes("@") ? "pgCheckout.recipientEmailNotFound" : "pgCheckout.recipientNotFound"));
     } else if (match.already_registered) {
       setRecipientError(t("pgCheckout.recipientAlreadyRegistered"));
     } else {
-      setRecipient({ id: match.recipient_id, name: match.first_name });
+      setRecipient({ id: match.recipient_id, name: match.first_name, phone: null });
     }
   };
 
@@ -87,7 +95,14 @@ const Checkout = () => {
     }
     savePendingGift(
       buyFor === "gift" && recipient
-        ? { eventId, ticketId, recipientId: recipient.id, recipientName: recipient.name, message: giftMessage.trim() }
+        ? {
+            eventId,
+            ticketId,
+            recipientId: recipient.id,
+            recipientPhone: recipient.phone,
+            recipientName: recipient.name,
+            message: giftMessage.trim(),
+          }
         : null,
     );
     toast.info(t("pgCheckout.notConfiguredDesc"));
@@ -272,12 +287,16 @@ const Checkout = () => {
                           <div className="rounded-xl bg-green-500/10 text-green-700 text-sm p-3 flex items-center justify-between gap-2">
                             <span className="flex items-center gap-1.5 font-semibold">
                               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                              {t("pgCheckout.recipientFound").replace("{name}", recipient.name)}
+                              {recipient.id
+                                ? t("pgCheckout.recipientFound").replace("{name}", recipient.name)
+                                : t("pgCheckout.recipientByPhone")
+                                    .replace("{name}", recipient.name)
+                                    .replace("{phone}", recipient.phone || "")}
                             </span>
                             <button
                               type="button"
                               className="text-xs underline flex-shrink-0"
-                              onClick={() => setRecipient(null)}
+                              onClick={() => { setRecipient(null); setNoAccountPhone(null); }}
                             >
                               {t("pgCheckout.change")}
                             </button>
@@ -293,7 +312,11 @@ const Checkout = () => {
                                 dir="ltr"
                                 value={recipientInput}
                                 placeholder={t("pgCheckout.recipientPlaceholder")}
-                                onChange={(e) => { setRecipientInput(e.target.value); setRecipientError(null); }}
+                                onChange={(e) => {
+                                  setRecipientInput(e.target.value);
+                                  setRecipientError(null);
+                                  setNoAccountPhone(null);
+                                }}
                                 onKeyDown={(e) => { if (e.key === "Enter") findRecipient(); }}
                                 className="rounded-xl bg-card"
                               />
@@ -309,6 +332,32 @@ const Checkout = () => {
                             </div>
                             {recipientError && (
                               <p className="text-xs text-destructive mt-1.5 leading-relaxed">{recipientError}</p>
+                            )}
+                            {noAccountPhone && (
+                              <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+                                <p className="text-xs leading-relaxed flex items-start gap-1.5">
+                                  <MessageCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                                  {t("pgCheckout.noAccountIntro")}
+                                </p>
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={noAccountName}
+                                    maxLength={80}
+                                    placeholder={t("pgCheckout.recipientNamePlaceholder")}
+                                    aria-label={t("pgCheckout.recipientNamePlaceholder")}
+                                    onChange={(e) => setNoAccountName(e.target.value)}
+                                    className="rounded-xl bg-card"
+                                  />
+                                  <Button
+                                    type="button"
+                                    className="rounded-xl flex-shrink-0"
+                                    disabled={noAccountName.trim().length < 2}
+                                    onClick={() => setRecipient({ id: null, name: noAccountName.trim(), phone: noAccountPhone })}
+                                  >
+                                    {t("pgCheckout.confirmPhoneGift")}
+                                  </Button>
+                                </div>
+                              </div>
                             )}
                           </div>
                         )}
