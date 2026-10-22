@@ -7,6 +7,7 @@ import { myProfileDict } from "./pages/myProfile";
 import { settingsDict } from "./pages/settings";
 import { networkingDict } from "./pages/networking";
 import { checkoutDict } from "./pages/checkout";
+import { giftDict } from "./pages/gift";
 
 export const ar = {
   // Common
@@ -539,4 +540,5 @@ export const ar = {
   pgSettings: settingsDict.ar,
   pgNetworking: networkingDict.ar,
   pgCheckout: checkoutDict.ar,
+  pgGift: giftDict.ar,
 };

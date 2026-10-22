@@ -2475,6 +2475,63 @@ export type Database = {
           },
         ]
       }
+      ticket_gifts: {
+        Row: {
+          amount_paid: number
+          buyer_id: string
+          claim_token: string
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          event_id: string
+          id: string
+          message: string | null
+          provider_payment_id: string
+          recipient_name: string
+          recipient_phone: string
+          registration_id: string | null
+          status: string
+          ticket_id: string | null
+          whatsapp_sent: boolean
+        }
+        Insert: {
+          amount_paid?: number
+          buyer_id: string
+          claim_token?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          message?: string | null
+          provider_payment_id: string
+          recipient_name: string
+          recipient_phone: string
+          registration_id?: string | null
+          status?: string
+          ticket_id?: string | null
+          whatsapp_sent?: boolean
+        }
+        Update: {
+          amount_paid?: number
+          buyer_id?: string
+          claim_token?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          message?: string | null
+          provider_payment_id?: string
+          recipient_name?: string
+          recipient_phone?: string
+          registration_id?: string | null
+          status?: string
+          ticket_id?: string | null
+          whatsapp_sent?: boolean
+        }
+        Relationships: []
+      }
       tickets: {
         Row: {
           allow_companions: boolean
@@ -3219,7 +3276,32 @@ export type Database = {
         Args: { _companions?: number; _status: string; _token: string }
         Returns: Json
       }
+      claim_ticket_gift: { Args: { _token: string }; Returns: Json }
       expire_old_subscriptions: { Args: never; Returns: number }
+      get_ticket_gift: {
+        Args: { _token: string }
+        Returns: {
+          buyer_name: string
+          event_id: string
+          event_start: string
+          event_title_ar: string
+          event_title_en: string
+          message: string
+          recipient_name: string
+          status: string
+          ticket_name_ar: string
+          ticket_name_en: string
+          venue_name: string
+        }[]
+      }
+      find_gift_recipient: {
+        Args: { _event_id: string; _identifier: string }
+        Returns: {
+          already_registered: boolean
+          first_name: string
+          recipient_id: string
+        }[]
+      }
       get_active_subscription: {
         Args: { _user_id: string }
         Returns: {
