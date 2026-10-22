@@ -7,8 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { savePendingGift } from "@/lib/checkoutGift";
 import Navbar from "@/components/landing/Navbar";
-import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info } from "lucide-react";
+import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info, Gift, User, CheckCircle2, Loader2 } from "lucide-react";
 
 // وسائل الدفع المعروضة — واجهة فقط بدون ربط فعلي بأي بوابة حالياً
 const PAY_METHODS = [
@@ -48,6 +51,47 @@ const Checkout = () => {
   const [ticket, setTicket] = useState<TicketInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [method, setMethod] = useState("mada");
+
+  // الإهداء: المستلم يجب أن يملك حساباً في نكفيك لتصدر التذكرة باسمه
+  const [buyFor, setBuyFor] = useState<"self" | "gift">("self");
+  const [recipientInput, setRecipientInput] = useState("");
+  const [recipient, setRecipient] = useState<{ id: string; name: string } | null>(null);
+  const [recipientError, setRecipientError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
+
+  const findRecipient = async () => {
+    if (!eventId || !recipientInput.trim()) return;
+    setSearching(true);
+    setRecipientError(null);
+    const { data, error } = await supabase.rpc("find_gift_recipient", {
+      _identifier: recipientInput.trim(),
+      _event_id: eventId,
+    });
+    setSearching(false);
+    const match = !error && data?.[0];
+    if (!match) {
+      setRecipientError(t("pgCheckout.recipientNotFound"));
+    } else if (match.already_registered) {
+      setRecipientError(t("pgCheckout.recipientAlreadyRegistered"));
+    } else {
+      setRecipient({ id: match.recipient_id, name: match.first_name });
+    }
+  };
+
+  const handlePay = () => {
+    if (!eventId || !ticketId) return;
+    if (buyFor === "gift" && !recipient) {
+      toast.error(t("pgCheckout.giftNeedRecipient"));
+      return;
+    }
+    savePendingGift(
+      buyFor === "gift" && recipient
+        ? { eventId, ticketId, recipientId: recipient.id, recipientName: recipient.name, message: giftMessage.trim() }
+        : null,
+    );
+    toast.info(t("pgCheckout.notConfiguredDesc"));
+  };
 
   useEffect(() => {
     document.title = `${t("pgCheckout.title")} | نكفيك`;
@@ -156,6 +200,14 @@ const Checkout = () => {
                     </span>
                     <span className="font-semibold">{ticketName}</span>
                   </div>
+                  {buyFor === "gift" && recipient && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground flex items-center gap-1.5">
+                        <Gift className="w-4 h-4" /> {t("pgCheckout.giftTo")}
+                      </span>
+                      <span className="font-semibold">{recipient.name}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-base">
                     <span className="font-bold">{t("pgCheckout.total")}</span>
                     <span className="font-extrabold text-primary text-xl">
@@ -186,6 +238,98 @@ const Checkout = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* لمن التذكرة: للمشتري أو هدية لحساب آخر */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">{t("pgCheckout.whoFor")}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: "self", label: t("pgCheckout.forMe"), Icon: User },
+                        { key: "gift", label: t("pgCheckout.asGift"), Icon: Gift },
+                      ] as const).map((o) => {
+                        const active = buyFor === o.key;
+                        return (
+                          <button
+                            key={o.key}
+                            type="button"
+                            onClick={() => setBuyFor(o.key)}
+                            className={`rounded-xl border-2 p-3 flex items-center justify-center gap-2 text-sm font-bold transition ${
+                              active
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border hover:border-primary/40 bg-card text-muted-foreground"
+                            }`}
+                          >
+                            <o.Icon className="w-4 h-4" />
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {buyFor === "gift" && (
+                      <div className="mt-3 rounded-2xl border bg-muted/30 p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground leading-relaxed">{t("pgCheckout.giftIntro")}</p>
+                        {recipient ? (
+                          <div className="rounded-xl bg-green-500/10 text-green-700 text-sm p-3 flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1.5 font-semibold">
+                              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                              {t("pgCheckout.recipientFound").replace("{name}", recipient.name)}
+                            </span>
+                            <button
+                              type="button"
+                              className="text-xs underline flex-shrink-0"
+                              onClick={() => setRecipient(null)}
+                            >
+                              {t("pgCheckout.change")}
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <label htmlFor="gift-recipient" className="text-xs font-semibold block mb-1.5">
+                              {t("pgCheckout.recipientLabel")}
+                            </label>
+                            <div className="flex gap-2">
+                              <Input
+                                id="gift-recipient"
+                                dir="ltr"
+                                value={recipientInput}
+                                placeholder={t("pgCheckout.recipientPlaceholder")}
+                                onChange={(e) => { setRecipientInput(e.target.value); setRecipientError(null); }}
+                                onKeyDown={(e) => { if (e.key === "Enter") findRecipient(); }}
+                                className="rounded-xl bg-card"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-xl flex-shrink-0"
+                                disabled={searching || recipientInput.trim().length < 5}
+                                onClick={findRecipient}
+                              >
+                                {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : t("pgCheckout.findRecipient")}
+                              </Button>
+                            </div>
+                            {recipientError && (
+                              <p className="text-xs text-destructive mt-1.5 leading-relaxed">{recipientError}</p>
+                            )}
+                          </div>
+                        )}
+                        <div>
+                          <label htmlFor="gift-message" className="text-xs font-semibold block mb-1.5">
+                            {t("pgCheckout.giftMessageLabel")}
+                          </label>
+                          <Textarea
+                            id="gift-message"
+                            value={giftMessage}
+                            maxLength={300}
+                            rows={2}
+                            placeholder={t("pgCheckout.giftMessagePlaceholder")}
+                            onChange={(e) => setGiftMessage(e.target.value)}
+                            className="rounded-xl bg-card resize-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* اختيار وسيلة الدفع — عرض فقط */}
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2">{t("pgCheckout.selectMethod")}</p>
@@ -220,7 +364,7 @@ const Checkout = () => {
                   <Button
                     className="w-full rounded-full"
                     size="lg"
-                    onClick={() => toast.info(t("pgCheckout.notConfiguredDesc"))}
+                    onClick={handlePay}
                   >
                     <Lock className="w-4 h-4 ml-1" />
                     {t("pgCheckout.completePayment")} — {ticket.price.toLocaleString()} {t("pgCheckout.currency")}

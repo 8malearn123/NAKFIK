@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
+import { readPendingGift, savePendingGift } from "@/lib/checkoutGift";
 import { CheckCircle2, XCircle, Loader2, Ticket as TicketIcon } from "lucide-react";
 
 type Phase = "verifying" | "success" | "failed";
@@ -15,6 +16,7 @@ const PaymentCallback = () => {
   const [phase, setPhase] = useState<Phase>("verifying");
   const [qr, setQr] = useState<string | null>(null);
   const [gatewayMsg, setGatewayMsg] = useState<string | null>(null);
+  const [giftedTo, setGiftedTo] = useState<string | null>(null);
   const started = useRef(false);
 
   const paymentId = params.get("id");
@@ -35,13 +37,23 @@ const PaymentCallback = () => {
       }
       // التحقق النهائي دائماً من الخادم — لا ثقة بمعاملات الرابط.
       // حتى العمليات الفاشلة/الملغاة تمر هنا ليسجلها الخادم في سجل المدفوعات.
+      const gift = readPendingGift(eventId, ticketId);
       const { data, error } = await supabase.functions.invoke("verify-payment", {
-        body: { payment_id: paymentId, event_id: eventId, ticket_id: ticketId },
+        body: {
+          payment_id: paymentId,
+          event_id: eventId,
+          ticket_id: ticketId,
+          ...(gift && { gift_recipient_id: gift.recipientId, gift_message: gift.message }),
+        },
       });
       if (error || !data || data.error) {
         setGatewayMsg((data as any)?.gateway_message || message || null);
         setPhase("failed");
         return;
+      }
+      if (data.gifted) {
+        setGiftedTo(gift?.recipientName || "");
+        savePendingGift(null);
       }
       setQr((data as any).qr_code || null);
       setPhase("success");
@@ -68,7 +80,11 @@ const PaymentCallback = () => {
           <>
             <CheckCircle2 className="w-14 h-14 text-green-600 mx-auto" />
             <h1 className="font-bold text-2xl mt-4">{t("pgCheckout.successTitle")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">{t("pgCheckout.successDesc")}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {giftedTo !== null
+                ? t("pgCheckout.giftSentDesc").replace("{name}", giftedTo)
+                : t("pgCheckout.successDesc")}
+            </p>
             {qr && (
               <div className="mt-5 inline-block bg-white rounded-2xl p-4 border-2 border-primary/30">
                 <p className="text-xs text-gray-500 mb-2">{t("pgCheckout.yourQr")}</p>

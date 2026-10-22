@@ -3220,6 +3220,14 @@ export type Database = {
         Returns: Json
       }
       expire_old_subscriptions: { Args: never; Returns: number }
+      find_gift_recipient: {
+        Args: { _event_id: string; _identifier: string }
+        Returns: {
+          already_registered: boolean
+          first_name: string
+          recipient_id: string
+        }[]
+      }
       get_active_subscription: {
         Args: { _user_id: string }
         Returns: {

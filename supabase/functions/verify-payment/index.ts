@@ -5,6 +5,8 @@
 // 3) الخادم يتحقق من ميسر مباشرة بالمفتاح السري: الحالة paid والمبلغ
 //    مطابق لسعر التذكرة الحقيقي في قاعدة البيانات — لا ثقة بأي رقم من العميل
 // 4) عند النجاح: إنشاء التسجيل وإصدار QR وتسجيل العملية (idempotent)
+// 5) الإهداء: إن أُرسل gift_recipient_id تُصدر التذكرة باسم المستلم
+//    ويُشعَر الطرفان — المشتري يبقى صاحب سجل الدفع
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
@@ -23,7 +25,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { payment_id, event_id, ticket_id } = await req.json();
+    const { payment_id, event_id, ticket_id, gift_recipient_id, gift_message } = await req.json();
     if (!payment_id || !event_id || !ticket_id) {
       return json({ error: "missing_params" }, 400);
     }
@@ -44,6 +46,20 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
+    // صاحب التذكرة: المشتري نفسه أو المستلم في حالة الإهداء
+    let attendeeId = user.id;
+    if (gift_recipient_id) {
+      if (gift_recipient_id === user.id) return json({ error: "gift_to_self" }, 400);
+      const { data: recipient } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("id", gift_recipient_id)
+        .maybeSingle();
+      if (!recipient) return json({ error: "gift_recipient_not_found" }, 400);
+      attendeeId = recipient.id;
+    }
+    const giftNote = typeof gift_message === "string" ? gift_message.trim().slice(0, 300) : "";
+
     // إن سبق التحقق من نفس العملية أعد النتيجة نفسها (idempotent)
     const { data: existing } = await admin
       .from("payments")
@@ -53,9 +69,10 @@ Deno.serve(async (req) => {
     if (existing?.status === "paid" && existing.registration_id) {
       const { data: reg } = await admin
         .from("registrations")
-        .select("qr_code")
+        .select("qr_code, attendee_id")
         .eq("id", existing.registration_id)
         .single();
+      if (reg && reg.attendee_id !== user.id) return json({ status: "paid", gifted: true });
       return json({ status: "paid", qr_code: reg?.qr_code });
     }
 
@@ -110,7 +127,7 @@ Deno.serve(async (req) => {
       .from("registrations")
       .select("id, qr_code")
       .eq("event_id", event_id)
-      .eq("attendee_id", user.id)
+      .eq("attendee_id", attendeeId)
       .maybeSingle();
 
     if (prevReg) {
@@ -125,7 +142,7 @@ Deno.serve(async (req) => {
         .from("registrations")
         .insert({
           event_id,
-          attendee_id: user.id,
+          attendee_id: attendeeId,
           ticket_id,
           status: "confirmed",
           payment_status: "paid",
@@ -157,10 +174,39 @@ Deno.serve(async (req) => {
       .select("title_ar")
       .eq("id", event_id)
       .single();
+    const eventTitle = evt?.title_ar || "الفعالية";
+
+    if (attendeeId !== user.id) {
+      const { data: buyer } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      const buyerName = buyer?.full_name?.trim() || "أحد أصدقائك";
+      await admin.from("in_app_notifications").insert([
+        {
+          user_id: attendeeId,
+          title: "وصلتك تذكرة هدية 🎁",
+          body: `أهداك ${buyerName} تذكرة لحضور "${eventTitle}"` +
+            (giftNote ? ` — رسالته: «${giftNote}»` : "") +
+            " — تجد تذكرتك ورمز QR في صفحة تذاكري.",
+          link: "/my-tickets",
+        },
+        {
+          user_id: user.id,
+          title: "تم إرسال هديتك 🎁",
+          body: `تم تأكيد دفعك وإصدار تذكرة "${eventTitle}" باسم المستلم، وأرسلنا له إشعاراً بها.`,
+          link: "/my-tickets",
+        },
+      ]);
+      // رمز الدخول يخص المستلم وحده — لا يُعاد للمشتري
+      return json({ status: "paid", gifted: true });
+    }
+
     await admin.from("in_app_notifications").insert({
       user_id: user.id,
       title: "تم إصدار تذكرتك 🎫",
-      body: `تم تأكيد دفعك وحجز مقعدك في "${evt?.title_ar || "الفعالية"}" — تجد تذكرتك ورمز QR في صفحة تذاكري.`,
+      body: `تم تأكيد دفعك وحجز مقعدك في "${eventTitle}" — تجد تذكرتك ورمز QR في صفحة تذاكري.`,
       link: "/my-tickets",
     });
 
