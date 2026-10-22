@@ -6,14 +6,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { readPendingGift, savePendingGift } from "@/lib/checkoutGift";
+import { useAuth } from "@/contexts/AuthContext";
+import { DEMO_EVENT, encodeDemoGift, giftWhatsAppText, toWhatsAppNumber } from "@/lib/giftDemo";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Loader2, Ticket as TicketIcon, Copy, MessageCircle } from "lucide-react";
 
 type Phase = "verifying" | "success" | "failed";
 
-const PaymentCallback = () => {
+// demo: نتيجة دفع تجريبية (/demo/payment) — بدون بوابة أو خادم
+const PaymentCallback = ({ demo = false }: { demo?: boolean }) => {
   const [params] = useSearchParams();
   const { t, dir } = useLanguage();
+  const { user, profile } = useAuth();
   const [phase, setPhase] = useState<Phase>("verifying");
   const [qr, setQr] = useState<string | null>(null);
   const [gatewayMsg, setGatewayMsg] = useState<string | null>(null);
@@ -32,7 +36,36 @@ const PaymentCallback = () => {
     if (started.current) return;
     started.current = true;
 
+    const simulate = () => {
+      const gift = readPendingGift(eventId, ticketId);
+      if (gift) {
+        setGiftedTo(gift.recipientName);
+        if (!gift.recipientId && gift.recipientPhone) {
+          const buyerName = profile?.full_name?.trim() || user?.user_metadata?.full_name || t("pgGift.someone");
+          const link = `${window.location.origin}/demo/gift/${encodeDemoGift({
+            recipientName: gift.recipientName,
+            buyerName,
+            message: gift.message,
+          })}`;
+          const text = giftWhatsAppText(gift.recipientName, buyerName, DEMO_EVENT.title_ar, gift.message, link);
+          setPendingGift({
+            link,
+            sent: false,
+            share: `https://wa.me/${toWhatsAppNumber(gift.recipientPhone)}?text=${encodeURIComponent(text)}`,
+          });
+        }
+        savePendingGift(null);
+      } else {
+        setQr(`DEMO-${Date.now()}`);
+      }
+      setPhase("success");
+    };
+
     const verify = async () => {
+      if (demo) {
+        simulate();
+        return;
+      }
       if (!paymentId) {
         setGatewayMsg(message);
         setPhase("failed");
@@ -140,6 +173,13 @@ const PaymentCallback = () => {
                 <p className="text-[10px] text-gray-400 mt-2">{t("pgCheckout.qrNote")}</p>
               </div>
             )}
+            {demo ? (
+              <div className="flex gap-2 justify-center mt-6">
+                <Button variant="outline" className="rounded-full" asChild>
+                  <Link to="/demo/checkout">{t("pgCheckout.demoAgain")}</Link>
+                </Button>
+              </div>
+            ) : (
             <div className="flex gap-2 justify-center mt-6">
               <Button className="rounded-full" asChild>
                 <Link to="/my-tickets"><TicketIcon className="w-4 h-4 ml-1" /> {t("pgCheckout.goToTickets")}</Link>
@@ -150,6 +190,7 @@ const PaymentCallback = () => {
                 </Button>
               )}
             </div>
+            )}
           </>
         )}
 

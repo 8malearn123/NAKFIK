@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { savePendingGift } from "@/lib/checkoutGift";
+import { DEMO_EVENT, DEMO_TICKET } from "@/lib/giftDemo";
 import Navbar from "@/components/landing/Navbar";
 import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info, Gift, User, CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 
@@ -41,8 +42,11 @@ interface TicketInfo {
   price: number;
 }
 
-const Checkout = () => {
-  const { eventId, ticketId } = useParams<{ eventId: string; ticketId: string }>();
+// demo: وضع تجريبي (/demo/checkout) ببيانات ثابتة بدون قاعدة بيانات أو دفع
+const Checkout = ({ demo = false }: { demo?: boolean }) => {
+  const params = useParams<{ eventId: string; ticketId: string }>();
+  const eventId = demo ? DEMO_EVENT.id : params.eventId;
+  const ticketId = demo ? DEMO_TICKET.id : params.ticketId;
   const { user } = useAuth();
   const { t, lang, dir } = useLanguage();
   const navigate = useNavigate();
@@ -68,10 +72,18 @@ const Checkout = () => {
     setSearching(true);
     setRecipientError(null);
     setNoAccountPhone(null);
-    const { data, error } = await supabase.rpc("find_gift_recipient", {
-      _identifier: recipientInput.trim(),
-      _event_id: eventId,
-    });
+    // التجريبي: أي بريد = حساب موجود، وأي جوال = بلا حساب (رابط استلام على واتساب)
+    const { data, error } = demo
+      ? {
+          data: recipientInput.includes("@")
+            ? [{ recipient_id: "demo-account", first_name: recipientInput.split("@")[0], already_registered: false }]
+            : [],
+          error: null,
+        }
+      : await supabase.rpc("find_gift_recipient", {
+          _identifier: recipientInput.trim(),
+          _event_id: eventId,
+        });
     setSearching(false);
     const match = !error && data?.[0];
     const input = recipientInput.trim();
@@ -105,6 +117,10 @@ const Checkout = () => {
           }
         : null,
     );
+    if (demo) {
+      navigate(`/demo/payment?event=${eventId}&ticket=${ticketId}`);
+      return;
+    }
     toast.info(t("pgCheckout.notConfiguredDesc"));
   };
 
@@ -114,6 +130,12 @@ const Checkout = () => {
 
   useEffect(() => {
     const load = async () => {
+      if (demo) {
+        setEvent(DEMO_EVENT);
+        setTicket(DEMO_TICKET);
+        setLoading(false);
+        return;
+      }
       if (!eventId || !ticketId) { setLoading(false); return; }
       const [{ data: ev }, { data: tk }] = await Promise.all([
         supabase.from("events")
@@ -128,7 +150,7 @@ const Checkout = () => {
       setLoading(false);
     };
     load();
-  }, [eventId, ticketId]);
+  }, [demo, eventId, ticketId]);
 
   if (loading) {
     return (
@@ -149,7 +171,7 @@ const Checkout = () => {
     );
   }
 
-  if (!user) {
+  if (!user && !demo) {
     return (
       <div dir={dir} className="min-h-screen bg-muted/30 font-cairo flex flex-col items-center justify-center gap-4 p-6">
         <Lock className="w-10 h-10 text-primary" />
@@ -172,9 +194,15 @@ const Checkout = () => {
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 pt-24 pb-16">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+          {demo && (
+            <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              {t("pgCheckout.demoBanner")}
+            </div>
+          )}
           <div className="mb-6">
             <Link
-              to={`/events/${event.id}`}
+              to={demo ? "/" : `/events/${event.id}`}
               className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
               <ArrowRight className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" /> {t("pgCheckout.backToEvent")}
@@ -405,10 +433,10 @@ const Checkout = () => {
                   </div>
 
                   {/* تنبيه: الدفع غير مفعّل بعد */}
-                  <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
+                  {!demo && <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
                     <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     {t("pgCheckout.notConfiguredDesc")}
-                  </div>
+                  </div>}
 
                   <Button
                     className="w-full rounded-full"

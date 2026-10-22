@@ -14,6 +14,7 @@ export const giftDict = {
     claimedTitle: "استلمت تذكرتك بنجاح 🎉",
     claimedDesc: "تجد تذكرتك ورمز الدخول في صفحة تذاكري",
     goToTickets: "تذاكري",
+    demoBanner: "وضع تجريبي — في النسخة الحقيقية ينشئ المستلم حساباً أو يسجّل دخوله أولاً، ثم تصدر التذكرة باسمه.",
     errors: {
       already_claimed: "تم استلام هذه الهدية مسبقاً.",
       cancelled: "تم إلغاء هذه الهدية.",
@@ -38,6 +39,7 @@ export const giftDict = {
     claimedTitle: "Ticket claimed 🎉",
     claimedDesc: "Find your ticket and entry QR in My Tickets",
     goToTickets: "My Tickets",
+    demoBanner: "Demo mode — in the real flow the recipient signs up or signs in first, then the ticket is issued in their name.",
     errors: {
       already_claimed: "This gift has already been claimed.",
       cancelled: "This gift was cancelled.",

@@ -104,6 +104,10 @@ const App = () => (
                 <Route path="/checkout/:eventId/:ticketId" element={PUBLIC_EVENTS_ENABLED ? <Checkout /> : <Navigate to="/" replace />} />
                 <Route path="/payment/callback" element={<PaymentCallback />} />
                 <Route path="/gift/:token" element={<GiftClaim />} />
+                {/* وضع تجريبي لإهداء التذاكر — بدون قاعدة بيانات أو دفع */}
+                <Route path="/demo/checkout" element={<Checkout demo />} />
+                <Route path="/demo/payment" element={<PaymentCallback demo />} />
+                <Route path="/demo/gift/:token" element={<GiftClaim demo />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />

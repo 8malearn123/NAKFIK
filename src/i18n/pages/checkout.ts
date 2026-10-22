@@ -61,6 +61,8 @@ export const checkoutDict = {
     copied: "تم نسخ الرابط",
     sendWhatsApp: "أرسل الرابط عبر واتساب",
     resendWhatsApp: "إعادة الإرسال من واتسابي",
+    demoBanner: "وضع تجريبي — لا يتم أي دفع ولا تُصدر تذكرة حقيقية. جرّب: بريد إلكتروني = مستلم لديه حساب، رقم جوال = مستلم بلا حساب يصله رابط الاستلام على واتساب.",
+    demoAgain: "تجربة مرة أخرى",
   },
   en: {
     title: "Checkout",
@@ -123,5 +125,7 @@ export const checkoutDict = {
     copied: "Link copied",
     sendWhatsApp: "Send link via WhatsApp",
     resendWhatsApp: "Resend from my WhatsApp",
+    demoBanner: "Demo mode — no payment is taken and no real ticket is issued. Try: an email = recipient with an account, a mobile number = recipient without an account who gets a WhatsApp claim link.",
+    demoAgain: "Try again",
   },
 };

@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { Button } from "@/components/ui/button";
-import { Gift, Calendar, MapPin, Ticket as TicketIcon, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { DEMO_EVENT, DEMO_TICKET, decodeDemoGift } from "@/lib/giftDemo";
+import { Gift, Calendar, MapPin, Ticket as TicketIcon, Loader2, CheckCircle2, XCircle, Info } from "lucide-react";
 
 // صفحة استلام تذكرة مُهداة لشخص لم يكن لديه حساب — يصلها المستلم من رابط واتساب
 interface GiftInfo {
@@ -23,7 +24,8 @@ interface GiftInfo {
   ticket_name_en: string | null;
 }
 
-const GiftClaim = () => {
+// demo: رابط تجريبي (/demo/gift/...) يحمل بيانات الهدية بدون قاعدة بيانات
+const GiftClaim = ({ demo = false }: { demo?: boolean }) => {
   const { token } = useParams<{ token: string }>();
   const { user, loading: authLoading } = useAuth();
   const { t, lang, dir } = useLanguage();
@@ -42,15 +44,37 @@ const GiftClaim = () => {
   useEffect(() => {
     const load = async () => {
       if (!token) { setLoading(false); return; }
+      if (demo) {
+        const d = decodeDemoGift(token);
+        setGift(d && {
+          status: "pending",
+          recipient_name: d.recipientName,
+          buyer_name: d.buyerName,
+          message: d.message || null,
+          event_id: DEMO_EVENT.id,
+          event_title_ar: DEMO_EVENT.title_ar,
+          event_title_en: DEMO_EVENT.title_en,
+          event_start: DEMO_EVENT.start_date,
+          venue_name: DEMO_EVENT.venue_name,
+          ticket_name_ar: DEMO_TICKET.name_ar,
+          ticket_name_en: DEMO_TICKET.name_en,
+        });
+        setLoading(false);
+        return;
+      }
       const { data } = await supabase.rpc("get_ticket_gift", { _token: token });
       setGift((data?.[0] as GiftInfo) || null);
       setLoading(false);
     };
     load();
-  }, [token]);
+  }, [demo, token]);
 
   const claim = async () => {
     if (!token) return;
+    if (demo) {
+      setClaimed(true);
+      return;
+    }
     setClaiming(true);
     setClaimError(null);
     const { data, error } = await supabase.rpc("claim_ticket_gift", { _token: token });
@@ -63,7 +87,7 @@ const GiftClaim = () => {
     }
   };
 
-  if (loading || authLoading) {
+  if (loading || (authLoading && !demo)) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center font-cairo">
         <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
@@ -95,6 +119,12 @@ const GiftClaim = () => {
         animate={{ opacity: 1, scale: 1 }}
         className="bg-card border rounded-3xl shadow-lg max-w-md w-full overflow-hidden"
       >
+        {demo && (
+          <div className="bg-amber-500/10 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
+            <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            {t("pgGift.demoBanner")}
+          </div>
+        )}
         <div className="bg-primary/10 p-6 text-center">
           <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto">
             <Gift className="w-8 h-8" />
@@ -134,15 +164,17 @@ const GiftClaim = () => {
               <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
               <p className="font-bold">{t("pgGift.claimedTitle")}</p>
               <p className="text-xs text-muted-foreground">{t("pgGift.claimedDesc")}</p>
-              <Button className="rounded-full w-full" onClick={() => navigate("/my-tickets")}>
-                {t("pgGift.goToTickets")}
-              </Button>
+              {!demo && (
+                <Button className="rounded-full w-full" onClick={() => navigate("/my-tickets")}>
+                  {t("pgGift.goToTickets")}
+                </Button>
+              )}
             </div>
           ) : alreadyClaimed || gift.status === "cancelled" ? (
             <p className="text-sm text-center text-muted-foreground border-t pt-4">
               {t(alreadyClaimed ? "pgGift.errors.already_claimed" : "pgGift.errors.cancelled")}
             </p>
-          ) : !user ? (
+          ) : !user && !demo ? (
             <div className="space-y-2 border-t pt-4">
               <p className="text-xs text-muted-foreground text-center leading-relaxed">{t("pgGift.signupFirst")}</p>
               <Button className="rounded-full w-full" asChild>
