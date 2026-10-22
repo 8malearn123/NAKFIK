@@ -49,6 +49,7 @@ import Analytics from "./pages/admin/Analytics";
 import Announcements from "./pages/admin/Announcements";
 import RSVPConfirm from "./pages/RSVPConfirm";
 import Checkout from "./pages/Checkout";
+import GiftClaim from "./pages/GiftClaim";
 import PaymentCallback from "./pages/PaymentCallback";
 import MyCards from "./pages/MyCards";
 import EventHeatmap from "./pages/dashboard/EventHeatmap";
@@ -105,6 +106,11 @@ const App = () => (
                 <Route path="/rsvp/:token" element={<RSVPConfirm />} />
                 <Route path="/checkout/:eventId/:ticketId" element={PUBLIC_EVENTS_ENABLED ? <Checkout /> : <Navigate to="/" replace />} />
                 <Route path="/payment/callback" element={<PaymentCallback />} />
+                <Route path="/gift/:token" element={<GiftClaim />} />
+                {/* وضع تجريبي لإهداء التذاكر — بدون قاعدة بيانات أو دفع */}
+                <Route path="/demo/checkout" element={<Checkout demo />} />
+                <Route path="/demo/payment" element={<PaymentCallback demo />} />
+                <Route path="/demo/gift/:token" element={<GiftClaim demo />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
                 <Route path="/brand" element={<BrandGuidelines />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />

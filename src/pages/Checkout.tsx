@@ -7,8 +7,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { translateContent } from "@/lib/contentTranslations";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { savePendingGift } from "@/lib/checkoutGift";
+import { DEMO_EVENT, DEMO_TICKET } from "@/lib/giftDemo";
 import Navbar from "@/components/landing/Navbar";
-import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info } from "lucide-react";
+import { ShieldCheck, Lock, CreditCard, ArrowRight, Ticket as TicketIcon, Calendar, MapPin, Smartphone, Wallet, Info, Gift, User, CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 
 // وسائل الدفع المعروضة — واجهة فقط بدون ربط فعلي بأي بوابة حالياً
 const PAY_METHODS = [
@@ -38,8 +42,11 @@ interface TicketInfo {
   price: number;
 }
 
-const Checkout = () => {
-  const { eventId, ticketId } = useParams<{ eventId: string; ticketId: string }>();
+// demo: وضع تجريبي (/demo/checkout) ببيانات ثابتة بدون قاعدة بيانات أو دفع
+const Checkout = ({ demo = false }: { demo?: boolean }) => {
+  const params = useParams<{ eventId: string; ticketId: string }>();
+  const eventId = demo ? DEMO_EVENT.id : params.eventId;
+  const ticketId = demo ? DEMO_TICKET.id : params.ticketId;
   const { user } = useAuth();
   const { t, lang, dir } = useLanguage();
   const navigate = useNavigate();
@@ -49,12 +56,86 @@ const Checkout = () => {
   const [loading, setLoading] = useState(true);
   const [method, setMethod] = useState("mada");
 
+  // الإهداء: المستلم يجب أن يملك حساباً في نكفيك لتصدر التذكرة باسمه
+  const [buyFor, setBuyFor] = useState<"self" | "gift">("self");
+  const [recipientInput, setRecipientInput] = useState("");
+  // id = null: المستلم بلا حساب — تُرسل له الهدية على جواله برابط استلام
+  const [recipient, setRecipient] = useState<{ id: string | null; name: string; phone: string | null } | null>(null);
+  const [noAccountPhone, setNoAccountPhone] = useState<string | null>(null);
+  const [noAccountName, setNoAccountName] = useState("");
+  const [recipientError, setRecipientError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
+
+  const findRecipient = async () => {
+    if (!eventId || !recipientInput.trim()) return;
+    setSearching(true);
+    setRecipientError(null);
+    setNoAccountPhone(null);
+    // التجريبي: أي بريد = حساب موجود، وأي جوال = بلا حساب (رابط استلام على واتساب)
+    const { data, error } = demo
+      ? {
+          data: recipientInput.includes("@")
+            ? [{ recipient_id: "demo-account", first_name: recipientInput.split("@")[0], already_registered: false }]
+            : [],
+          error: null,
+        }
+      : await supabase.rpc("find_gift_recipient", {
+          _identifier: recipientInput.trim(),
+          _event_id: eventId,
+        });
+    setSearching(false);
+    const match = !error && data?.[0];
+    const input = recipientInput.trim();
+    const isPhone = !input.includes("@") && input.replace(/\D/g, "").length >= 9;
+    if (!match && !error && isPhone) {
+      setNoAccountPhone(input);
+    } else if (!match) {
+      setRecipientError(t(input.includes("@") ? "pgCheckout.recipientEmailNotFound" : "pgCheckout.recipientNotFound"));
+    } else if (match.already_registered) {
+      setRecipientError(t("pgCheckout.recipientAlreadyRegistered"));
+    } else {
+      setRecipient({ id: match.recipient_id, name: match.first_name, phone: null });
+    }
+  };
+
+  const handlePay = () => {
+    if (!eventId || !ticketId) return;
+    if (buyFor === "gift" && !recipient) {
+      toast.error(t("pgCheckout.giftNeedRecipient"));
+      return;
+    }
+    savePendingGift(
+      buyFor === "gift" && recipient
+        ? {
+            eventId,
+            ticketId,
+            recipientId: recipient.id,
+            recipientPhone: recipient.phone,
+            recipientName: recipient.name,
+            message: giftMessage.trim(),
+          }
+        : null,
+    );
+    if (demo) {
+      navigate(`/demo/payment?event=${eventId}&ticket=${ticketId}`);
+      return;
+    }
+    toast.info(t("pgCheckout.notConfiguredDesc"));
+  };
+
   useEffect(() => {
     document.title = `${t("pgCheckout.title")} | نكفيك`;
   }, [t]);
 
   useEffect(() => {
     const load = async () => {
+      if (demo) {
+        setEvent(DEMO_EVENT);
+        setTicket(DEMO_TICKET);
+        setLoading(false);
+        return;
+      }
       if (!eventId || !ticketId) { setLoading(false); return; }
       const [{ data: ev }, { data: tk }] = await Promise.all([
         supabase.from("events")
@@ -69,7 +150,7 @@ const Checkout = () => {
       setLoading(false);
     };
     load();
-  }, [eventId, ticketId]);
+  }, [demo, eventId, ticketId]);
 
   if (loading) {
     return (
@@ -90,7 +171,7 @@ const Checkout = () => {
     );
   }
 
-  if (!user) {
+  if (!user && !demo) {
     return (
       <div dir={dir} className="min-h-screen bg-muted/30 font-cairo flex flex-col items-center justify-center gap-4 p-6">
         <Lock className="w-10 h-10 text-primary" />
@@ -113,9 +194,15 @@ const Checkout = () => {
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 pt-24 pb-16">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+          {demo && (
+            <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              {t("pgCheckout.demoBanner")}
+            </div>
+          )}
           <div className="mb-6">
             <Link
-              to={`/events/${event.id}`}
+              to={demo ? "/" : `/events/${event.id}`}
               className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
             >
               <ArrowRight className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" /> {t("pgCheckout.backToEvent")}
@@ -156,6 +243,14 @@ const Checkout = () => {
                     </span>
                     <span className="font-semibold">{ticketName}</span>
                   </div>
+                  {buyFor === "gift" && recipient && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground flex items-center gap-1.5">
+                        <Gift className="w-4 h-4" /> {t("pgCheckout.giftTo")}
+                      </span>
+                      <span className="font-semibold">{recipient.name}</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-base">
                     <span className="font-bold">{t("pgCheckout.total")}</span>
                     <span className="font-extrabold text-primary text-xl">
@@ -186,6 +281,132 @@ const Checkout = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* لمن التذكرة: للمشتري أو هدية لحساب آخر */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">{t("pgCheckout.whoFor")}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { key: "self", label: t("pgCheckout.forMe"), Icon: User },
+                        { key: "gift", label: t("pgCheckout.asGift"), Icon: Gift },
+                      ] as const).map((o) => {
+                        const active = buyFor === o.key;
+                        return (
+                          <button
+                            key={o.key}
+                            type="button"
+                            onClick={() => setBuyFor(o.key)}
+                            className={`rounded-xl border-2 p-3 flex items-center justify-center gap-2 text-sm font-bold transition ${
+                              active
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border hover:border-primary/40 bg-card text-muted-foreground"
+                            }`}
+                          >
+                            <o.Icon className="w-4 h-4" />
+                            {o.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {buyFor === "gift" && (
+                      <div className="mt-3 rounded-2xl border bg-muted/30 p-4 space-y-3">
+                        <p className="text-xs text-muted-foreground leading-relaxed">{t("pgCheckout.giftIntro")}</p>
+                        {recipient ? (
+                          <div className="rounded-xl bg-green-500/10 text-green-700 text-sm p-3 flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-1.5 font-semibold">
+                              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                              {recipient.id
+                                ? t("pgCheckout.recipientFound").replace("{name}", recipient.name)
+                                : t("pgCheckout.recipientByPhone")
+                                    .replace("{name}", recipient.name)
+                                    .replace("{phone}", recipient.phone || "")}
+                            </span>
+                            <button
+                              type="button"
+                              className="text-xs underline flex-shrink-0"
+                              onClick={() => { setRecipient(null); setNoAccountPhone(null); }}
+                            >
+                              {t("pgCheckout.change")}
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <label htmlFor="gift-recipient" className="text-xs font-semibold block mb-1.5">
+                              {t("pgCheckout.recipientLabel")}
+                            </label>
+                            <div className="flex gap-2">
+                              <Input
+                                id="gift-recipient"
+                                dir="ltr"
+                                value={recipientInput}
+                                placeholder={t("pgCheckout.recipientPlaceholder")}
+                                onChange={(e) => {
+                                  setRecipientInput(e.target.value);
+                                  setRecipientError(null);
+                                  setNoAccountPhone(null);
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") findRecipient(); }}
+                                className="rounded-xl bg-card"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-xl flex-shrink-0"
+                                disabled={searching || recipientInput.trim().length < 5}
+                                onClick={findRecipient}
+                              >
+                                {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : t("pgCheckout.findRecipient")}
+                              </Button>
+                            </div>
+                            {recipientError && (
+                              <p className="text-xs text-destructive mt-1.5 leading-relaxed">{recipientError}</p>
+                            )}
+                            {noAccountPhone && (
+                              <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+                                <p className="text-xs leading-relaxed flex items-start gap-1.5">
+                                  <MessageCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                                  {t("pgCheckout.noAccountIntro")}
+                                </p>
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={noAccountName}
+                                    maxLength={80}
+                                    placeholder={t("pgCheckout.recipientNamePlaceholder")}
+                                    aria-label={t("pgCheckout.recipientNamePlaceholder")}
+                                    onChange={(e) => setNoAccountName(e.target.value)}
+                                    className="rounded-xl bg-card"
+                                  />
+                                  <Button
+                                    type="button"
+                                    className="rounded-xl flex-shrink-0"
+                                    disabled={noAccountName.trim().length < 2}
+                                    onClick={() => setRecipient({ id: null, name: noAccountName.trim(), phone: noAccountPhone })}
+                                  >
+                                    {t("pgCheckout.confirmPhoneGift")}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div>
+                          <label htmlFor="gift-message" className="text-xs font-semibold block mb-1.5">
+                            {t("pgCheckout.giftMessageLabel")}
+                          </label>
+                          <Textarea
+                            id="gift-message"
+                            value={giftMessage}
+                            maxLength={300}
+                            rows={2}
+                            placeholder={t("pgCheckout.giftMessagePlaceholder")}
+                            onChange={(e) => setGiftMessage(e.target.value)}
+                            className="rounded-xl bg-card resize-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* اختيار وسيلة الدفع — عرض فقط */}
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-2">{t("pgCheckout.selectMethod")}</p>
@@ -212,15 +433,15 @@ const Checkout = () => {
                   </div>
 
                   {/* تنبيه: الدفع غير مفعّل بعد */}
-                  <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
+                  {!demo && <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 text-xs p-3 flex items-start gap-2 leading-relaxed">
                     <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     {t("pgCheckout.notConfiguredDesc")}
-                  </div>
+                  </div>}
 
                   <Button
                     className="w-full rounded-full"
                     size="lg"
-                    onClick={() => toast.info(t("pgCheckout.notConfiguredDesc"))}
+                    onClick={handlePay}
                   >
                     <Lock className="w-4 h-4 ml-1" />
                     {t("pgCheckout.completePayment")} — {ticket.price.toLocaleString()} {t("pgCheckout.currency")}
