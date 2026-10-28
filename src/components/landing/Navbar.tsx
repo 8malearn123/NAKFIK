@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import logo from "@/assets/logo.png";
+import BrandMark from "@/components/BrandMark";
 
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
@@ -27,11 +27,11 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 right-0 left-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
+    <nav className="fixed top-0 right-0 left-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/50">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        <Link to="/" className="flex items-center gap-3">
-          <img src={logo} alt={t("navbar.brand")} className="h-10 w-auto" />
-          <span className="font-cairo font-bold text-lg text-foreground hidden sm:inline">{t("navbar.brand")}</span>
+        <Link to="/" className="flex items-center gap-2.5" aria-label={t("navbar.brand")}>
+          <BrandMark className="h-9 w-9" />
+          <span className="font-kufi font-bold text-xl text-primary hidden sm:inline">{t("navbar.brand")}</span>
         </Link>
 
         <div className="hidden md:flex items-center gap-6 font-cairo text-sm font-medium">
@@ -40,6 +40,7 @@ const Navbar = () => {
           {PUBLIC_EVENTS_ENABLED && (
             <Link to="/events" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.events")}</Link>
           )}
+          <a href="/#how" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.how")}</a>
           <a href="/#features" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.features")}</a>
           <a href="/#pricing" className="text-foreground/70 hover:text-foreground transition-colors">{t("navbar.pricing")}</a>
         </div>

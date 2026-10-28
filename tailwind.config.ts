@@ -16,6 +16,10 @@ export default {
       fontFamily: {
         cairo: ["Cairo", "sans-serif"],
         inter: ["Inter", "sans-serif"],
+        // عناوين الصفحة الرئيسية: كوفي هندسي قريب من حروف شعار نكفيك
+        kufi: ["Reem Kufi", "Cairo", "sans-serif"],
+        // أسماء الضيوف على البطاقات بخط الرقعة كأنها مكتوبة باليد
+        ruqaa: ["Aref Ruqaa", "Amiri", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -58,6 +62,10 @@ export default {
         gold: {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",
+        },
+        night: {
+          DEFAULT: "hsl(var(--night))",
+          raised: "hsl(var(--night-raised))",
         },
         "purple-deep": "hsl(var(--purple-deep))",
         "purple-light": "hsl(var(--purple-light))",
