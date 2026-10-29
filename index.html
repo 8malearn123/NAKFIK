@@ -21,11 +21,54 @@
   <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/bcQUrsAr8jWPn1off0I7XFrEWYo2/social-images/social-1776791856693-4.webp">
   <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/bcQUrsAr8jWPn1off0I7XFrEWYo2/social-images/social-1776791856693-4.webp">
   <meta name="twitter:card" content="summary_large_image">
+    <style>
+      /* شاشة الإقلاع: شعار نكفيك يدور بتلةً بتلة حتى يقلع React ويستبدلها */
+      #boot-splash {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* الدوران حول مركز الشعار (0,0) لا حول صندوقه، و72° = بتلة واحدة فيعود الشكل كما بدأ بلا قفزة */
+      #boot-splash .boot-mark {
+        transform-origin: 0 0;
+        animation: boot-turn 1.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+      }
+      @keyframes boot-turn {
+        0%, 30% { transform: rotate(0deg); }
+        100% { transform: rotate(72deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash .boot-mark { animation: boot-pulse 1.2s ease-in-out infinite alternate; }
+      }
+      @keyframes boot-pulse {
+        to { opacity: 0.45; }
+      }
+    </style>
 </head>
   <body>
     <div id="root">
-      <div id="boot-splash" style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Cairo,sans-serif;color:#6b7280;font-size:18px">
-        جارٍ تحميل نكفيك&hellip;
+      <div id="boot-splash">
+        <!-- نسخة ثابتة من src/components/BrandMark.tsx، فـReact لم يقلع بعد هنا -->
+        <svg viewBox="-150 -150 300 300" width="96" height="96" role="img" aria-label="جارٍ تحميل نكفيك&hellip;">
+          <defs>
+            <g id="boot-petal" fill="#492C5A">
+              <path d="M-42 127V71.28A42 42 0 0 1 42 71.28V127L17 112.19V52.65A17 17 0 0 0-17 52.65V112.19Z" />
+              <path d="M0 71.87V133.83" stroke="#492C5A" stroke-width="4.5" />
+              <circle cy="71.87" r="11.65" fill="#A03C4A" />
+              <circle cy="102.85" r="11.65" fill="#CC8E3D" />
+              <circle cy="133.83" r="11.65" />
+            </g>
+          </defs>
+          <g class="boot-mark">
+            <use href="#boot-petal" />
+            <use href="#boot-petal" transform="rotate(72)" />
+            <use href="#boot-petal" transform="rotate(144)" />
+            <use href="#boot-petal" transform="rotate(216)" />
+            <use href="#boot-petal" transform="rotate(288)" />
+          </g>
+        </svg>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
