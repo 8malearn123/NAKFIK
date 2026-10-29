@@ -50,6 +50,7 @@ export const en = {
     brand: "Nakfeek Ticket",
     home: "Home",
     events: "Events",
+    how: "How it works",
     features: "Features",
     pricing: "Pricing",
     login: "Login",
@@ -82,40 +83,10 @@ export const en = {
     backHome: "Back to Home",
   },
 
-  // Hero Section
-  hero: {
-    badge: "The #1 Event Management Platform in Saudi Arabia",
-    headline: "We handle everything about",
-    words: ["your events", "your conferences", "your workshops", "your exhibitions", "your concerts"],
-    description: "From event creation to certificate issuance — a complete platform for organizing conferences, workshops, and managing tickets & attendance",
-    cta: "Start Organizing",
-    browseEvents: "Browse Events",
-    statsEvent: "events",
-    statsAttendee: "attendees",
-    statsTicket: "tickets",
-  },
-
-  // Features Section
-  features: {
-    badge: "Features",
-    title: "Everything you need to manage your events",
-    subtitle: "Nakfeek Ticket provides professional tools to organize successful events from start to finish",
-    cta: "Start Free Now",
-    items: [
-      { title: "Create Events Easily", desc: "Create your event in minutes with a multi-step form covering all details" },
-      { title: "QR Check-in", desc: "Each registrant gets a unique QR code — quick scan and instant attendance tracking" },
-      { title: "Public & Private Events", desc: "Public events listed in the marketplace or private with personal invitation links" },
-      { title: "Team Management", desc: "Add your team with different roles: event manager, check-in staff, report analyst" },
-      { title: "Reports & Analytics", desc: "Advanced dashboard with charts for registrations, revenue, and attendance" },
-      { title: "Auto Notifications", desc: "Confirmation, reminder, and certificate messages — via email and SMS" },
-    ],
-  },
-
   // Pricing Section
   pricingSection: {
-    badge: "Pricing",
-    title: "Plans for every need",
-    subtitle: "Choose the plan that fits your event size — upgrade anytime",
+    title: "Plans sized to your occasion",
+    subtitle: "Choose a plan by the number of occasions and guests you have. You can upgrade anytime.",
     mostPopular: "Most Popular",
     perMonth: "monthly",
     forever: "forever",
@@ -145,16 +116,6 @@ export const en = {
         cta: "Contact Us",
       },
     ],
-  },
-
-  // CTA Section
-  cta: {
-    badge: "Get started in minutes",
-    title1: "Ready to take your events",
-    title2: "to the next level?",
-    subtitle: "Join 500+ event organizers in Saudi Arabia and enjoy a complete management experience",
-    primary: "Create Your Free Account",
-    secondary: "View Events",
   },
 
   // Footer
