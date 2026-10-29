@@ -1,22 +1,24 @@
 import BrandLogo from "@/components/brand/BrandLogo";
 import { Link } from "react-router-dom";
+import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const supportItemsAr = ["مركز المساعدة", "تواصل معنا", "الأسئلة الشائعة", "الشروط والأحكام"];
 const supportItemsEn = ["Help Center", "Contact Us", "FAQ", "Terms & Conditions"];
 
-const Footer = () => {
+// night: لون الصفحة الرئيسية الداكن الموحد، فيتصل التذييل بقسم الخاتمة فوقه بلا فاصل
+type Props = { variant?: "brand" | "night" };
+
+const Footer = ({ variant = "brand" }: Props) => {
   const { t, lang } = useLanguage();
   const supportItems = lang === "ar" ? supportItemsAr : supportItemsEn;
 
   return (
-    <footer className="gradient-hero py-16 relative overflow-hidden">
-      <div className="absolute inset-0 bg-brand-pattern opacity-25 pointer-events-none" />
-      <div className="brand-slash absolute -top-4 -left-[10%] w-[45%] h-4 opacity-70" />
-      <div className="container mx-auto px-4 relative">
+    <footer className={variant === "night" ? "bg-night py-16" : "gradient-hero py-16"}>
+      <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-10 mb-12">
           <div className="md:col-span-1">
-            <Link to="/" className="flex items-center gap-3 mb-4">
+            <Link to="/" className="flex items-center gap-3 mb-4" aria-label={t("navbar.brand")}>
               <BrandLogo tone="white" alt={t("navbar.brand")} className="h-16" />
             </Link>
             <p className="text-primary-foreground/60 text-sm font-cairo leading-relaxed">{t("footer.description")}</p>
@@ -26,12 +28,19 @@ const Footer = () => {
             <h4 className="font-cairo font-bold text-primary-foreground mb-4">{t("footer.platform")}</h4>
             <ul className="space-y-2.5">
               {[
-                { label: t("navbar.features"), href: "#features" },
-                { label: t("navbar.pricing"), href: "#pricing" },
-                { label: t("navbar.events"), href: "/events" },
+                { label: t("navbar.how"), href: "/#how" },
+                { label: t("navbar.features"), href: "/#features" },
+                { label: t("navbar.pricing"), href: "/#pricing" },
+                // المرحلة الأولى: رابط الفعاليات العامة مخفي مؤقتاً
+                ...(PUBLIC_EVENTS_ENABLED ? [{ label: t("navbar.events"), href: "/events" }] : []),
               ].map((item) => (
                 <li key={item.label}>
-                  <Link to={item.href} className="text-primary-foreground/50 hover:text-primary-foreground text-sm font-cairo transition-colors duration-200">{item.label}</Link>
+                  {/* روابط أقسام الصفحة الرئيسية تحتاج تنقل المتصفح العادي حتى يمرر للقسم */}
+                  {item.href.startsWith("/#") ? (
+                    <a href={item.href} className="text-primary-foreground/50 hover:text-primary-foreground text-sm font-cairo transition-colors duration-200">{item.label}</a>
+                  ) : (
+                    <Link to={item.href} className="text-primary-foreground/50 hover:text-primary-foreground text-sm font-cairo transition-colors duration-200">{item.label}</Link>
+                  )}
                 </li>
               ))}
             </ul>
