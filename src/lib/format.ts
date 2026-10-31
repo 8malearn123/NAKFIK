@@ -42,3 +42,6 @@ export const daysLeftLabel = (value: string | number | Date) => {
 };
 
 export const formatMonth = (value: string | number | Date) => toDate(value).toLocaleDateString(LOCALE, { month: "long" });
+
+// علامة LRM تبقي النسبة بشكل 69% حتى لو جاءت بعد نص عربي في السطر نفسه
+export const formatPercent = (value: number) => `‎${value}%`;
