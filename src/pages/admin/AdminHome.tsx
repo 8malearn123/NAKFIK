@@ -1,212 +1,234 @@
-import { useEffect, useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import {
-  Calendar, Users, Building2, ClipboardCheck, TrendingUp,
-  UserPlus, PlusCircle, DollarSign, Ticket, Activity,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, ClipboardCheck, CreditCard, LifeBuoy, Plus, UserCheck, Users, Wallet, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import TrendChart, { CHART_COLORS, ChartLegend } from "@/components/app/TrendChart";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-} from "recharts";
+import { formatDate, formatDateShort, formatMonth, formatNumber, percent } from "@/lib/format";
 
-const COLORS = ["hsl(270 30% 52%)", "hsl(172 55% 40%)", "hsl(42 65% 55%)", "hsl(0 70% 60%)", "hsl(220 60% 55%)"];
+interface Decision {
+  icon: LucideIcon;
+  tone: string;
+  title: string;
+  subtitle: string;
+  action: string;
+  to: string;
+}
+
+interface Upcoming {
+  id: string;
+  title: string;
+  organizer: string;
+  date: string;
+  guests: number;
+  replied: number;
+}
+
+const DAY = 86400000;
+const SERIES = [
+  { key: "sent", label: "المدعوون", color: CHART_COLORS.primary },
+  { key: "replied", label: "الردود", color: CHART_COLORS.gold },
+];
+
+const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+const pendingAge = (iso: string) => {
+  const days = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / DAY));
+  if (days === 1) return "منذ يوم";
+  if (days === 2) return "منذ يومين";
+  return days <= 10 ? `منذ ${days} أيام` : `منذ ${days} يوماً`;
+};
 
 const AdminHome = () => {
-  const [stats, setStats] = useState({
-    organizers: 0, totalEvents: 0, totalUsers: 0, pendingEvents: 0,
-    publishedEvents: 0, totalRegistrations: 0, totalRevenue: 0, attendees: 0,
-  });
-  const [eventsByMonth, setEventsByMonth] = useState<{ month: string; count: number }[]>([]);
-  const [usersByType, setUsersByType] = useState<{ name: string; value: number }[]>([]);
-  const [topOrgs, setTopOrgs] = useState<{ name: string; events: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kpi, setKpi] = useState({ soon: 0, soonPrev: 0, rate: 0, guests: 0, organizers: 0, newOrganizers: 0, revenue: 0, revenuePrev: 0 });
+  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [upcoming, setUpcoming] = useState<Upcoming[]>([]);
+  const [trend, setTrend] = useState<{ month: string; sent: number; replied: number }[]>([]);
 
   useEffect(() => {
     const load = async () => {
-      const [
-        { count: orgCount },
-        { count: evtCount },
-        { count: userCount },
-        { count: pendingCount },
-        { count: publishedCount },
-        { data: regs },
-        { data: profilesByType },
-        { data: events },
-        { data: orgs },
-      ] = await Promise.all([
-        supabase.from("organizations").select("*", { count: "exact", head: true }),
-        supabase.from("events").select("*", { count: "exact", head: true }),
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase.from("events").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
-        supabase.from("events").select("*", { count: "exact", head: true }).eq("status", "published"),
-        supabase.from("registrations").select("amount_paid"),
-        supabase.from("profiles").select("account_type"),
-        supabase.from("events").select("created_at, organization_id"),
-        supabase.from("organizations").select("id, name"),
+      const now = Date.now();
+      const [{ data: invitations }, { data: guests }, { data: orgs }, { data: regs }, { data: pending }, { data: subs }, { data: requests }] = await Promise.all([
+        supabase.from("private_invitations").select("id, title, event_date, organization_id, status"),
+        supabase.from("private_invitation_guests").select("invitation_id, rsvp_status, created_at, confirmed_at"),
+        supabase.from("organizations").select("id, name, created_at"),
+        supabase.from("registrations").select("amount_paid, registered_at"),
+        supabase.from("events").select("id, title_ar, created_at").eq("status", "pending_review").order("created_at"),
+        supabase.from("account_subscriptions").select("id, expires_at").eq("status", "active"),
+        supabase.from("service_requests").select("id, title, created_at").eq("status", "new"),
       ]);
 
-      const revenue = (regs || []).reduce((s, r: any) => s + Number(r.amount_paid || 0), 0);
-      const attendees = (profilesByType || []).filter((p: any) => p.account_type === "attendee").length;
+      const invs = (invitations || []) as any[];
+      const gs = (guests || []) as any[];
+      const orgName = new Map(((orgs || []) as any[]).map((o) => [o.id, o.name]));
+      const when = (i: any) => new Date(i.event_date).getTime();
 
-      setStats({
-        organizers: orgCount || 0,
-        totalEvents: evtCount || 0,
-        totalUsers: userCount || 0,
-        pendingEvents: pendingCount || 0,
-        publishedEvents: publishedCount || 0,
-        totalRegistrations: (regs || []).length,
-        totalRevenue: revenue,
-        attendees,
+      const repliedCount = gs.filter((g) => g.rsvp_status === "confirmed" || g.rsvp_status === "declined").length;
+      const thisMonth = monthKey(new Date());
+      const lastMonth = monthKey(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1));
+      const revenueIn = (key: string) =>
+        ((regs || []) as any[]).filter((r) => r.registered_at && monthKey(new Date(r.registered_at)) === key).reduce((s, r) => s + Number(r.amount_paid || 0), 0);
+
+      setKpi({
+        soon: invs.filter((i) => when(i) >= now && when(i) <= now + 7 * DAY).length,
+        soonPrev: invs.filter((i) => when(i) < now && when(i) >= now - 7 * DAY).length,
+        rate: percent(repliedCount, gs.length),
+        guests: gs.length,
+        organizers: (orgs || []).length,
+        newOrganizers: ((orgs || []) as any[]).filter((o) => o.created_at && monthKey(new Date(o.created_at)) === thisMonth).length,
+        revenue: revenueIn(thisMonth),
+        revenuePrev: revenueIn(lastMonth),
       });
 
-      // Events by month (last 6 months)
-      const months = new Map<string, number>();
-      const now = new Date();
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        months.set(key, 0);
+      const expiring = ((subs || []) as any[]).filter((s) => s.expires_at && new Date(s.expires_at).getTime() <= now + 7 * DAY);
+      const queue: Decision[] = [];
+      ((pending || []) as any[]).slice(0, 2).forEach((e) =>
+        queue.push({ icon: ClipboardCheck, tone: "bg-[#FDF3E3] text-[#9A5F12]", title: e.title_ar, subtitle: `بانتظار المراجعة ${pendingAge(e.created_at)}`, action: "راجع", to: "/admin/pending" }),
+      );
+      if (expiring.length) {
+        queue.push({ icon: CreditCard, tone: "bg-secondary text-primary", title: `${formatNumber(expiring.length)} اشتراك ينتهي خلال 7 أيام`, subtitle: "راجع الاشتراكات قبل انتهائها", action: "افتح", to: "/admin/subscriptions" });
       }
-      (events || []).forEach((e: any) => {
-        const k = e.created_at?.slice(0, 7);
-        if (k && months.has(k)) months.set(k, (months.get(k) || 0) + 1);
-      });
-      setEventsByMonth(Array.from(months.entries()).map(([month, count]) => ({ month: month.slice(5), count })));
+      ((requests || []) as any[]).slice(0, 2).forEach((r) =>
+        queue.push({ icon: LifeBuoy, tone: "bg-[#FBECEA] text-[#B42F24]", title: r.title, subtitle: `طلب خدمة بلا رد ${pendingAge(r.created_at)}`, action: "رد", to: "/admin/service-requests" }),
+      );
+      setDecisions(queue.slice(0, 4));
 
-      // Users by type
-      const typeCounts: Record<string, number> = {};
-      (profilesByType || []).forEach((p: any) => { typeCounts[p.account_type] = (typeCounts[p.account_type] || 0) + 1; });
-      const typeLabels: Record<string, string> = { attendee: "حضور", organizer: "منظمين", venue_owner: "أصحاب أماكن" };
-      setUsersByType(Object.entries(typeCounts).map(([k, v]) => ({ name: typeLabels[k] || k, value: v })));
+      setUpcoming(
+        invs
+          .filter((i) => when(i) >= now)
+          .sort((a, b) => when(a) - when(b))
+          .slice(0, 5)
+          .map((i) => {
+            const own = gs.filter((g) => g.invitation_id === i.id);
+            return {
+              id: i.id,
+              title: i.title,
+              organizer: orgName.get(i.organization_id) || "—",
+              date: i.event_date,
+              guests: own.length,
+              replied: own.filter((g) => g.rsvp_status === "confirmed" || g.rsvp_status === "declined").length,
+            };
+          }),
+      );
 
-      // Top organizations by event count
-      const orgCounts: Record<string, number> = {};
-      (events || []).forEach((e: any) => { orgCounts[e.organization_id] = (orgCounts[e.organization_id] || 0) + 1; });
-      const orgMap = new Map<string, string>();
-      (orgs || []).forEach((o: any) => orgMap.set(o.id, o.name));
-      const top = Object.entries(orgCounts)
-        .map(([id, n]) => ({ name: orgMap.get(id) || "—", events: n }))
-        .sort((a, b) => b.events - a.events)
-        .slice(0, 5);
-      setTopOrgs(top);
-
+      const today = new Date();
+      setTrend(
+        Array.from({ length: 6 }, (_, idx) => {
+          const d = new Date(today.getFullYear(), today.getMonth() - (5 - idx), 1);
+          const key = monthKey(d);
+          return {
+            month: formatMonth(d),
+            sent: gs.filter((g) => g.created_at && monthKey(new Date(g.created_at)) === key).length,
+            replied: gs.filter((g) => g.confirmed_at && monthKey(new Date(g.confirmed_at)) === key).length,
+          };
+        }),
+      );
       setLoading(false);
     };
     load();
   }, []);
 
-  const statCards = useMemo(() => ([
-    { icon: Building2, label: "المنظمين", value: stats.organizers, color: "bg-primary/10 text-primary" },
-    { icon: Calendar, label: "إجمالي الفعاليات", value: stats.totalEvents, color: "bg-teal/10 text-teal" },
-    { icon: Activity, label: "فعاليات منشورة", value: stats.publishedEvents, color: "bg-emerald-100 text-emerald-700" },
-    { icon: ClipboardCheck, label: "بانتظار المراجعة", value: stats.pendingEvents, color: "bg-destructive/10 text-destructive" },
-    { icon: Users, label: "إجمالي المستخدمين", value: stats.totalUsers, color: "bg-accent/10 text-accent" },
-    { icon: Ticket, label: "إجمالي التسجيلات", value: stats.totalRegistrations, color: "bg-blue-100 text-blue-700" },
-    { icon: TrendingUp, label: "حضور (مستخدمين)", value: stats.attendees, color: "bg-purple-100 text-purple-700" },
-    { icon: DollarSign, label: "إيرادات (ر.س)", value: stats.totalRevenue.toLocaleString("ar-SA"), color: "bg-amber-100 text-amber-700" },
-  ]), [stats]);
-
-  const quickActions = [
-    { icon: UserPlus, label: "دعوة منظم/مستخدم", to: "/admin/users/invite", color: "bg-primary text-primary-foreground" },
-    { icon: PlusCircle, label: "إنشاء فعالية لمنظم", to: "/admin/events/create", color: "bg-teal text-primary-foreground" },
-    { icon: ClipboardCheck, label: "مراجعة الفعاليات", to: "/admin/pending", color: "bg-amber-500 text-white" },
-    { icon: DollarSign, label: "المالية والتسويات", to: "/admin/finance", color: "bg-emerald-600 text-white" },
-  ];
+  const revenueDelta = kpi.revenuePrev ? percent(kpi.revenue - kpi.revenuePrev, kpi.revenuePrev) : null;
+  const soonDelta = kpi.soon - kpi.soonPrev;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground">لوحة مدير النظام</h1>
-          <p className="text-muted-foreground text-sm">نظرة شاملة على منصة نكفيك تيكت</p>
+        <PageHeader
+          title="لوحة التحكم"
+          description={`ملخص المنصة، ${formatDate(new Date())}`}
+          actions={
+            <Button asChild>
+              <Link to="/admin/users/invite"><Plus className="h-4 w-4" />دعوة حساب</Link>
+            </Button>
+          }
+        />
+
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="مناسبات خلال 7 أيام" value={loading ? "…" : kpi.soon} icon={Calendar} delta={`${soonDelta >= 0 ? "+" : ""}${soonDelta}`} deltaDown={soonDelta < 0} note="مقارنة بالأسبوع الماضي" />
+          <StatCard label="نسبة الرد على الدعوات" value={loading ? "…" : `${kpi.rate}%`} icon={UserCheck} note={`من ${formatNumber(kpi.guests)} مدعو`} />
+          <StatCard label="المنظمون" value={loading ? "…" : kpi.organizers} icon={Users} delta={`+${kpi.newOrganizers}`} note="جدد هذا الشهر" />
+          <StatCard
+            label={`إيراد ${formatMonth(new Date())}`}
+            value={loading ? "…" : formatNumber(kpi.revenue)}
+            unit="ر.س"
+            icon={Wallet}
+            delta={revenueDelta === null ? undefined : `${revenueDelta >= 0 ? "+" : ""}${revenueDelta}%`}
+            deltaDown={(revenueDelta ?? 0) < 0}
+            note="مقارنة بالشهر الماضي"
+          />
         </div>
 
-        {/* Quick actions */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {quickActions.map((a, i) => (
-            <motion.div key={a.to} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Link to={a.to} className={`${a.color} rounded-2xl p-4 flex items-center gap-3 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all`}>
-                <a.icon className="w-6 h-6" />
-                <span className="font-semibold text-sm">{a.label}</span>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+        <div className="grid gap-6 xl:grid-cols-3">
+          <Panel className="xl:col-span-2" title="المدعوون والردود" description="آخر 6 أشهر" actions={<ChartLegend series={SERIES} />}>
+            <TrendChart data={trend} xKey="month" series={SERIES} height={300} />
+          </Panel>
 
-        {/* Stat cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((stat, i) => (
-            <motion.div key={stat.label} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="bg-card rounded-2xl p-5 border border-border/50 hover:shadow-md transition-shadow">
-              <div className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center mb-3`}>
-                <stat.icon className="w-5 h-5" />
+          <Panel title="تحتاج قرارك" bodyClassName="flex flex-col">
+            {decisions.length === 0 ? (
+              <p className="my-auto py-10 text-center text-sm text-muted-foreground">لا شيء يحتاج قرارك اليوم</p>
+            ) : (
+              <div className="flex flex-1 flex-col divide-y divide-border">
+                {decisions.map((d) => (
+                  <div key={d.title} className="flex flex-1 items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className={`grid h-9 w-9 flex-none place-items-center rounded-[10px] ${d.tone}`}><d.icon className="h-[17px] w-[17px]" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold leading-[22px]">{d.title}</p>
+                      <p className="truncate text-xs leading-[18px] text-muted-foreground">{d.subtitle}</p>
+                    </div>
+                    <Button asChild variant="outline" size="sm"><Link to={d.to}>{d.action}</Link></Button>
+                  </div>
+                ))}
               </div>
-              <div className="font-bold text-2xl text-foreground mb-1">{loading ? "..." : stat.value.toLocaleString("ar-SA")}</div>
-              <div className="text-muted-foreground text-xs">{stat.label}</div>
-            </motion.div>
-          ))}
+            )}
+          </Panel>
         </div>
 
-        {stats.pendingEvents > 0 && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-destructive/5 border border-destructive/20 rounded-2xl p-6 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-foreground text-lg">{stats.pendingEvents} فعاليات بانتظار المراجعة</h3>
-              <p className="text-muted-foreground text-sm">راجع الفعاليات المعلقة وقم بالموافقة أو الرفض</p>
-            </div>
-            <Link to="/admin/pending" className="bg-destructive text-destructive-foreground rounded-full px-6 py-2.5 text-sm font-semibold hover:bg-destructive/90 transition-colors flex-shrink-0">
-              مراجعة الآن
-            </Link>
-          </motion.div>
-        )}
-
-        {!loading && (
-          <div className="grid lg:grid-cols-2 gap-5">
-            <div className="bg-card rounded-2xl border border-border/50 p-5">
-              <h3 className="font-semibold text-foreground mb-4">الفعاليات المُنشأة شهرياً (آخر 6 أشهر)</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={eventsByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                  <Line type="monotone" dataKey="count" name="فعاليات" stroke="hsl(270 30% 52%)" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border/50 p-5">
-              <h3 className="font-semibold text-foreground mb-4">توزيع المستخدمين</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie data={usersByType} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                    {usersByType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="bg-card rounded-2xl border border-border/50 p-5 lg:col-span-2">
-              <h3 className="font-semibold text-foreground mb-4">أعلى المنظمين نشاطاً</h3>
-              {topOrgs.length === 0 ? (
-                <div className="text-center text-muted-foreground py-6 text-sm">لا توجد بيانات بعد</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={topOrgs} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                    <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={140} />
-                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                    <Bar dataKey="events" name="عدد الفعاليات" fill="hsl(172 55% 40%)" radius={[0, 8, 8, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-        )}
+        <Panel title="المناسبات القادمة" flush actions={<Link to="/admin/private-invitations" className="text-[13px] font-semibold leading-5 text-primary">عرض الكل</Link>}>
+          {upcoming.length === 0 ? (
+            <EmptyState icon={Calendar} title="لا توجد مناسبات قادمة" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">المناسبة</TableHead>
+                  <TableHead>الموعد</TableHead>
+                  <TableHead>المدعوون</TableHead>
+                  <TableHead className="w-56 pe-6">نسبة الرد</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {upcoming.map((u) => {
+                  const rate = percent(u.replied, u.guests);
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell className="ps-6">
+                        <p className="font-semibold leading-[22px]">{u.title}</p>
+                        <p className="text-xs leading-[18px] text-muted-foreground">{u.organizer}</p>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDateShort(u.date)}</TableCell>
+                      <TableCell>{formatNumber(u.guests)}</TableCell>
+                      <TableCell className="pe-6">
+                        <div className="flex flex-col gap-1.5">
+                          <b className={`text-sm font-bold ${rate < 50 ? "text-[#B42F24]" : ""}`}>{rate}%</b>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+                            <div className={`h-full rounded-full ${rate < 50 ? "bg-[#C0392B]" : "bg-primary"}`} style={{ width: `${rate}%` }} />
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </Panel>
       </div>
     </AdminLayout>
   );

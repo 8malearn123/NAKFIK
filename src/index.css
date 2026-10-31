@@ -90,6 +90,8 @@
     --shadow-elevated: 0 12px 40px -8px hsl(271 35% 26% / 0.18);
     --shadow-elegant: 0 10px 30px -10px hsl(271 35% 26% / 0.30);
     --shadow-gold: 0 8px 24px -8px hsl(34 58% 52% / 0.40);
+    --shadow-soft: 0 1px 2px rgb(36 19 47 / 0.04), 0 6px 20px rgb(36 19 47 / 0.05);
+    --shadow-soft-lg: 0 2px 6px rgb(36 19 47 / 0.05), 0 16px 40px rgb(36 19 47 / 0.12);
 
     /* Sidebar — deep brand purple */
     --sidebar-background: 271 35% 22%;
@@ -198,4 +200,44 @@
     rotate: -31deg;
     pointer-events: none;
   }
+}
+
+/* ===========================================================
+   النمط الناعم للشاشات الداخلية (لوحات المنظم والأدمن والحاضر).
+   يُفعَّل على body عبر SoftUiScope، حتى تشمل النوافذ المنبثقة،
+   ولا يمس الصفحات العامة.
+   =========================================================== */
+.soft-ui {
+  --background: 260 18% 97%;        /* #F6F5F8 */
+  --foreground: 268 26% 11%;        /* #1C1524 */
+  --card-foreground: 268 26% 11%;
+  --popover-foreground: 268 26% 11%;
+  --secondary: 273 31% 94%;         /* #F1ECF5 */
+  --secondary-foreground: 271 35% 26%;
+  --muted: 264 15% 95%;
+  --muted-foreground: 266 6% 42%;   /* #6B6573 */
+  --border: 264 15% 93%;            /* #EEECF1 */
+  --input: 263 14% 87%;
+  font-family: Inter, Cairo, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+.soft-ui .font-cairo,
+.soft-ui [dir="rtl"] {
+  font-family: Inter, Cairo, sans-serif;
+}
+.soft-ui .font-display {
+  font-family: Inter, Cairo, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+/* البطاقات المكتوبة يدوياً في الصفحات تأخذ الشكل الموحد تلقائياً */
+.soft-ui .bg-card[class*="rounded-"] {
+  border-color: transparent;
+  box-shadow: var(--shadow-soft);
+}
+.soft-ui .bg-card .bg-card[class*="rounded-"],
+.soft-ui [role="dialog"] .bg-card[class*="rounded-"],
+.soft-ui [role="menu"].bg-card {
+  border-color: hsl(var(--border));
+  box-shadow: none;
 }
