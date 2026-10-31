@@ -1142,6 +1142,7 @@ export type Database = {
           job_title: string | null
           linkedin_url: string | null
           looking_for: string[] | null
+          networking_enabled: boolean
           privacy_level: string
           ring_color: string | null
           snapchat_handle: string | null
@@ -1167,6 +1168,7 @@ export type Database = {
           job_title?: string | null
           linkedin_url?: string | null
           looking_for?: string[] | null
+          networking_enabled?: boolean
           privacy_level?: string
           ring_color?: string | null
           snapchat_handle?: string | null
@@ -1192,6 +1194,7 @@ export type Database = {
           job_title?: string | null
           linkedin_url?: string | null
           looking_for?: string[] | null
+          networking_enabled?: boolean
           privacy_level?: string
           ring_color?: string | null
           snapchat_handle?: string | null

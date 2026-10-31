@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -133,18 +133,19 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
       <aside
         className={cn(
           "fixed top-0 right-0 h-full z-50 flex flex-col transition-all duration-300",
-          "bg-[hsl(220_40%_13%)] text-primary-foreground",
+          "bg-[hsl(271_38%_11%)] text-primary-foreground",
           collapsed ? "w-20" : "w-64",
           mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         )}
       >
         {/* الشعار يرجع للصفحة الرئيسية */}
         <Link to="/" title="العودة إلى الصفحة الرئيسية" className="flex items-center gap-3 p-4 border-b border-primary-foreground/10 hover:bg-primary-foreground/5 transition-colors">
-          <img src={logo} alt="نكفيك تيكت" className="h-10 w-10 object-contain flex-shrink-0" />
-          {!collapsed && (
-            <div>
-              <span className="font-bold text-sm">نكفيك تيكت</span>
-              <span className="block text-[10px] text-primary-foreground/50">لوحة مدير النظام</span>
+          {collapsed ? (
+            <BrandLogo variant="mark" alt="نكفيك تيكت" className="h-11 w-11 flex-shrink-0 rounded-xl ring-1 ring-primary-foreground/15" />
+          ) : (
+            <div className="min-w-0">
+              <BrandLogo variant="wordmark" tone="white" alt="نكفيك تيكت" className="h-8" />
+              <span className="block mt-1 text-[10px] font-semibold tracking-wide text-accent">لوحة مدير النظام</span>
             </div>
           )}
         </Link>

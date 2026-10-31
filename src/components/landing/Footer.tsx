@@ -1,5 +1,5 @@
+import BrandLogo from "@/components/brand/BrandLogo";
 import { Link } from "react-router-dom";
-import BrandMark from "@/components/BrandMark";
 import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -19,8 +19,7 @@ const Footer = ({ variant = "brand" }: Props) => {
         <div className="grid md:grid-cols-4 gap-10 mb-12">
           <div className="md:col-span-1">
             <Link to="/" className="flex items-center gap-3 mb-4" aria-label={t("navbar.brand")}>
-              <BrandMark tone="light" className="h-11 w-11" />
-              <span className="font-kufi font-bold text-xl text-primary-foreground">{t("navbar.brand")}</span>
+              <BrandLogo tone="white" alt={t("navbar.brand")} className="h-16" />
             </Link>
             <p className="text-primary-foreground/60 text-sm font-cairo leading-relaxed">{t("footer.description")}</p>
           </div>

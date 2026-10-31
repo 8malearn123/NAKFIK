@@ -27,7 +27,9 @@ const ar = {
     toastSuccess: "تم تسجيل الدخول بنجاح!",
     demoTitle: "حسابات تجريبية (للاختبار)",
     demoSuperAdmin: "🛡️ سوبر أدمن",
-    demoOrganizer: "🎪 منظّم فعاليات",
+    demoOrganizer: "🎪 منظّم شامل",
+    demoOrganizerPublic: "🎟️ منظّم الفعاليات العامة",
+    demoOrganizerPrivate: "💌 منظّم الفعاليات الخاصة",
     demoAttendee: "👤 حاضر",
   },
   register: {
@@ -131,7 +133,9 @@ const en: typeof ar = {
     toastSuccess: "Signed in successfully!",
     demoTitle: "Demo accounts (for testing)",
     demoSuperAdmin: "🛡️ Super Admin",
-    demoOrganizer: "🎪 Event Organizer",
+    demoOrganizer: "🎪 Full Organizer",
+    demoOrganizerPublic: "🎟️ Public Events Organizer",
+    demoOrganizerPrivate: "💌 Private Events Organizer",
     demoAttendee: "👤 Attendee",
   },
   register: {

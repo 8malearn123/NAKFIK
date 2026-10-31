@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import logo from "@/assets/logo.png";
+import BrandLogo from "@/components/brand/BrandLogo";
 import { Mail, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -47,7 +47,7 @@ const ForgotPassword = () => {
       >
         <div className="flex justify-center mb-8">
           <Link to="/">
-            <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
+            <BrandLogo alt={t("pgAuth.common.brandAlt")} className="h-16" />
           </Link>
         </div>
 

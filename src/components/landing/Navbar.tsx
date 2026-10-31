@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import BrandMark from "@/components/BrandMark";
+import BrandLogo from "@/components/brand/BrandLogo";
 
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
@@ -29,9 +29,8 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 right-0 left-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/50">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        <Link to="/" className="flex items-center gap-2.5" aria-label={t("navbar.brand")}>
-          <BrandMark className="h-9 w-9" />
-          <span className="font-kufi font-bold text-xl text-primary hidden sm:inline">{t("navbar.brand")}</span>
+        <Link to="/" className="flex items-center gap-3" aria-label={t("navbar.brand")}>
+          <BrandLogo variant="wordmark" alt={t("navbar.brand")} className="h-9 transition-transform duration-300 hover:-rotate-2" />
         </Link>
 
         <div className="hidden md:flex items-center gap-6 font-cairo text-sm font-medium">
