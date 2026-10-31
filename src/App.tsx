@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
 import ImpersonationBanner from "@/components/admin/ImpersonationBanner";
+import DemoModeBanner from "@/components/DemoModeBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import EventsMarketplace from "./pages/EventsMarketplace";
@@ -91,6 +92,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <ImpersonationBanner />
+              <DemoModeBanner />
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
