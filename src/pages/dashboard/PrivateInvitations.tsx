@@ -7,6 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import RsvpBar from "@/components/app/RsvpBar";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
+import { daysLeftLabel, formatTime, formatWeekday } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +25,7 @@ import {
   Calendar, MapPin, Shirt, Phone, Gift, Send, CheckCircle2, X,
   Heart, Flower2, GraduationCap, Cake, Landmark, Mic2, Scissors, Crown, Briefcase, Sparkles,
   Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList, CalendarDays, Save, DoorOpen,
+  BarChart3, MoreHorizontal, ScanLine, UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
@@ -95,6 +102,27 @@ const GUEST_TIERS: Record<string, { label: string; cls: string }> = {
 const TIER_KEYS = ["vvip", "vip", "regular"] as const;
 
 // Presets — تطبق ستايل و رسالة افتراضية حسب نوع المناسبة
+// لون غلاف البطاقة حسب نوع المناسبة: [الخلفية، الأيقونة]
+const COVER_TONES: Record<string, [string, string]> = {
+  wedding: ["#F4E9F0", "#7A3B5D"], engagement: ["#F0ECF5", "#5B3A70"], graduation: ["#FBF0E0", "#8F5A14"],
+  birthday: ["#FBECEA", "#A03C4A"], forum: ["#E9EEF6", "#34527E"], conference: ["#E9EEF6", "#34527E"],
+  opening: ["#FBECEA", "#A03C4A"], vip: ["#FBF0E0", "#8F5A14"], corporate: ["#E6F1F0", "#0B6159"], other: ["#F0ECF5", "#5B3A70"],
+};
+
+interface InvStats { total: number; confirmed: number; declined: number; sent: number }
+type InvView = "all" | "upcoming" | "draft" | "ended";
+
+const isEnded = (inv: { event_date: string; status: string }) => inv.status === "cancelled" || new Date(inv.event_date).getTime() < Date.now();
+
+const invStatus = (inv: { event_date: string; status: string }, s: InvStats): { label: string; tone: StatusTone } => {
+  if (inv.status === "cancelled") return { label: "ملغاة", tone: "danger" };
+  if (isEnded(inv)) return { label: "منتهية", tone: "neutral" };
+  if (inv.status === "draft") return { label: "مسودة", tone: "neutral" };
+  if (s.total > 0 && s.sent === 0) return { label: "لم تُرسل", tone: "primary" };
+  if (new Date(inv.event_date).getTime() - Date.now() < 7 * 86400000) return { label: "قريبة", tone: "warning" };
+  return { label: "نشطة", tone: "success" };
+};
+
 const CATEGORY_PRESETS: Record<string, {
   label: string; Icon: LucideIcon; formality: "personal" | "formal" | "business";
   theme: string; accent: string; font: string; message: string; dress?: string;
@@ -145,6 +173,8 @@ const PrivateInvitations = () => {
   const { user } = useAuth();
   const [orgId, setOrgId] = useState<string | null>(null);
   const [items, setItems] = useState<Inv[]>([]);
+  const [invStats, setInvStats] = useState<Record<string, InvStats>>({});
+  const [view, setView] = useState<InvView>("all");
   const [loading, setLoading] = useState(true);
 
   const [open, setOpen] = useState(false);
@@ -372,10 +402,27 @@ const PrivateInvitations = () => {
       .eq("organization_id", org.id)
       .order("created_at", { ascending: false });
     setItems((data || []) as any);
+    await loadStats(((data || []) as any[]).map((i) => i.id));
     setLoading(false);
   };
 
+  const loadStats = async (ids: string[]) => {
+    if (!ids.length) { setInvStats({}); return; }
+    const { data } = await supabase.from("private_invitation_guests").select("invitation_id, rsvp_status, invite_sent_at").in("invitation_id", ids);
+    const next: Record<string, InvStats> = {};
+    ((data || []) as any[]).forEach((g) => {
+      const s = (next[g.invitation_id] ??= { total: 0, confirmed: 0, declined: 0, sent: 0 });
+      s.total += 1;
+      if (g.rsvp_status === "confirmed") s.confirmed += 1;
+      if (g.rsvp_status === "declined") s.declined += 1;
+      if (g.invite_sent_at) s.sent += 1;
+    });
+    setInvStats(next);
+  };
+
   useEffect(() => { document.title = "الدعوات الخاصة | نكفيك"; load(); }, [user]);
+  // أرقام البطاقات تتحدث بعد إغلاق نافذة المدعوين
+  useEffect(() => { if (!activeInv && items.length) loadStats(items.map((i) => i.id)); }, [activeInv]);
 
   const loadGuests = async (invId: string) => {
     const { data } = await supabase
@@ -620,107 +667,120 @@ const PrivateInvitations = () => {
     );
   };
 
+  const statsOf = (inv: Inv): InvStats => invStats[inv.id] ?? { total: 0, confirmed: 0, declined: 0, sent: 0 };
+
+  // زر واحد يقول ما يجب فعله الآن، وبقية الإجراءات في قائمة المزيد
+  const nextStep = (inv: Inv): { label: string; icon: LucideIcon; run: () => void } => {
+    const s = statsOf(inv);
+    if (isEnded(inv)) return { label: "اعرض الحضور", icon: BarChart3, run: () => openAttendance(inv) };
+    if (s.total === 0) return { label: "أضف المدعوين", icon: UserPlus, run: () => openGuests(inv) };
+    if (s.sent === 0) return { label: "أرسل الروابط", icon: Send, run: () => openGuests(inv) };
+    if (new Date(inv.event_date).getTime() - Date.now() < 7 * 86400000) return { label: "جهّز تسجيل الحضور", icon: ScanLine, run: () => openDays(inv) };
+    const waiting = s.total - s.confirmed - s.declined;
+    if (waiting > 0) return { label: `ذكّر ${waiting} مدعواً`, icon: Bell, run: () => setReminderInv(inv) };
+    return { label: "المدعوون", icon: Users, run: () => openGuests(inv) };
+  };
+
+  const inView = (inv: Inv) =>
+    view === "all" ||
+    (view === "draft" && inv.status === "draft" && !isEnded(inv)) ||
+    (view === "ended" && isEnded(inv)) ||
+    (view === "upcoming" && inv.status !== "draft" && !isEnded(inv));
+  const visible = items.filter(inView).sort((a, b) => Number(isEnded(a)) - Number(isEnded(b)) || new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+  const viewCount = (v: InvView) => items.filter((inv) => (v === "draft" ? inv.status === "draft" && !isEnded(inv) : v === "ended" ? isEnded(inv) : v === "upcoming" ? inv.status !== "draft" && !isEnded(inv) : true)).length;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-display text-2xl text-primary flex items-center gap-2">
-              <Mail className="w-6 h-6" /> الدعوات الخاصة
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              دعوات مخصصة بكروت رقمية و QR لمناسباتك (أعراس، VIP، تكريم...)
-            </p>
-          </div>
-          <Button onClick={openNew}>
-            <Plus className="w-4 h-4 ml-1" /> دعوة جديدة
-          </Button>
-        </div>
+        <PageHeader
+          title="الدعوات الخاصة"
+          description="تابع ردود مدعويك وأدر مناسباتك من مكان واحد"
+          actions={<Button onClick={openNew}><Plus className="w-4 h-4" /> دعوة جديدة</Button>}
+        />
+
+        {!loading && items.length > 0 && (
+          <Tabs value={view} onValueChange={(v) => setView(v as InvView)}>
+            <TabsList>
+              {([["all", "الكل"], ["upcoming", "قادمة"], ["draft", "مسودة"], ["ended", "منتهية"]] as [InvView, string][]).map(([key, label]) => (
+                <TabsTrigger key={key} value={key} className="gap-1.5">
+                  {label}
+                  <span className="text-xs font-normal text-muted-foreground">{viewCount(key)}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
 
         {loading ? (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {[1, 2].map(i => <div key={i} className="h-48 bg-card border rounded-2xl animate-pulse" />)}
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map(i => <div key={i} className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-16 bg-card border rounded-3xl">
-            <Mail className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground">لم تنشئ أي دعوة خاصة بعد</p>
-            <Button onClick={openNew} className="mt-4">
-              <Plus className="w-4 h-4 ml-1" /> أنشئ أول دعوة
-            </Button>
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState icon={Mail} title="لم تنشئ أي دعوة خاصة بعد" description="أنشئ أول دعوة وأضف مدعويك وأرسل لهم روابطهم" action={<Button onClick={openNew}><Plus className="w-4 h-4" /> أنشئ أول دعوة</Button>} />
           </div>
         ) : (
-          <div dir="rtl" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((inv) => (
-              <div
-                key={inv.id}
-                className="bg-card border rounded-2xl overflow-hidden flex flex-col hover:shadow-lg transition"
-                style={{ borderColor: inv.theme_color + "33" }}
-              >
-                <div
-                  className="h-32 relative flex items-end p-4"
-                  style={{
-                    background: inv.cover_image_url
-                      ? `url(${inv.cover_image_url}) center/cover`
-                      : `linear-gradient(135deg, ${inv.theme_color}, ${inv.accent_color})`,
-                  }}
-                >
-                  <div className="absolute inset-0 bg-black/30" />
-                  <div className="relative text-white">
-                    <p className="text-[10px] opacity-90 mb-0.5 flex items-center gap-1">
-                      {(() => { const I = CATEGORY_PRESETS[inv.category]?.Icon; return I ? <I className="w-3 h-3" /> : null; })()}
-                      {CATEGORY_PRESETS[inv.category]?.label || "مناسبة"}
-                    </p>
-                    <h3 className="font-bold text-lg">{inv.title}</h3>
-                    {inv.host_name && <p className="text-xs opacity-90">{inv.formality === "business" ? "الجهة:" : "المضيف:"} {inv.host_name}</p>}
-                  </div>
-                  <Badge
-                    className="absolute top-2 left-2"
-                    variant={inv.status === "active" ? "default" : inv.status === "cancelled" ? "destructive" : "secondary"}
+          <div dir="rtl" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {visible.map((inv) => {
+              const stats = statsOf(inv);
+              const status = invStatus(inv, stats);
+              const step = nextStep(inv);
+              const [coverBg, coverFg] = COVER_TONES[inv.category] ?? COVER_TONES.other;
+              const CategoryIcon = CATEGORY_PRESETS[inv.category]?.Icon ?? Sparkles;
+              return (
+                <article key={inv.id} className="flex flex-col overflow-hidden rounded-2xl bg-card shadow-soft">
+                  <div
+                    className="flex h-[76px] items-center justify-between px-5"
+                    style={{ background: inv.cover_image_url ? `url(${inv.cover_image_url}) center/cover` : coverBg }}
                   >
-                    {inv.status === "active" ? "نشطة" : inv.status === "draft" ? "مسودة" : inv.status === "cancelled" ? "ملغاة" : "مغلقة"}
-                  </Badge>
-                </div>
-                <div className="p-4 space-y-2 flex-1 flex flex-col">
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(inv.event_date).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" })}</p>
-                    {inv.venue_name && <p className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {inv.venue_name}</p>}
+                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/85" style={{ color: coverFg }}>
+                      <CategoryIcon className="h-5 w-5" />
+                    </span>
+                    <StatusBadge tone={status.tone} className="bg-white">{status.label}</StatusBadge>
                   </div>
-                  <div className="flex gap-2 mt-auto pt-3 flex-wrap">
-                    <Button size="sm" variant="secondary" onClick={() => openGuests(inv)}>
-                      <Users className="w-3 h-3 ml-1" /> المدعوين
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setReminderInv(inv)}>
-                      <Bell className="w-3 h-3 ml-1" /> التذكيرات
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openAttendance(inv)}>
-                      <ClipboardList className="w-3 h-3 ml-1" /> الحضور
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openDays(inv)}>
-                      <CalendarDays className="w-3 h-3 ml-1" /> الأيام
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-amber-700 border-amber-300 hover:bg-amber-50"
-                      onClick={() => setSchedInv(inv)}
-                      title="إلغاء أو تأجيل المناسبة — يظهر التحديث لكل المدعوين تلقائياً"
-                    >
-                      إلغاء/تأجيل
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openEdit(inv)}>
-                      <Pencil className="w-3 h-3 ml-1" /> تعديل
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => toggleStatus(inv)}>
-                      {inv.status === "active" ? "إيقاف" : "تفعيل"}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => remove(inv.id)}>
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </Button>
+                  <div className="flex flex-1 flex-col gap-3 px-5 pb-5 pt-4">
+                    <h3 className="truncate text-base font-bold leading-6">{inv.title}</h3>
+                    <div className="space-y-1 text-[13px] leading-5 text-muted-foreground">
+                      <p className="flex items-center gap-2"><Calendar className="h-[15px] w-[15px] flex-none opacity-70" /> {formatWeekday(inv.event_date)}، {formatTime(inv.event_date)}</p>
+                      <p className="flex items-center gap-2"><MapPin className="h-[15px] w-[15px] flex-none opacity-70" /> <span className="truncate">{[inv.venue_name, inv.venue_address].filter(Boolean).join("، ") || "لم يُحدد المكان"}</span></p>
+                    </div>
+                    <div className="min-h-[44px]">
+                      {stats.total === 0 ? (
+                        <p className="text-sm text-muted-foreground">لا يوجد مدعوون بعد</p>
+                      ) : stats.sent === 0 ? (
+                        <p className="text-sm text-muted-foreground">{stats.total} مدعو، لم تُرسل الروابط</p>
+                      ) : (
+                        <RsvpBar confirmed={stats.confirmed} declined={stats.declined} total={stats.total} />
+                      )}
+                      {!isEnded(inv) && <p className="sr-only">{daysLeftLabel(inv.event_date)}</p>}
+                    </div>
+                    <div className="mt-auto flex items-center gap-2 pt-1">
+                      <Button size="sm" variant={isEnded(inv) ? "outline" : "soft"} className="flex-1" onClick={step.run}>
+                        <step.icon className="h-[15px] w-[15px]" /> {step.label}
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="outline" className="h-9 w-9 flex-none" aria-label="المزيد"><MoreHorizontal className="h-[18px] w-[18px]" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem onClick={() => openGuests(inv)}><Users className="h-4 w-4" /> المدعوون</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setReminderInv(inv)}><Bell className="h-4 w-4" /> التذكيرات</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openAttendance(inv)}><ClipboardList className="h-4 w-4" /> الحضور</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openDays(inv)}><CalendarDays className="h-4 w-4" /> الأيام والبوابات</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openEdit(inv)}><Pencil className="h-4 w-4" /> تعديل</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setSchedInv(inv)}><Calendar className="h-4 w-4" /> إلغاء أو تأجيل</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleStatus(inv)}><CheckCircle2 className="h-4 w-4" /> {inv.status === "active" ? "إيقاف" : "تفعيل"}</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => remove(inv.id)}><Trash2 className="h-4 w-4" /> حذف</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </article>
+              );
+            })}
+            {visible.length === 0 && <p className="col-span-full py-10 text-center text-sm text-muted-foreground">لا توجد دعوات في هذا التصنيف</p>}
           </div>
         )}
 

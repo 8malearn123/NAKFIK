@@ -10,7 +10,7 @@
 
 export const DEMO_PASSWORD = "Demo@12345";
 const MODE_KEY = "nakfeek-demo-mode";
-const DB_KEY = "nakfeek-demo-db-v6";
+const DB_KEY = "nakfeek-demo-db-v7";
 const REAL_LOGIN_TIMEOUT_MS = 6000;
 
 const ORG_ID = "00000000-0000-4000-a000-000000000001";        // منظم شامل (عام + خاص)
@@ -84,7 +84,7 @@ function seed(): DB {
   });
   const events = [
     event("00000000-0000-4000-b000-000000000001", "ملتقى الرياض للابتكار", 12, "published", { current_attendees_count: 2 }),
-    event("00000000-0000-4000-b000-000000000002", "ورشة تصميم تجربة المستخدم", 25, "pending_review", { category: "workshop", max_attendees: 40 }),
+    event("00000000-0000-4000-b000-000000000002", "ورشة تصميم تجربة المستخدم", 25, "pending_review", { category: "workshop", max_attendees: 40, created_at: daysFromNow(-3) }),
     event("00000000-0000-4000-b000-000000000003", "لقاء رواد الأعمال", -20, "completed", { category: "meetup" }),
     event("00000000-0000-4000-b000-000000000011", "مهرجان جدة للتقنية", 9, "published", { current_attendees_count: 1, venue_name: "سوبر دوم جدة", venue_address: "جدة", max_attendees: 1500 }, ORG_PUBLIC_ID, orgPub.id),
     event("00000000-0000-4000-b000-000000000012", "مؤتمر التسويق الرقمي", 33, "published", { is_free: false, venue_name: "فندق الريتز كارلتون", max_attendees: 500 }, ORG_PUBLIC_ID, orgPub.id),
@@ -103,22 +103,44 @@ function seed(): DB {
     created_at: now, updated_at: now, ...extra,
   });
   const invitations = [
-    inv("00000000-0000-4000-c000-000000000001", "حفل زفاف خالد وسارة", 18),
-    inv("00000000-0000-4000-c000-000000000002", "عشاء الشركاء السنوي", 6, { category: "corporate", host_name: "نكفيك التجارية" }),
-    inv("00000000-0000-4000-c000-000000000011", "حفل تخرج دفعة 2026", 14, { category: "graduation", host_name: "عائلة القحطاني", venue_name: "قاعة الملكية" }, ORG_PRIVATE_ID, orgPriv.id),
-    inv("00000000-0000-4000-c000-000000000012", "ملكة عبدالله وريم", 27, { host_name: "عائلة الشمري" }, ORG_PRIVATE_ID, orgPriv.id),
-    inv("00000000-0000-4000-c000-000000000013", "اجتماع مجلس الإدارة", 4, { category: "corporate", formality: "business", host_name: "شركة الأفق", venue_name: "برج المملكة" }, ORG_PRIVATE_ID, orgPriv.id),
+    inv("00000000-0000-4000-c000-000000000001", "حفل زفاف خالد وسارة", 17),
+    inv("00000000-0000-4000-c000-000000000002", "عشاء الشركاء السنوي", 5, { category: "corporate", formality: "business", host_name: "نكفيك التجارية", venue_name: "فندق الفيصلية" }),
+    inv("00000000-0000-4000-c000-000000000003", "حفل تخرج دفعة 2026", 14, { category: "graduation", host_name: "عائلة القحطاني", venue_name: "قاعة الملكية" }),
+    inv("00000000-0000-4000-c000-000000000004", "ملكة عبدالله وريم", 27, { status: "draft", host_name: "عائلة الشمري", venue_name: "دار المها", venue_address: "جدة" }),
+    inv("00000000-0000-4000-c000-000000000005", "اجتماع مجلس الإدارة", 3, { category: "corporate", formality: "business", host_name: "شركة الأفق", venue_name: "برج المملكة" }),
+    inv("00000000-0000-4000-c000-000000000006", "ملتقى خريجي الجامعة", -19, { category: "conference", formality: "business", host_name: "جامعة الملك سعود", venue_name: "مركز الملك عبدالعزيز" }),
+    inv("00000000-0000-4000-c000-000000000011", "حفل تكريم المتفوقين", 9, { category: "graduation", host_name: "مدارس النخبة", venue_name: "قاعة الملكية" }, ORG_PRIVATE_ID, orgPriv.id),
+    inv("00000000-0000-4000-c000-000000000012", "زفاف نوف وتركي", 6, { host_name: "عائلة العتيبي", venue_address: "جدة" }, ORG_PRIVATE_ID, orgPriv.id),
+    inv("00000000-0000-4000-c000-000000000013", "لقاء أهالي الحي", 7, { category: "corporate", host_name: "مؤسسة الأفق", venue_name: "نادي الحي" }, ORG_PRIVATE_ID, orgPriv.id),
   ];
-  const names = ["أحمد العتيبي", "نورة القحطاني", "فهد الشمري", "ريم الدوسري", "سلمان الحربي", "هند الزهراني", "ماجد المطيري", "لمى السبيعي"];
-  const statuses = ["confirmed", "confirmed", "confirmed", "declined", "pending", "pending", "confirmed", "pending"];
-  const guests = invitations.flatMap((iv, k) =>
-    names.map((n, i) => ({
-      id: uuid(), invitation_id: iv.id, guest_name: n, guest_phone: `05${(k * 8 + i + 10000000).toString().slice(0, 8)}`,
-      guest_email: null, rsvp_status: statuses[(i + k) % statuses.length], companions_count: i % 3 === 0 ? 1 : 0,
-      token: uuid(), invite_sent_at: now, confirmed_at: statuses[(i + k) % statuses.length] === "confirmed" ? now : null,
-      checked_in_at: null, notes: null, created_at: now, updated_at: now,
-    })),
-  );
+  // [مؤكد، معتذر، لم يرد، حضر فعلاً، أُرسلت الروابط]
+  const plan: Record<string, [number, number, number, number, boolean]> = {
+    "0001": [156, 18, 66, 0, true],
+    "0002": [96, 9, 15, 0, true],
+    "0003": [0, 0, 300, 0, false],
+    "0005": [16, 1, 1, 0, true],
+    "0006": [160, 5, 15, 142, true],
+    "0011": [62, 4, 24, 0, true],
+    "0012": [229, 21, 60, 0, true],
+    "0013": [31, 4, 50, 0, true],
+  };
+  const firstNames = ["أحمد", "نورة", "فهد", "ريم", "سلمان", "هند", "ماجد", "لمى", "عبدالله", "سارة", "تركي", "منيرة", "خالد", "أسماء", "بدر", "جواهر", "محمد", "دانة", "عمر", "شهد"];
+  const lastNames = ["العتيبي", "القحطاني", "الشمري", "الدوسري", "الحربي", "الزهراني", "المطيري", "السبيعي", "الغامدي", "العنزي", "السهلي", "البقمي", "الرشيدي", "الشهري"];
+  const guests = invitations.flatMap((iv, k) => {
+    const [c, d, n, attended, sent] = plan[iv.id.slice(-4)] ?? [0, 0, 0, 0, false];
+    const total = c + d + n;
+    return Array.from({ length: total }, (_, i) => {
+      const status = i < c ? "confirmed" : i < c + d ? "declined" : "pending";
+      const added = daysFromNow(-Math.round(150 - (i / Math.max(total, 1)) * 140), 12);
+      const replied = status === "pending" ? null : daysFromNow(-Math.round(145 - (i / Math.max(total, 1)) * 140), 18);
+      return {
+        id: uuid(), invitation_id: iv.id, guest_name: `${firstNames[i % firstNames.length]} ${lastNames[(i + k) % lastNames.length]}`,
+        guest_phone: `05${String(10000000 + k * 7000 + i * 13).slice(0, 8)}`, guest_email: null, guest_tier: i % 40 === 2 ? "vvip" : i % 12 === 0 ? "vip" : "regular",
+        rsvp_status: status, companions_count: status === "confirmed" && i % 5 === 0 ? 1 + (i % 2) : 0, token: uuid(),
+        invite_sent_at: sent ? added : null, confirmed_at: replied, checked_in_at: i < attended ? daysFromNow(-19, 20) : null, notes: null, created_at: added, updated_at: added,
+      };
+    });
+  });
 
   const guestList = (id: string, name: string, description: string, orgId = ORG_ID, ownerId: string = org.id) => ({
     id, organization_id: orgId, created_by: ownerId, name, description, created_at: now, updated_at: now,
@@ -182,9 +204,47 @@ function seed(): DB {
       { id: uuid(), event_id: events[2].id, attendee_id: att.id, ticket_id: null, status: "checked_in", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-2", registered_at: now, checked_in_at: now },
       { id: uuid(), event_id: events[3].id, attendee_id: att.id, ticket_id: "00000000-0000-4000-d000-000000000011", status: "confirmed", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-3", registered_at: now, checked_in_at: null },
     ],
-    account_subscriptions: [subscription(org.id, 3), subscription(orgPub.id, 3), subscription(orgPriv.id, 3)],
+    account_subscriptions: [subscription(org.id, 3), { ...subscription(orgPub.id, 3), expires_at: daysFromNow(5), current_period_end: daysFromNow(5) }, subscription(orgPriv.id, 3)],
     private_invitations: invitations,
     private_invitation_guests: guests,
+    team_members: [
+      { id: uuid(), organization_id: ORG_ID, full_name: "نورة العمري", phone: "+966512345678", email: "noura@example.com", role: "event_manager", permissions: ["events.manage", "guests.manage", "reports.view"], invite_status: "accepted", joined_at: daysFromNow(-60), user_id: null, invited_by: org.id },
+      { id: uuid(), organization_id: ORG_ID, full_name: "ماجد الحربي", phone: "+966534567890", email: "majed@example.com", role: "checkin_staff", permissions: ["checkin"], invite_status: "accepted", joined_at: daysFromNow(-30), user_id: null, invited_by: org.id },
+      { id: uuid(), organization_id: ORG_ID, full_name: "لمى السبيعي", phone: "+966556789012", email: null, role: "reporter", permissions: ["reports.view"], invite_status: "pending", joined_at: null, user_id: null, invited_by: org.id },
+    ],
+    admin_team_members: [
+      { id: uuid(), full_name: "سلمان الدوسري", email: "salman@example.com", phone: "+966501112222", permissions: ["users.manage", "events.review"], invite_status: "accepted", user_id: null, invited_by: admin.id, created_at: now, updated_at: now },
+      { id: uuid(), full_name: "هند الزهراني", email: "hind@example.com", phone: null, permissions: ["finance.view"], invite_status: "pending", user_id: null, invited_by: admin.id, created_at: now, updated_at: now },
+    ],
+    in_app_notifications: [org.id, orgPriv.id, att.id].flatMap((userId) => [
+      { id: uuid(), user_id: userId, title: "رد جديد على دعوتك", body: "أكد 12 مدعواً حضورهم اليوم في حفل زفاف خالد وسارة.", is_read: false, link: null, created_at: daysFromNow(0, 9) },
+      { id: uuid(), user_id: userId, title: "تذكير بمناسبة قريبة", body: "يبدأ اجتماع مجلس الإدارة بعد 3 أيام، جهّز تسجيل الحضور.", is_read: false, link: null, created_at: daysFromNow(-1, 15) },
+      { id: uuid(), user_id: userId, title: "تم تجديد اشتراكك", body: "تم تجديد الباقة الاحترافية لمدة سنة.", is_read: true, link: null, created_at: daysFromNow(-6, 11) },
+    ]),
+    announcements: [
+      { id: uuid(), title: "تحديث جديد في تقارير الدعوات", content: "أضفنا تصدير التقارير بصيغة Excel وفلاتر التصنيف.", type: "info", status: "published", target_audience: "organizers", starts_at: daysFromNow(-4), expires_at: daysFromNow(10), created_by: admin.id, created_at: daysFromNow(-4), updated_at: now },
+      { id: uuid(), title: "صيانة مجدولة ليلة الجمعة", content: "قد تتوقف بعض الخدمات لمدة 30 دقيقة بعد منتصف الليل.", type: "warning", status: "draft", target_audience: "all", starts_at: daysFromNow(6), expires_at: daysFromNow(7), created_by: admin.id, created_at: daysFromNow(-1), updated_at: now },
+    ],
+    service_provider_categories: [["تصوير", "Photography", "camera"], ["ضيافة", "Catering", "coffee"], ["تنسيق وديكور", "Decor", "flower"], ["صوت وإضاءة", "AV", "mic"]].map(([name_ar, name_en, icon], i) => ({ id: `00000000-0000-4000-f000-00000000000${i + 1}`, name_ar, name_en, icon, is_active: true, display_order: i, created_at: now, updated_at: now })),
+    service_providers: [
+      { id: uuid(), business_name: "عدسة الرياض", contact_name: "فيصل الغامدي", phone: "0501239876", email: "hello@lens.example", city: "الرياض", category_id: "00000000-0000-4000-f000-000000000001", description: "تصوير المناسبات والمؤتمرات", status: "pending", website_url: null, logo_url: null, created_at: daysFromNow(-2), updated_at: now },
+      { id: uuid(), business_name: "ضيافة النخبة", contact_name: "عمر العنزي", phone: "0559871234", email: "orders@nokhba.example", city: "جدة", category_id: "00000000-0000-4000-f000-000000000002", description: "ضيافة فاخرة للمناسبات الخاصة", status: "approved", website_url: null, logo_url: null, created_at: daysFromNow(-20), updated_at: now },
+    ],
+    featured_services: [["تغطية تصويرية كاملة", "تصوير", "2,500", "يوم واحد"], ["تنسيق قاعة المناسبات", "تنسيق", "4,000", "يومان"], ["طاقم تسجيل الحضور", "تشغيل", "1,200", "يوم واحد"]].map(([name, category, price, duration], i) => ({ id: uuid(), name, category, description: "خدمة تقدمها نكفيك بفريق متخصص وتنفيذ كامل.", starting_price: Number(price.replace(",", "")), price_unit: "ر.س", duration, features: ["فريق متخصص", "تنفيذ كامل", "متابعة بعد المناسبة"], image_url: null, is_active: true, is_featured: i === 0, display_order: i, created_at: now, updated_at: now })),
+    service_requests: [
+      { id: uuid(), organizer_id: org.id, title: "تصوير حفل تخرج", description: "نحتاج مصورين اثنين لمدة أربع ساعات.", category_id: "00000000-0000-4000-f000-000000000001", city: "الرياض", budget: 3000, contact_phone: "0501234567", event_date: daysFromNow(14), status: "new", admin_notes: null, assigned_provider_id: null, created_at: daysFromNow(-1), updated_at: now },
+      { id: uuid(), organizer_id: org.id, title: "ضيافة عشاء الشركاء", description: "ضيافة لنحو 120 ضيفاً.", category_id: "00000000-0000-4000-f000-000000000002", city: "الرياض", budget: 18000, contact_phone: null, event_date: daysFromNow(5), status: "in_review", admin_notes: null, assigned_provider_id: null, created_at: daysFromNow(-6), updated_at: now },
+    ],
+    service_bookings: [],
+    partner_brands: [["فنادق الرتز", "ضيافة", 15], ["طيران ناس", "سفر", 10], ["ورد نجد", "تنسيق", 20]].map(([name, category, value], i) => ({ id: uuid(), name, category, description: "خصم حصري لمنظمي نكفيك.", discount_code: `NAKFEEK${value}`, discount_type: "percent", discount_value: value, terms: "يسري على الحجوزات الجديدة فقط.", website_url: null, logo_url: null, is_active: true, display_order: i, expires_at: daysFromNow(90), created_by: admin.id, created_at: now, updated_at: now })),
+    transactions: [12, 9, 5, 2].map((d, i) => ({ id: uuid(), account_id: ORG_ID, account_type: "organizer", amount: [3500, 1750, 5250, 700][i], commission_rate: 5, commission_amount: [175, 87.5, 262.5, 35][i], net_amount: [3325, 1662.5, 4987.5, 665][i], currency: "SAR", event_id: events[4].id, status: "completed", transaction_type: "ticket_sale", description_ar: "بيع تذاكر مؤتمر التسويق الرقمي", payment_method: "mada", created_at: daysFromNow(-d), updated_at: now })),
+    payouts: [{ id: uuid(), account_id: ORG_ID, account_type: "organizer", amount: 6650, currency: "SAR", status: "pending", bank_name: "البنك الأهلي", iban: "SA0000000000000000000000", account_holder_name: "مكتب الأحمد للمناسبات", transactions_count: 3, total_sales: 7000, total_commission: 350, created_at: daysFromNow(-3), updated_at: now }],
+    commission_settings: [["tickets", 5], ["subscriptions", 0], ["services", 10]].map(([category, rate_percent]) => ({ id: uuid(), category, rate_percent, is_active: true, min_amount: null, max_amount: null, created_at: now, updated_at: now })),
+    networking_profiles: [
+      { id: uuid(), user_id: att.id, connect_code: "demo-attendee-card", job_title: "مصممة منتجات", company: "استوديو نور", bio: "أحب بناء تجارب سهلة وواضحة.", whatsapp: "+966512345678", email_public: "attendee1@nakfeek.sa", expertise: ["تصميم", "بحث مستخدمين"], looking_for: ["شراكات", "فرص عمل"], networking_enabled: true, privacy_level: "public", created_at: now, updated_at: now },
+      { id: uuid(), user_id: orgPub.id, connect_code: "demo-connection-card", job_title: "مدير فعاليات", company: "شركة الفعاليات العامة", bio: "تنظيم المؤتمرات الكبرى.", whatsapp: "+966598765432", email_public: "org-public@nakfeek.sa", expertise: ["إدارة فعاليات"], looking_for: [], networking_enabled: true, privacy_level: "public", created_at: now, updated_at: now },
+    ],
+    networking_connections: [{ id: uuid(), scanner_id: att.id, scanned_id: orgPub.id, event_id: events[0].id, scanned_at: daysFromNow(-8) }],
     guest_lists: guestLists,
     guest_list_contacts: guestListContacts,
     subscription_plans: [
