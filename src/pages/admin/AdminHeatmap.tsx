@@ -1,8 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
+import { CHART_COLORS } from "@/components/app/TrendChart";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { Activity, AlertTriangle, ExternalLink, Flame, Building2 } from "lucide-react";
+import { formatNumber, formatPercent } from "@/lib/format";
+import { Activity, AlertTriangle, Calendar, DoorOpen, ExternalLink, Gauge, Users } from "lucide-react";
 
 interface EventRow {
   id: string;
@@ -24,13 +33,28 @@ interface OrgRow {
   pct: number;
 }
 
-const pressureBucket = (pct: number) => {
-  if (pct >= 90) return { label: "ممتلئ", cls: "bg-destructive text-destructive-foreground" };
-  if (pct >= 75) return { label: "ضغط عالٍ", cls: "bg-brand-brick text-white" };
-  if (pct >= 50) return { label: "متوسط", cls: "bg-brand-gold text-white" };
-  if (pct >= 25) return { label: "منخفض", cls: "bg-brand-teal text-white" };
-  return { label: "هادئ", cls: "bg-muted text-muted-foreground" };
+const pressureBucket = (pct: number): { label: string; tone: StatusTone; bar: string } => {
+  if (pct >= 90) return { label: "ممتلئ", tone: "danger", bar: CHART_COLORS.danger };
+  if (pct >= 75) return { label: "ضغط عالٍ", tone: "warning", bar: CHART_COLORS.gold };
+  if (pct >= 50) return { label: "متوسط", tone: "primary", bar: CHART_COLORS.primary };
+  if (pct >= 25) return { label: "منخفض", tone: "success", bar: CHART_COLORS.primary };
+  return { label: "هادئ", tone: "neutral", bar: CHART_COLORS.primary };
 };
+
+const criticalGatesLabel = (n: number) => {
+  if (n === 1) return "بوابة حرجة واحدة";
+  if (n === 2) return "بوابتان حرجتان";
+  return `${formatNumber(n)} ${n <= 10 ? "بوابات حرجة" : "بوابة حرجة"}`;
+};
+
+const Occupancy = ({ pct, bar }: { pct: number; bar: string }) => (
+  <div className="flex w-36 flex-col gap-1.5">
+    <b className="text-sm font-bold">{formatPercent(pct)}</b>
+    <div className="h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: bar }} />
+    </div>
+  </div>
+);
 
 const AdminHeatmap = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -124,156 +148,134 @@ const AdminHeatmap = () => {
     return { totalEvents, totalScans, totalCap, critical, pct: totalCap > 0 ? Math.round((totalScans / totalCap) * 100) : 0 };
   }, [events]);
 
-  if (loading) return (
-    <AdminLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-4 border-destructive/30 border-t-destructive rounded-full animate-spin" />
-      </div>
-    </AdminLayout>
-  );
+  // التحديث الدوري كل 30 ثانية لا يخفي البيانات المعروضة
+  if (loading && events.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <PageHeader title="الخارطة الحرارية للمنصة" description="…" />
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+            {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+          <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  const criticalEvents = events.filter(e => e.criticalGates > 0).slice(0, 5);
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground flex items-center gap-2">
-            <Flame className="w-6 h-6 text-destructive" /> الخارطة الحرارية للمنصة
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">نظرة شاملة على ضغط البوابات عبر كل الفعاليات النشطة • تحديث كل 30 ثانية</p>
+      <div className="space-y-6">
+        <PageHeader title="الخارطة الحرارية للمنصة" description="نظرة شاملة على ضغط البوابات عبر كل الفعاليات النشطة، تحديث كل 30 ثانية" />
+
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+          <StatCard label="فعاليات نشطة" value={formatNumber(platformStats.totalEvents)} icon={Calendar} />
+          <StatCard label="إجمالي الدخول" value={formatNumber(platformStats.totalScans)} icon={DoorOpen} />
+          <StatCard label="السعة الكلية" value={platformStats.totalCap ? formatNumber(platformStats.totalCap) : "∞"} icon={Users} />
+          <StatCard label="متوسط الإشغال" value={`${platformStats.pct}%`} icon={Gauge} />
+          <StatCard label="فعاليات حرجة" value={formatNumber(platformStats.critical)} icon={AlertTriangle} />
         </div>
 
-        {/* Platform-wide stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-card rounded-2xl border border-border/50 p-4">
-            <p className="text-xs text-muted-foreground">فعاليات نشطة</p>
-            <p className="text-2xl font-bold text-foreground tabular-nums">{platformStats.totalEvents}</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border/50 p-4">
-            <p className="text-xs text-muted-foreground">إجمالي الدخول</p>
-            <p className="text-2xl font-bold text-foreground tabular-nums">{platformStats.totalScans}</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border/50 p-4">
-            <p className="text-xs text-muted-foreground">السعة الكلية</p>
-            <p className="text-2xl font-bold text-foreground tabular-nums">{platformStats.totalCap || "∞"}</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border/50 p-4">
-            <p className="text-xs text-muted-foreground">متوسط الإشغال</p>
-            <p className="text-2xl font-bold text-foreground tabular-nums">{platformStats.pct}%</p>
-          </div>
-          <div className="bg-card rounded-2xl border-2 border-destructive/30 p-4">
-            <p className="text-xs text-destructive">فعاليات حرجة</p>
-            <p className="text-2xl font-bold text-destructive tabular-nums">{platformStats.critical}</p>
-          </div>
-        </div>
-
-        {/* Critical alerts */}
-        {events.filter(e => e.criticalGates > 0).slice(0, 5).map(e => (
-          <div key={`alert-${e.id}`} className="bg-destructive/10 border border-destructive rounded-xl p-3 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0" />
-            <div className="flex-1 text-sm">
-              <strong className="text-destructive">{e.title_ar}</strong> — {e.criticalGates} بوابة حرجة • {e.org_name}
+        {criticalEvents.length > 0 && (
+          <Panel title="فعاليات حرجة">
+            <div className="divide-y divide-border">
+              {criticalEvents.map(e => (
+                <div key={`alert-${e.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0">
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                    <AlertTriangle className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="min-w-0 flex-1 basis-3/5 sm:basis-0">
+                    <p className="truncate text-sm font-semibold leading-[22px]">{e.title_ar}</p>
+                    <p className="truncate text-xs leading-[18px] text-muted-foreground">{e.org_name}</p>
+                  </div>
+                  <StatusBadge tone="danger">{criticalGatesLabel(e.criticalGates)}</StatusBadge>
+                  <Button asChild variant="outline" size="sm" className="ms-auto sm:ms-0"><Link to={`/dashboard/events/${e.id}/heatmap`}>فتح</Link></Button>
+                </div>
+              ))}
             </div>
-            <Link to={`/dashboard/events/${e.id}/heatmap`} className="text-xs font-bold text-destructive hover:underline flex items-center gap-1">
-              فتح <ExternalLink className="w-3 h-3" />
-            </Link>
-          </div>
-        ))}
+          </Panel>
+        )}
 
-        {/* Events table */}
-        <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-          <div className="p-4 border-b border-border/50">
-            <h3 className="font-bold text-foreground flex items-center gap-2"><Activity className="w-4 h-4" /> كل الفعاليات حسب الضغط</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/30">
-                <tr>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">الفعالية</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">المنظِّم</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">البوابات</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">الدخول</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">السعة</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">الإشغال</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">الحالة</th>
-                  <th className="p-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {events.length === 0 ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد فعاليات نشطة</td></tr>
-                ) : events.map(e => {
+        <Panel title="كل الفعاليات حسب الضغط" flush>
+          {events.length === 0 ? (
+            <EmptyState
+              icon={Activity}
+              title="لا توجد فعاليات نشطة"
+              action={<Button asChild size="sm" variant="outline"><Link to="/admin/events">عرض جميع الفعاليات</Link></Button>}
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">الفعالية</TableHead>
+                  <TableHead>البوابات</TableHead>
+                  <TableHead>الدخول</TableHead>
+                  <TableHead>السعة</TableHead>
+                  <TableHead>الإشغال</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead className="pe-6"><span className="sr-only">عرض</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {events.map(e => {
                   const pb = pressureBucket(e.pct);
                   return (
-                    <tr key={e.id} className="hover:bg-muted/20">
-                      <td className="p-3 font-medium text-foreground">{e.title_ar}</td>
-                      <td className="p-3 text-muted-foreground text-xs">{e.org_name}</td>
-                      <td className="p-3 text-foreground tabular-nums">{e.gates} {e.criticalGates > 0 && <span className="text-destructive font-bold">({e.criticalGates}⚠️)</span>}</td>
-                      <td className="p-3 text-foreground tabular-nums">{e.totalScans}</td>
-                      <td className="p-3 text-muted-foreground tabular-nums">{e.totalCapacity || "—"}</td>
-                      <td className="p-3 min-w-[120px]">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className={`h-full ${pb.cls.split(" ")[0]}`} style={{ width: `${e.pct}%` }} />
-                          </div>
-                          <span className="text-xs font-bold text-foreground tabular-nums w-10 text-left">{e.pct}%</span>
-                        </div>
-                      </td>
-                      <td className="p-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${pb.cls}`}>{pb.label}</span></td>
-                      <td className="p-3">
-                        <Link to={`/dashboard/events/${e.id}/heatmap`} className="text-xs text-primary hover:underline flex items-center gap-1">
-                          عرض <ExternalLink className="w-3 h-3" />
-                        </Link>
-                      </td>
-                    </tr>
+                    <TableRow key={e.id}>
+                      <TableCell className="whitespace-nowrap ps-6">
+                        <p className="font-semibold leading-[22px]">{e.title_ar}</p>
+                        <p className="text-xs leading-[18px] text-muted-foreground">{e.org_name}</p>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="flex items-center gap-2">
+                          {formatNumber(e.gates)}
+                          {e.criticalGates > 0 && <StatusBadge tone="danger">{formatNumber(e.criticalGates)} حرجة</StatusBadge>}
+                        </span>
+                      </TableCell>
+                      <TableCell>{formatNumber(e.totalScans)}</TableCell>
+                      <TableCell className="text-muted-foreground">{e.totalCapacity ? formatNumber(e.totalCapacity) : "—"}</TableCell>
+                      <TableCell><Occupancy pct={e.pct} bar={pb.bar} /></TableCell>
+                      <TableCell><StatusBadge tone={pb.tone}>{pb.label}</StatusBadge></TableCell>
+                      <TableCell className="pe-6 text-end">
+                        <Button asChild size="sm" variant="ghost">
+                          <Link to={`/dashboard/events/${e.id}/heatmap`}>عرض <ExternalLink className="h-3.5 w-3.5" /></Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </TableBody>
+            </Table>
+          )}
+        </Panel>
 
-        {/* Organizer load */}
-        <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-          <div className="p-4 border-b border-border/50">
-            <h3 className="font-bold text-foreground flex items-center gap-2"><Building2 className="w-4 h-4" /> مقارنة المنظِّمين</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/30">
-                <tr>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">المنظِّم</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">فعاليات نشطة</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">الدخول</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">السعة</th>
-                  <th className="text-right p-3 font-semibold text-foreground text-xs">متوسط الإشغال</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {orgs.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">—</td></tr>
-                ) : orgs.map(o => {
-                  const pb = pressureBucket(o.pct);
-                  return (
-                    <tr key={o.organization_id} className="hover:bg-muted/20">
-                      <td className="p-3 font-medium text-foreground">{o.org_name}</td>
-                      <td className="p-3 text-foreground tabular-nums">{o.events}</td>
-                      <td className="p-3 text-foreground tabular-nums">{o.totalScans}</td>
-                      <td className="p-3 text-muted-foreground tabular-nums">{o.totalCapacity || "—"}</td>
-                      <td className="p-3 min-w-[140px]">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className={`h-full ${pb.cls.split(" ")[0]}`} style={{ width: `${o.pct}%` }} />
-                          </div>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${pb.cls}`}>{o.pct}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {orgs.length > 0 && (
+          <Panel title="مقارنة المنظِّمين" flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">المنظِّم</TableHead>
+                  <TableHead>فعاليات نشطة</TableHead>
+                  <TableHead>الدخول</TableHead>
+                  <TableHead>السعة</TableHead>
+                  <TableHead className="pe-6">متوسط الإشغال</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orgs.map(o => (
+                  <TableRow key={o.organization_id}>
+                    <TableCell className="whitespace-nowrap ps-6 font-semibold">{o.org_name}</TableCell>
+                    <TableCell>{formatNumber(o.events)}</TableCell>
+                    <TableCell>{formatNumber(o.totalScans)}</TableCell>
+                    <TableCell className="text-muted-foreground">{o.totalCapacity ? formatNumber(o.totalCapacity) : "—"}</TableCell>
+                    <TableCell className="pe-6"><Occupancy pct={o.pct} bar={pressureBucket(o.pct).bar} /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Panel>
+        )}
       </div>
     </AdminLayout>
   );

@@ -6,10 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import { formatNumber } from "@/lib/format";
 import { toast } from "sonner";
-import { Database, Plus, Pencil, Trash2, Users, Upload, FileSpreadsheet, Search, X } from "lucide-react";
+import { Database, FileSpreadsheet, MoreHorizontal, Pencil, Plus, Search, Trash2, Upload, Users } from "lucide-react";
 
 interface List {
   id: string;
@@ -49,6 +53,17 @@ const parseBulk = (raw: string): { name: string; phone: string | null; email: st
       return { name, phone, email };
     })
     .filter((c) => c.name);
+};
+
+// نافذة بترويسة وتذييل ثابتين، والمحتوى وحده يتمرر
+const SCROLL_DIALOG = "flex max-h-[90dvh] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none";
+
+// عدد المدعوين بصياغة عربية صحيحة، مثل: مدعوان، 5 مدعوين، 12 مدعواً
+const guestCount = (n: number) => {
+  if (n === 1) return "مدعو واحد";
+  if (n === 2) return "مدعوان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مدعوين" : tail >= 11 ? "مدعواً" : "مدعو"}`;
 };
 
 const GuestLists = () => {
@@ -122,7 +137,7 @@ const GuestLists = () => {
   };
 
   const removeList = async (id: string) => {
-    if (!confirm("حذف القائمة وكل جهات اتصالها؟")) return;
+    if (!confirm("حذف القائمة وكل مدعويها؟")) return;
     const { error } = await supabase.from("guest_lists").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("تم الحذف");
@@ -166,13 +181,13 @@ const GuestLists = () => {
   const bulkImport = async () => {
     if (!active) return;
     const parsed = parseBulk(bulkRaw);
-    if (!parsed.length) return toast.error("لا توجد بيانات صالحة. ضع كل جهة في سطر: الاسم، الجوال، البريد");
+    if (!parsed.length) return toast.error("لا توجد بيانات صالحة. ضع كل مدعو في سطر: الاسم، الجوال، البريد");
     const rows = parsed.map((p) => ({
       list_id: active.id, guest_name: p.name, guest_phone: p.phone, guest_email: p.email,
     }));
     const { error } = await supabase.from("guest_list_contacts").insert(rows);
     if (error) return toast.error(error.message);
-    toast.success(`تم استيراد ${rows.length} جهة`);
+    toast.success(`تم استيراد ${guestCount(rows.length)}`);
     setBulkRaw(""); setBulkOpen(false);
     loadContacts(active.id); load();
   };
@@ -194,150 +209,189 @@ const GuestLists = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-display text-2xl text-primary flex items-center gap-2">
-              <Database className="w-6 h-6" /> قواعد بيانات المدعوين
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              أنشئ قوائم جاهزة (عائلة، موظفين، VIP…) واربطها بأي دعوة لإرسالها دفعة واحدة.
-            </p>
-          </div>
-          <Button onClick={openNew}><Plus className="w-4 h-4 ml-1" /> قائمة جديدة</Button>
-        </div>
+        <PageHeader
+          title="قواعد بيانات المدعوين"
+          description="أنشئ قوائم جاهزة (عائلة، موظفين، VIP…) واربطها بأي دعوة لإرسالها دفعة واحدة."
+          actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> قائمة جديدة</Button>}
+        />
 
         {loading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => <div key={i} className="h-32 bg-card border rounded-2xl animate-pulse" />)}
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-44 animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
         ) : lists.length === 0 ? (
-          <div className="text-center py-16 bg-card border rounded-3xl">
-            <Database className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-muted-foreground">لم تنشئ أي قائمة بعد</p>
-            <Button onClick={openNew} className="mt-4"><Plus className="w-4 h-4 ml-1" /> أنشئ أول قائمة</Button>
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Database}
+              title="لم تنشئ أي قائمة بعد"
+              description="أنشئ قائمة وأضف إليها مدعويك لتستخدمها في أي دعوة"
+              action={<Button onClick={openNew}><Plus className="h-4 w-4" /> أنشئ أول قائمة</Button>}
+            />
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {lists.map((l) => (
-              <div key={l.id} className="bg-card border rounded-2xl p-4 hover:shadow-md transition flex flex-col gap-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold">{l.name}</h3>
-                      {l.description && <p className="text-xs text-muted-foreground line-clamp-1">{l.description}</p>}
-                    </div>
+              <article key={l.id} className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-soft">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                    <Users className="h-[17px] w-[17px]" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-base font-bold leading-6">{l.name}</h3>
+                    <p className="truncate text-[13px] leading-5 text-muted-foreground">{l.description || "بدون وصف"}</p>
                   </div>
-                  <Badge variant="secondary">{l.contacts_count || 0}</Badge>
                 </div>
-                <div className="flex gap-1 mt-2 flex-wrap">
-                  <Button size="sm" variant="secondary" onClick={() => openContacts(l)}>
-                    <Users className="w-3 h-3 ml-1" /> الجهات
+                <p className="text-sm text-muted-foreground">{guestCount(l.contacts_count || 0)}</p>
+                <div className="mt-auto flex items-center gap-2">
+                  <Button size="sm" variant="soft" className="flex-1" onClick={() => openContacts(l)}>
+                    <Users className="h-[15px] w-[15px]" /> المدعوون
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => openEdit(l)}>
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => removeList(l.id)}>
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="outline" className="h-9 w-9 flex-none" aria-label="المزيد"><MoreHorizontal className="h-[18px] w-[18px]" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => openEdit(l)}><Pencil className="h-4 w-4" /> تعديل</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => removeList(l.id)}><Trash2 className="h-4 w-4" /> حذف</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
 
         {/* List form */}
         <Dialog open={listOpen} onOpenChange={setListOpen}>
-          <DialogContent dir="rtl" className="max-w-md">
-            <DialogHeader><DialogTitle>{editing ? "تعديل القائمة" : "قائمة جديدة"}</DialogTitle></DialogHeader>
-            <div className="space-y-3 py-2">
-              <div>
+          <DialogContent dir="rtl" className="w-[calc(100%-1.5rem)] max-w-md rounded-2xl outline-none">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>{editing ? "تعديل القائمة" : "قائمة جديدة"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
                 <Label>اسم القائمة *</Label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="مثال: ضيوف العائلة" />
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label>الوصف (اختياري)</Label>
                 <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-row gap-2">
+              <Button className="flex-1 sm:flex-none" onClick={saveList}>{editing ? "حفظ" : "إنشاء"}</Button>
               <Button variant="outline" onClick={() => setListOpen(false)}>إلغاء</Button>
-              <Button onClick={saveList}>{editing ? "حفظ" : "إنشاء"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Contacts */}
         <Dialog open={contactsOpen} onOpenChange={setContactsOpen}>
-          <DialogContent dir="rtl" className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{active?.name} — {contacts.length} جهة</DialogTitle>
+          <DialogContent dir="rtl" className={`${SCROLL_DIALOG} max-w-3xl`}>
+            <DialogHeader className="px-6 pb-4 pe-12 pt-6 text-start">
+              <DialogTitle>{active?.name}</DialogTitle>
+              <DialogDescription>{guestCount(contacts.length)}</DialogDescription>
             </DialogHeader>
 
-            <div className="flex gap-2 flex-wrap mb-3">
-              <Button size="sm" variant="outline" onClick={() => { setBulkRaw(""); setBulkOpen(true); }}>
-                <Upload className="w-4 h-4 ml-1" /> استيراد دفعة (لصق)
-              </Button>
-              <label className="cursor-pointer">
-                <Button size="sm" variant="outline" asChild>
-                  <span><FileSpreadsheet className="w-4 h-4 ml-1" /> استيراد CSV</span>
-                </Button>
-                <input type="file" accept=".csv,text/csv,text/plain" className="hidden"
-                  onChange={(e) => e.target.files?.[0] && onCsvFile(e.target.files[0])} />
-              </label>
-              <div className="flex-1 min-w-[180px] relative">
-                <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input className="pr-9" placeholder="بحث..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-muted/30 rounded-xl p-3 mb-3">
-              <Input placeholder="الاسم *" value={newContact.guest_name} onChange={(e) => setNewContact({ ...newContact, guest_name: e.target.value })} />
-              <Input dir="ltr" placeholder="+9665..." value={newContact.guest_phone} onChange={(e) => setNewContact({ ...newContact, guest_phone: e.target.value })} />
-              <Input dir="ltr" placeholder="البريد" value={newContact.guest_email} onChange={(e) => setNewContact({ ...newContact, guest_email: e.target.value })} />
-              <Button onClick={addContact}><Plus className="w-4 h-4 ml-1" /> إضافة</Button>
-            </div>
-
-            <div className="space-y-1.5 max-h-[50vh] overflow-y-auto">
-              {filteredContacts.length === 0 && <p className="text-center text-muted-foreground p-6 text-sm">لا توجد جهات</p>}
-              {filteredContacts.map((c) => (
-                <div key={c.id} className="border rounded-xl p-2.5 flex items-center justify-between gap-2 text-sm">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold truncate">{c.guest_name}</p>
-                    <div className="text-xs text-muted-foreground flex gap-3 flex-wrap" dir="ltr">
-                      {c.guest_phone && <span>{c.guest_phone}</span>}
-                      {c.guest_email && <span>{c.guest_email}</span>}
-                    </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="space-y-4 px-6 pb-4">
+                <div className="grid gap-3 rounded-xl bg-muted/50 p-4 sm:grid-cols-[1.2fr_1fr_1fr_auto] sm:items-end">
+                  <div className="space-y-1.5">
+                    <Label>الاسم *</Label>
+                    <Input value={newContact.guest_name} onChange={(e) => setNewContact({ ...newContact, guest_name: e.target.value })} />
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => removeContact(c.id)}>
-                    <X className="w-3 h-3 text-destructive" />
-                  </Button>
+                  <div className="space-y-1.5">
+                    <Label>الجوال</Label>
+                    <Input dir="ltr" placeholder="+9665..." value={newContact.guest_phone} onChange={(e) => setNewContact({ ...newContact, guest_phone: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>البريد</Label>
+                    <Input dir="ltr" value={newContact.guest_email} onChange={(e) => setNewContact({ ...newContact, guest_email: e.target.value })} />
+                  </div>
+                  <Button onClick={addContact}><Plus className="h-4 w-4" /> إضافة</Button>
                 </div>
-              ))}
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="relative min-w-[11rem] flex-1">
+                    <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input className="ps-9" placeholder="بحث..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                  </div>
+                  <Button variant="outline" onClick={() => { setBulkRaw(""); setBulkOpen(true); }}>
+                    <Upload className="h-4 w-4" /> استيراد دفعة (لصق)
+                  </Button>
+                  <label className="cursor-pointer">
+                    <Button variant="outline" asChild>
+                      <span><FileSpreadsheet className="h-4 w-4" /> استيراد CSV</span>
+                    </Button>
+                    <input type="file" accept=".csv,text/csv,text/plain" className="hidden"
+                      onChange={(e) => e.target.files?.[0] && onCsvFile(e.target.files[0])} />
+                  </label>
+                </div>
+              </div>
+
+              {contacts.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="لا يوجد مدعوون في هذه القائمة"
+                  description="أضف مدعواً من النموذج أعلاه أو استورد قائمة كاملة"
+                  action={<Button variant="outline" onClick={() => { setBulkRaw(""); setBulkOpen(true); }}><Upload className="h-4 w-4" /> استيراد دفعة (لصق)</Button>}
+                />
+              ) : filteredContacts.length === 0 ? (
+                <p className="px-6 pb-8 pt-4 text-center text-sm text-muted-foreground">لا توجد نتائج مطابقة لبحثك</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">المدعو</TableHead>
+                      <TableHead className="hidden sm:table-cell">الجوال</TableHead>
+                      <TableHead className="hidden sm:table-cell">البريد</TableHead>
+                      <TableHead className="w-14 pe-6"><span className="sr-only">حذف</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredContacts.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="ps-6">
+                          <p className="font-semibold leading-[22px]">{c.guest_name}</p>
+                          {(c.guest_phone || c.guest_email) && (
+                            <p className="flex flex-wrap gap-x-3 text-xs leading-[18px] text-muted-foreground sm:hidden">
+                              {c.guest_phone && <bdi dir="ltr">{c.guest_phone}</bdi>}
+                              {c.guest_email && <bdi dir="ltr">{c.guest_email}</bdi>}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden text-muted-foreground sm:table-cell">{c.guest_phone ? <bdi dir="ltr">{c.guest_phone}</bdi> : "—"}</TableCell>
+                        <TableCell className="hidden text-muted-foreground sm:table-cell">{c.guest_email ? <bdi dir="ltr">{c.guest_email}</bdi> : "—"}</TableCell>
+                        <TableCell className="pe-6">
+                          <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" aria-label="حذف" onClick={() => removeContact(c.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
         {/* Bulk import */}
         <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
-          <DialogContent dir="rtl" className="max-w-2xl">
-            <DialogHeader><DialogTitle>استيراد دفعة من الجهات</DialogTitle></DialogHeader>
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                كل جهة في سطر — يفصل بين الحقول بفاصلة أو tab. مثال:
-              </p>
-              <pre className="text-[11px] bg-muted/40 p-2 rounded-lg" dir="ltr">
+          <DialogContent dir="rtl" className={`${SCROLL_DIALOG} max-w-2xl`}>
+            <DialogHeader className="px-6 pb-4 pe-12 pt-6 text-start">
+              <DialogTitle>استيراد دفعة من المدعوين</DialogTitle>
+              <DialogDescription>كل مدعو في سطر، ويفصل بين الحقول بفاصلة أو tab. مثال:</DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6">
+              <pre className="overflow-x-auto rounded-xl bg-muted/50 p-3 text-xs leading-5" dir="ltr">
 {`أحمد العتيبي, +966555555555, ahmad@x.com
 سارة, +966500000000
 وليد, , walid@x.com`}
               </pre>
               <Textarea rows={10} dir="ltr" value={bulkRaw} onChange={(e) => setBulkRaw(e.target.value)} />
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-row gap-2 border-t border-border px-6 py-4">
+              <Button className="flex-1 sm:flex-none" onClick={bulkImport}>استيراد</Button>
               <Button variant="outline" onClick={() => setBulkOpen(false)}>إلغاء</Button>
-              <Button onClick={bulkImport}>استيراد</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

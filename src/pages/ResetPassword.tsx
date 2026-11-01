@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { motion } from "framer-motion";
 import BrandLogo from "@/components/brand/BrandLogo";
 import { Lock, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,11 +69,7 @@ const ResetPassword = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-background font-cairo">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
+      <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <Link to="/">
             <BrandLogo alt={t("pgAuth.common.brandAlt")} className="h-16" />
@@ -83,9 +78,9 @@ const ResetPassword = () => {
 
         {success ? (
           <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-primary">
+              <CheckCircle className="h-6 w-6" />
+            </span>
             <h1 className="font-bold text-2xl text-foreground">{t("pgAuth.reset.successTitle")}</h1>
             <p className="text-muted-foreground text-sm">
               {t("pgAuth.reset.successDesc")}
@@ -97,9 +92,9 @@ const ResetPassword = () => {
             <p className="text-muted-foreground text-sm">
               {t("pgAuth.reset.invalidDesc")}
             </p>
-            <Link to="/forgot-password">
-              <Button variant="outline" className="mt-4">{t("pgAuth.reset.requestNew")}</Button>
-            </Link>
+            <Button asChild variant="outline" className="mt-4">
+              <Link to="/forgot-password">{t("pgAuth.reset.requestNew")}</Link>
+            </Button>
           </div>
         ) : (
           <>
@@ -145,7 +140,7 @@ const ResetPassword = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
                 {loading ? t("pgAuth.reset.submitting") : t("pgAuth.reset.submit")}
               </Button>
             </form>
@@ -157,7 +152,7 @@ const ResetPassword = () => {
             {t("pgAuth.reset.backToLogin")}
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

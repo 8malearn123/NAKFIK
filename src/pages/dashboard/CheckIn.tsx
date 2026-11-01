@@ -1,15 +1,26 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { motion, AnimatePresence } from "framer-motion";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { classifyAttendee, ATTENDEE_CLASS_META } from "@/lib/attendeeClass";
+import { classifyAttendee, ATTENDEE_CLASS_META, type AttendeeClass } from "@/lib/attendeeClass";
+import { formatDateShort, formatNumber, formatPercent, percent } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import jsQR from "jsqr";
 import {
-  Camera, Search, CheckCircle, XCircle, User, Mail, Ticket, Calendar, RotateCcw, Keyboard, DoorOpen, Activity,
+  Activity, AlertTriangle, Calendar, Camera, Check, Clock3, DoorOpen, Keyboard, Lock, Mail, RotateCcw, ScanLine, Search, Ticket, TrendingUp, UserCheck, Users, X,
+  type LucideIcon,
 } from "lucide-react";
 
 interface RegistrationData {
@@ -29,6 +40,31 @@ interface CheckpointOption { id: string; name_ar: string; capacity: number; colo
 
 const LS_EVENT = "checkin.eventId";
 const LS_CP = "checkin.checkpointId";
+
+// قيمة بديلة لخيار "بدون اختيار": قائمة Select لا تقبل قيمة فارغة
+const NONE = "__none__";
+
+const selectTriggerClass = "h-10 min-w-0 gap-2 text-[13px] font-medium sm:w-64 sm:text-sm [&>span]:flex-1 [&>span]:text-start";
+const selectIconClass = "hidden h-4 w-4 flex-none text-muted-foreground sm:block";
+
+// نتيجة المسح تُقرأ من بعيد عند الباب: لون وشكل مختلفان لكل حالة
+const RESULT_META: Record<ScanResult["status"], { icon: LucideIcon; band: string; disc: string; text: string }> = {
+  success: { icon: Check, band: "bg-[#E8F5EE]", disc: "bg-[#0E7A4F]", text: "text-[#0E7A4F]" },
+  already: { icon: AlertTriangle, band: "bg-[#FDF3E3]", disc: "bg-[#9A5F12]", text: "text-[#9A5F12]" },
+  error: { icon: X, band: "bg-[#FBECEA]", disc: "bg-[#B42F24]", text: "text-[#B42F24]" },
+};
+
+const CLASS_TONES: Record<AttendeeClass, StatusTone> = {
+  vvip: "warning", vip: "primary", speaker: "success", organizer: "neutral", regular: "neutral",
+};
+
+const ResultRow = ({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) => (
+  <div className="flex items-center gap-2.5 py-2.5">
+    <Icon className="h-4 w-4 flex-none text-muted-foreground" />
+    <dt className="flex-none text-muted-foreground">{label}</dt>
+    <dd className="ms-auto flex min-w-0 items-center gap-2 font-semibold"><span className="truncate">{children}</span></dd>
+  </div>
+);
 
 const CheckIn = () => {
   const { organization, user } = useAuth();
@@ -554,270 +590,271 @@ const CheckIn = () => {
 
   const resetResult = () => { setResult(null); setManualCode(""); };
 
+  // على الهاتف تبقى لوحة المفاتيح مفتوحة بعد الإدخال اليدوي وتغطي نتيجة المسح أسفل الشاشة
+  useEffect(() => {
+    if (result && window.matchMedia("(max-width: 1023px)").matches) (document.activeElement as HTMLElement | null)?.blur();
+  }, [result]);
+
+  const switchMode = (next: "manual" | "camera") => {
+    setMode(next);
+    if (next === "manual") stopCamera();
+    resetResult();
+  };
+
   // Pressure visuals
   const pct = gatePressure.cap > 0 ? Math.min(100, Math.round((gatePressure.count / gatePressure.cap) * 100)) : 0;
-  const pressureLabel = pct >= 90 ? { l: "⚠️ ممتلئ", c: "text-destructive", bg: "bg-destructive" }
-    : pct >= 75 ? { l: "ضغط عالٍ", c: "text-brand-brick", bg: "bg-brand-brick" }
-    : pct >= 50 ? { l: "متوسط", c: "text-brand-gold", bg: "bg-brand-gold" }
-    : { l: "هادئ", c: "text-brand-teal", bg: "bg-brand-teal" };
+  const pressureLabel: { l: string; tone: StatusTone; bar: string } = pct >= 90 ? { l: "ممتلئ", tone: "danger", bar: "bg-[#C0392B]" }
+    : pct >= 75 ? { l: "ضغط عالٍ", tone: "warning", bar: "bg-[#CC8E3D]" }
+    : pct >= 50 ? { l: "متوسط", tone: "warning", bar: "bg-[#CC8E3D]" }
+    : { l: "هادئ", tone: "success", bar: "bg-primary" };
   const currentCp = checkpoints.find(c => c.id === selectedCheckpoint);
+
+  // القيمة المحفوظة قد لا تطابق القائمة بعد، وعندها يظهر النص البديل لا حقل فارغ
+  const eventValue = [...events, ...invitations].some(e => e.id === selectedEvent) ? selectedEvent : "";
+  const checkpointValue = currentCp ? selectedCheckpoint : locked ? "" : NONE;
+
+  const days = isInvMode ? invDays : eventDays;
+  const dayValue = isInvMode ? selectedInvDay : selectedDay;
+  const pickDay = (id: string) => { (isInvMode ? setSelectedInvDay : setSelectedDay)(id); setResult(null); };
+
+  const remaining = Math.max(0, stats.total - stats.checkedIn);
+  const attendanceRate = percent(stats.checkedIn, stats.total);
+  const resultMeta = result ? RESULT_META[result.status] : null;
+  const resultClass = result?.data ? classifyAttendee(result.data.ticket?.name_ar, result.data.ticket?.name_en, result.data.ticket?.type) : null;
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <h1 className="font-bold text-2xl text-foreground">تسجيل الحضور</h1>
-          <p className="text-muted-foreground text-sm mt-1">امسح رمز QR أو أدخل الرمز / رقم الجوال يدوياً</p>
-        </div>
+      <div className="space-y-4 sm:space-y-6">
+        <PageHeader
+          title="تسجيل الحضور"
+          description={<span className="hidden sm:inline">امسح رمز <bdi dir="ltr">QR</bdi> أو أدخل الرمز / رقم الجوال يدوياً</span>}
+          actions={selectedEvent ? (
+            <Button variant="outline" asChild className="w-10 px-0 sm:w-auto sm:px-4">
+              <a href={`/dashboard/events/${selectedEvent}/heatmap`} aria-label="الخارطة الحرارية">
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">الخارطة الحرارية</span>
+              </a>
+            </Button>
+          ) : undefined}
+        />
+
+        {locked && (
+          <div className="flex items-start gap-3 rounded-2xl bg-card p-4 shadow-soft">
+            <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary"><Lock className="h-[17px] w-[17px]" /></span>
+            <p className="min-w-0 text-[13px] leading-5 text-muted-foreground">أنت معيَّن على بوابة محددة من الإدارة — جميع عمليات مسحك تُسجَّل عليها ولا يمكنك الوصول لأي بوابة أخرى.</p>
+          </div>
+        )}
 
         {/* Event + Checkpoint selectors */}
-        <div className="bg-card rounded-2xl border border-border/50 p-4 mb-4 space-y-3">
-          {locked && (
-            <div className="rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-semibold p-3">
-              🔒 أنت معيَّن على بوابة محددة من الإدارة — جميع عمليات مسحك تُسجَّل عليها ولا يمكنك الوصول لأي بوابة أخرى.
-            </div>
-          )}
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> الفعالية</label>
-              <select value={selectedEvent} onChange={e => onChangeEvent(e.target.value)} disabled={locked && events.length <= 1}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
-                <option value="">— اختر —</option>
-                <optgroup label="الفعاليات">
-                  {events.map(e => <option key={e.id} value={e.id}>{e.title_ar}</option>)}
-                </optgroup>
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-center">
+            <Select value={eventValue} onValueChange={v => onChangeEvent(v === NONE ? "" : v)} disabled={locked && events.length <= 1}>
+              <SelectTrigger aria-label="الفعالية" className={selectTriggerClass}>
+                <Calendar className={selectIconClass} />
+                <SelectValue placeholder="اختر الفعالية" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>— اختر —</SelectItem>
+                <SelectGroup>
+                  <SelectLabel>الفعاليات</SelectLabel>
+                  {events.map(e => <SelectItem key={e.id} value={e.id}>{e.title_ar}</SelectItem>)}
+                </SelectGroup>
                 {invitations.length > 0 && (
-                  <optgroup label="الدعوات الخاصة">
-                    {invitations.map(i => <option key={i.id} value={i.id}>{i.title_ar}</option>)}
-                  </optgroup>
+                  <SelectGroup>
+                    <SelectLabel>الدعوات الخاصة</SelectLabel>
+                    {invitations.map(i => <SelectItem key={i.id} value={i.id}>{i.title_ar}</SelectItem>)}
+                  </SelectGroup>
                 )}
-              </select>
-            </div>
-            <div>
-              {isInvMode && invGates.length > 0 ? (
-                <>
-                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> البوابة الحالية</label>
-                  <select
-                    value={selectedInvGate}
-                    onChange={e => { setSelectedInvGate(e.target.value); setResult(null); }}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  >
-                    {visibleInvGates.map(g => (
-                      <option key={g.id} value={g.id}>{g.name_ar} ({g.gate_type === "exit" ? "خروج" : "دخول"})</option>
+              </SelectContent>
+            </Select>
+
+            {isInvMode && invGates.length > 0 ? (
+              <Select value={selectedInvGate} onValueChange={v => { setSelectedInvGate(v); setResult(null); }}>
+                <SelectTrigger aria-label="البوابة الحالية" className={selectTriggerClass}>
+                  <DoorOpen className={selectIconClass} />
+                  <SelectValue placeholder="البوابة الحالية" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visibleInvGates.map(g => (
+                    <SelectItem key={g.id} value={g.id}>{g.name_ar} ({g.gate_type === "exit" ? "خروج" : "دخول"})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : isInvMode ? (
+              <Tabs value={scanMode} onValueChange={v => setScanMode(v as "entry" | "exit")}>
+                <TabsList aria-label="وضع المسح" className="h-10 w-full sm:w-auto">
+                  <TabsTrigger value="entry" className="flex-1 px-1.5 text-[13px] sm:px-4 sm:text-sm">تسجيل دخول</TabsTrigger>
+                  <TabsTrigger value="exit" className="flex-1 px-1.5 text-[13px] sm:px-4 sm:text-sm">تسجيل خروج</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            ) : (
+              <Select value={checkpointValue} onValueChange={v => onChangeCheckpoint(v === NONE ? "" : v)} disabled={locked || !selectedEvent || checkpoints.length === 0}>
+                <SelectTrigger aria-label="البوابة الحالية" className={selectTriggerClass}>
+                  <DoorOpen className={selectIconClass} />
+                  <SelectValue placeholder="البوابة الحالية" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!locked && <SelectItem value={NONE}>— بدون بوابة —</SelectItem>}
+                  {checkpoints.map(c => <SelectItem key={c.id} value={c.id}>{c.name_ar}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+
+            {days.length > 0 && (
+              <div className="col-span-2 min-w-0 sm:contents">
+                <Select value={days.some(d => d.id === dayValue) ? dayValue : ""} onValueChange={pickDay}>
+                  <SelectTrigger aria-label={isInvMode ? "يوم المناسبة" : "يوم الفعالية"} className={selectTriggerClass}>
+                    <Calendar className={selectIconClass} />
+                    <SelectValue placeholder={isInvMode ? "يوم المناسبة" : "يوم الفعالية"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {days.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.title || `اليوم ${d.day_number}`} · {formatDateShort(d.day_date)}</SelectItem>
                     ))}
-                  </select>
-                </>
-              ) : isInvMode ? (
-                <>
-                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> وضع المسح</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setScanMode("entry")}
-                      className={`rounded-lg border-2 px-3 py-2 text-sm font-bold transition ${scanMode === "entry" ? "border-brand-teal bg-brand-teal/10 text-brand-teal" : "border-border text-muted-foreground hover:bg-muted"}`}
-                    >
-                      تسجيل دخول
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setScanMode("exit")}
-                      className={`rounded-lg border-2 px-3 py-2 text-sm font-bold transition ${scanMode === "exit" ? "border-amber-500 bg-amber-500/10 text-amber-600" : "border-border text-muted-foreground hover:bg-muted"}`}
-                    >
-                      تسجيل خروج
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><DoorOpen className="w-3 h-3" /> البوابة الحالية</label>
-                  <select value={selectedCheckpoint} onChange={e => onChangeCheckpoint(e.target.value)} disabled={locked || !selectedEvent || checkpoints.length === 0}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60">
-                    {!locked && <option value="">— بدون بوابة —</option>}
-                    {checkpoints.map(c => <option key={c.id} value={c.id}>{c.name_ar}</option>)}
-                  </select>
-                </>
-              )}
-            </div>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
-
-          {isInvMode && invDays.length > 0 && (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> يوم المناسبة</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {invDays.map(d => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => { setSelectedInvDay(d.id); setResult(null); }}
-                    className={`text-[11px] font-bold rounded-full px-3 py-1.5 border transition ${
-                      selectedInvDay === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {d.title || `اليوم ${d.day_number}`} · {new Date(d.day_date).toLocaleDateString("ar-SA", { day: "numeric", month: "short" })}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!isInvMode && eventDays.length > 0 && (
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block flex items-center gap-1"><Calendar className="w-3 h-3" /> يوم الفعالية</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {eventDays.map(d => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => { setSelectedDay(d.id); setResult(null); }}
-                    className={`text-[11px] font-bold rounded-full px-3 py-1.5 border transition ${
-                      selectedDay === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {d.title || `اليوم ${d.day_number}`} · {new Date(d.day_date).toLocaleDateString("ar-SA", { day: "numeric", month: "short" })}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {selectedEvent && !isInvMode && checkpoints.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              لم يتم إعداد بوابات لهذه الفعالية. <a href={`/dashboard/events/${selectedEvent}/checkpoints`} className="text-primary underline">إعداد البوابات</a>
+            <p className="text-xs leading-[18px] text-muted-foreground">
+              لم يتم إعداد بوابات لهذه الفعالية. <a href={`/dashboard/events/${selectedEvent}/checkpoints`} className="font-semibold text-primary">إعداد البوابات</a>
             </p>
           )}
-
-          {currentCp && (
-            <div className="rounded-xl bg-muted/30 p-3">
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: `#${currentCp.color}` }} />
-                  <span className="font-semibold text-foreground">{currentCp.name_ar}</span>
-                </span>
-                <span className={`font-bold ${pressureLabel.c}`}>{pressureLabel.l} — {gatePressure.count}/{gatePressure.cap || "∞"} {gatePressure.cap > 0 && `(${pct}%)`}</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div className={`h-full ${pressureLabel.bg} transition-all`} style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Stats */}
-        <div className="bg-card rounded-2xl border border-border/50 p-4 mb-6 flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-6 flex-wrap">
-            <div>
-              <p className="text-xs text-muted-foreground">إجمالي المسجلين</p>
-              <p className="font-bold text-lg text-foreground">{stats.total}</p>
-            </div>
-            <div className="w-px h-8 bg-border hidden sm:block" />
-            <div>
-              <p className="text-xs text-muted-foreground">حضروا</p>
-              <p className="font-bold text-lg text-brand-teal">{stats.checkedIn}</p>
-            </div>
-            <div className="w-px h-8 bg-border hidden sm:block" />
-            <div>
-              <p className="text-xs text-muted-foreground">لم يحضروا بعد</p>
-              <p className="font-bold text-lg text-accent">{Math.max(0, stats.total - stats.checkedIn)}</p>
-            </div>
+        {/* Stats: سطر واحد على الجوال حتى تبقى منطقة المسح في أول الشاشة */}
+        <div className="rounded-2xl bg-card px-4 py-3 shadow-soft xl:hidden">
+          <div className="flex items-baseline justify-between gap-3 text-xs leading-[18px] text-muted-foreground">
+            <span>حضروا <b className="text-lg font-bold leading-6 text-foreground">{formatNumber(stats.checkedIn)}</b> من {formatNumber(stats.total)}</span>
+            <span>لم يحضروا بعد <b className="text-sm font-bold text-foreground">{formatNumber(remaining)}</b></span>
           </div>
-          {stats.total > 0 && (
-            <div className="text-xs text-muted-foreground">
-              {Math.round((stats.checkedIn / stats.total) * 100)}%
-            </div>
-          )}
-          {selectedEvent && (
-            <Button variant="ghost" size="sm" className="rounded-full" asChild>
-              <a href={`/dashboard/events/${selectedEvent}/heatmap`}><Activity className="w-3.5 h-3.5" /> الخارطة الحرارية</a>
-            </Button>
-          )}
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${attendanceRate}%` }} />
+          </div>
+        </div>
+        <div className="hidden gap-6 xl:grid xl:grid-cols-4">
+          <StatCard label="إجمالي المسجلين" value={formatNumber(stats.total)} icon={Users} />
+          <StatCard label="حضروا" value={formatNumber(stats.checkedIn)} icon={UserCheck} />
+          <StatCard label="لم يحضروا بعد" value={formatNumber(remaining)} icon={Clock3} />
+          <StatCard label="نسبة الحضور" value={`${attendanceRate}%`} icon={TrendingUp} />
         </div>
 
-        <div className="flex gap-2 mb-6">
-          <Button variant={mode === "manual" ? "default" : "outline"} className="rounded-full flex-1" onClick={() => { setMode("manual"); stopCamera(); resetResult(); }}>
-            <Keyboard className="w-4 h-4" /> إدخال يدوي
-          </Button>
-          <Button variant={mode === "camera" ? "default" : "outline"} className="rounded-full flex-1" onClick={() => { setMode("camera"); resetResult(); }}>
-            <Camera className="w-4 h-4" /> ماسح الكاميرا
-          </Button>
-        </div>
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          <Panel className="self-start" bodyClassName="space-y-4 p-4 sm:p-6">
+            <Tabs value={mode} onValueChange={v => switchMode(v as "manual" | "camera")}>
+              <TabsList className="w-full">
+                <TabsTrigger value="manual" className="flex-1 gap-2"><Keyboard className="h-4 w-4" /> إدخال يدوي</TabsTrigger>
+                <TabsTrigger value="camera" className="flex-1 gap-2"><Camera className="h-4 w-4" /> ماسح الكاميرا</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-        <div className="bg-card rounded-2xl border border-border/50 p-6 mb-6">
-          {mode === "manual" ? (
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="رمز QR أو رقم الجوال (مثال: 0501234567)" className="pr-10 text-center font-mono" dir="ltr" value={manualCode} onChange={(e) => setManualCode(e.target.value)} autoFocus />
-              </div>
-              <Button type="submit" className="w-full rounded-full" size="lg" disabled={!selectedEvent}>
-                <Search className="w-4 h-4" /> بحث وتسجيل حضور
-              </Button>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              {!cameraActive ? (
-                <div className="text-center py-8">
-                  <Camera className="w-20 h-20 text-primary/30 mx-auto mb-4" />
-                  <Button onClick={startCamera} className="rounded-full" size="lg" disabled={!selectedEvent}><Camera className="w-4 h-4" /> تشغيل الكاميرا</Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="relative rounded-xl overflow-hidden bg-foreground/5 aspect-video">
-                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-48 h-48 border-2 border-primary rounded-2xl" />
-                    </div>
+            {mode === "manual" ? (
+              <form onSubmit={handleManualSubmit} className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="checkin-code">رمز <bdi dir="ltr">QR</bdi> أو رقم الجوال</Label>
+                  <div className="relative">
+                    <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="checkin-code" placeholder="مثال: 0501234567" className="h-12 px-10 text-center lg:h-10" dir="ltr" value={manualCode} onChange={(e) => setManualCode(e.target.value)} autoFocus />
                   </div>
-                  <Button variant="outline" className="rounded-full w-full" onClick={stopCamera}>إيقاف الكاميرا</Button>
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <AnimatePresence>
-          {result && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`rounded-2xl border p-6 mb-6 ${result.status === "success" ? "bg-brand-teal/5 border-brand-teal/30" : result.status === "already" ? "bg-accent/5 border-accent/30" : "bg-destructive/5 border-destructive/30"}`}>
-              <div className="text-center mb-4">
-                {result.status === "success" && <div className="w-16 h-16 rounded-full bg-brand-teal/10 flex items-center justify-center mx-auto mb-3"><CheckCircle className="w-9 h-9 text-brand-teal" /></div>}
-                {result.status === "already" && <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-3"><CheckCircle className="w-9 h-9 text-accent" /></div>}
-                {result.status === "error" && <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-3"><XCircle className="w-9 h-9 text-destructive" /></div>}
-                <h3 className="font-bold text-lg text-foreground">{result.message}</h3>
+                <Button type="submit" className="h-12 w-full lg:h-10" disabled={!selectedEvent}>
+                  <Search className="h-4 w-4" /> بحث وتسجيل حضور
+                </Button>
+              </form>
+            ) : !cameraActive ? (
+              <div className="flex aspect-[4/3] flex-col items-center justify-center gap-4 rounded-xl bg-muted/50 lg:aspect-video">
+                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary text-primary"><Camera className="h-6 w-6" /></span>
+                <Button onClick={startCamera} disabled={!selectedEvent}><Camera className="h-4 w-4" /> تشغيل الكاميرا</Button>
               </div>
-              {result.data && (
-                <div className="bg-background/80 rounded-xl p-4 space-y-3 text-sm">
-                  <div className="flex items-center gap-2"><User className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">الاسم:</span><span className="font-semibold text-foreground">{result.data.attendee?.full_name || "—"}</span></div>
-                  <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">البريد:</span><span className="font-semibold text-foreground" dir="ltr">{result.data.attendee?.email || "—"}</span></div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Ticket className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">التذكرة:</span>
-                    <span className="font-semibold text-foreground">{result.data.ticket?.name_ar || "—"}</span>
-                    {(() => {
-                      const tier = classifyAttendee(result.data.ticket?.name_ar, result.data.ticket?.name_en, result.data.ticket?.type);
-                      const meta = ATTENDEE_CLASS_META[tier];
-                      return (
-                        <span className={`text-[10px] font-extrabold rounded-full px-2.5 py-0.5 border ${meta.cls}`}>
-                          {meta.label}
-                        </span>
-                      );
-                    })()}
+            ) : (
+              <div className="space-y-3">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-foreground/5 lg:aspect-video">
+                  <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="aspect-square h-2/3 rounded-2xl border-2 border-white/90" />
                   </div>
-                  <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-muted-foreground" /><span className="text-muted-foreground">الفعالية:</span><span className="font-semibold text-foreground">{result.data.event?.title_ar || "—"}</span></div>
-                  {currentCp && (
-                    <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                      <DoorOpen className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">البوابة:</span>
-                      <span className="font-semibold text-foreground">{currentCp.name_ar}</span>
-                      <span className={`text-xs ${pressureLabel.c} ms-auto`}>{pct}% • {pressureLabel.l}</span>
+                </div>
+                <Button variant="outline" className="w-full" onClick={stopCamera}>إيقاف الكاميرا</Button>
+              </div>
+            )}
+
+            {currentCp && (
+              <div className="rounded-xl bg-muted/50 p-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="flex min-w-0 items-center gap-2 text-[13px] leading-5">
+                    <i className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: `#${currentCp.color}` }} />
+                    <span className="truncate font-semibold">{currentCp.name_ar}</span>
+                  </span>
+                  <span className="flex flex-none items-center gap-2 text-xs leading-[18px] text-muted-foreground">
+                    <span>{formatNumber(gatePressure.count)} من {gatePressure.cap ? formatNumber(gatePressure.cap) : "∞"}{gatePressure.cap > 0 && `، ${formatPercent(pct)}`}</span>
+                    <StatusBadge tone={pressureLabel.tone}>{pressureLabel.l}</StatusBadge>
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                  <div className={cn("h-full rounded-full transition-all", pressureLabel.bar)} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            )}
+          </Panel>
+
+          <div className="min-w-0">
+            {result && resultMeta ? (
+              <>
+                {/* على الجوال والأجهزة اللوحية: طبقة ثابتة فوق الصفحة تظهر دون أي تمرير، أياً كان موضع المستخدم */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="fixed inset-0 z-[65] bg-foreground/40 lg:hidden"
+                  aria-hidden
+                  onClick={resetResult}
+                />
+                <motion.div
+                  role="status"
+                  aria-live="assertive"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="fixed inset-x-0 bottom-0 z-[70] mx-auto flex max-h-[calc(100dvh-1rem)] max-w-lg flex-col overflow-y-auto rounded-t-3xl bg-card pb-[env(safe-area-inset-bottom)] shadow-soft lg:static lg:z-auto lg:mx-0 lg:max-h-none lg:max-w-none lg:rounded-2xl lg:pb-0"
+                >
+                  <div className={cn("flex-none px-5 py-6 text-center", resultMeta.band)}>
+                    <span className={cn("mx-auto grid h-20 w-20 place-items-center rounded-full text-white", resultMeta.disc)}>
+                      <resultMeta.icon className="h-11 w-11" strokeWidth={2.75} />
+                    </span>
+                    <h2 className={cn("mt-3 text-2xl font-bold leading-8", resultMeta.text)}>{result.message}</h2>
+                  </div>
+
+                  {result.data && (
+                    <div className="flex-none px-5 pt-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 truncate text-xl font-bold leading-7">{result.data.attendee?.full_name || "—"}</p>
+                        {resultClass && <StatusBadge tone={CLASS_TONES[resultClass]}><bdi>{ATTENDEE_CLASS_META[resultClass].label}</bdi></StatusBadge>}
+                      </div>
+                      <dl className="mt-1.5 divide-y divide-border text-sm">
+                        <ResultRow icon={Mail} label="البريد">{result.data.attendee?.email ? <bdi dir="ltr">{result.data.attendee.email}</bdi> : "—"}</ResultRow>
+                        <ResultRow icon={Ticket} label="التذكرة">{result.data.ticket?.name_ar || "—"}</ResultRow>
+                        <ResultRow icon={Calendar} label="الفعالية">{result.data.event?.title_ar || "—"}</ResultRow>
+                        {currentCp && (
+                          <ResultRow icon={DoorOpen} label="البوابة">{currentCp.name_ar}، {formatPercent(pct)}، {pressureLabel.l}</ResultRow>
+                        )}
+                      </dl>
                     </div>
                   )}
-                </div>
-              )}
-              <Button variant="outline" className="w-full rounded-full mt-4" onClick={resetResult}>
-                <RotateCcw className="w-4 h-4" /> مسح تذكرة أخرى
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+                  <div className="flex-none p-5">
+                    <Button variant="outline" className="h-12 w-full lg:h-10" onClick={resetResult}>
+                      <RotateCcw className="h-4 w-4" /> مسح تذكرة أخرى
+                    </Button>
+                  </div>
+                </motion.div>
+              </>
+            ) : (
+              <div className="hidden h-full items-center justify-center rounded-2xl bg-card shadow-soft lg:flex">
+                <EmptyState icon={ScanLine} title="جاهز للمسح" description="ستظهر نتيجة كل عملية مسح هنا" />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

@@ -1,15 +1,24 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { formatDate, formatNumber, formatPercent } from "@/lib/format";
 import { toast } from "sonner";
 import {
-  DollarSign, TrendingUp, CreditCard, Wallet, ArrowUpRight, ArrowDownRight,
-  Search, Check, X, Clock, Edit2, Save,
+  Check, Clock, CreditCard, DollarSign, Edit2, Save, Search, TrendingUp, Wallet, X,
 } from "lucide-react";
+
+// مبالغ محاسبية: تبقى الكسور ظاهرة حتى تتطابق العمولة والصافي مع المبلغ
+const money = (value: number) => `${formatNumber(value)} ر.س`;
 
 const AdminFinance = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -60,15 +69,15 @@ const AdminFinance = () => {
   };
 
   const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      completed: { label: "مكتمل", variant: "default" },
-      pending: { label: "معلّق", variant: "secondary" },
-      failed: { label: "فشل", variant: "destructive" },
-      refunded: { label: "مسترد", variant: "outline" },
-      processing: { label: "جاري المعالجة", variant: "secondary" },
+    const map: Record<string, { label: string; tone: StatusTone }> = {
+      completed: { label: "مكتمل", tone: "success" },
+      pending: { label: "معلّق", tone: "warning" },
+      failed: { label: "فشل", tone: "danger" },
+      refunded: { label: "مسترد", tone: "neutral" },
+      processing: { label: "جاري المعالجة", tone: "primary" },
     };
-    const s = map[status] || { label: status, variant: "outline" as const };
-    return <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>;
+    const s = map[status] || { label: status, tone: "neutral" as const };
+    return <StatusBadge tone={s.tone}>{s.label}</StatusBadge>;
   };
 
   const txTypeLabel: Record<string, string> = {
@@ -84,147 +93,173 @@ const AdminFinance = () => {
     ticket_sale: "مبيعات التذاكر",
     reservation_deposit: "عربون الحجوزات",
     subscription: "الاشتراكات",
+    tickets: "مبيعات التذاكر",
+    subscriptions: "الاشتراكات",
+    services: "الخدمات",
   };
 
-  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div></AdminLayout>;
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <PageHeader title="المالية والمحاسبة" />
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+          <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  const visibleTransactions = transactions.filter(t => !search || t.payment_reference?.includes(search));
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <h1 className="font-bold text-2xl text-foreground">المالية والمحاسبة</h1>
+      <div className="space-y-6">
+        <PageHeader title="المالية والمحاسبة" />
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "إجمالي المبيعات", value: totalRevenue, icon: DollarSign, color: "text-green-600", bg: "bg-green-100" },
-            { label: "إجمالي العمولات", value: totalCommission, icon: TrendingUp, color: "text-primary", bg: "bg-primary/10" },
-            { label: "تسويات معلّقة", value: pendingPayouts, icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
-            { label: "تسويات مكتملة", value: completedPayouts, icon: Wallet, color: "text-teal", bg: "bg-teal/10" },
-          ].map(kpi => (
-            <div key={kpi.label} className="bg-card rounded-2xl border border-border/50 p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg ${kpi.bg} flex items-center justify-center`}>
-                  <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
-                </div>
-                <span className="text-xs text-muted-foreground">{kpi.label}</span>
-              </div>
-              <span className="text-2xl font-bold text-foreground">{kpi.value.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">ر.س</span></span>
-            </div>
-          ))}
+            { label: "إجمالي المبيعات", value: totalRevenue, icon: DollarSign },
+            { label: "إجمالي العمولات", value: totalCommission, icon: TrendingUp },
+            { label: "تسويات معلّقة", value: pendingPayouts, icon: Clock },
+            { label: "تسويات مكتملة", value: completedPayouts, icon: Wallet },
+          ].map(kpi => <StatCard key={kpi.label} label={kpi.label} value={formatNumber(kpi.value)} unit="ر.س" icon={kpi.icon} />)}
         </div>
 
-        <Tabs defaultValue="transactions" dir="rtl">
-          <TabsList>
+        <Tabs defaultValue="transactions">
+          <TabsList className="max-w-full justify-start overflow-x-auto">
             <TabsTrigger value="transactions">المعاملات</TabsTrigger>
             <TabsTrigger value="payouts">التسويات</TabsTrigger>
             <TabsTrigger value="commissions">العمولات</TabsTrigger>
           </TabsList>
 
-          {/* Transactions */}
-          <TabsContent value="transactions" className="space-y-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="بحث بالمرجع..." value={search} onChange={e => setSearch(e.target.value)} className="pr-9" />
-            </div>
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border/50 bg-muted/30">
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">التاريخ</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">النوع</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">المبلغ</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">العمولة</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الصافي</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الحالة</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">المرجع</th>
-                  </tr></thead>
-                  <tbody>
-                    {transactions.filter(t => !search || t.payment_reference?.includes(search)).map(t => (
-                      <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20">
-                        <td className="p-3 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString("ar-SA")}</td>
-                        <td className="p-3 text-xs font-semibold text-foreground">{txTypeLabel[t.transaction_type] || t.transaction_type}</td>
-                        <td className="p-3 text-xs font-bold text-foreground">{Number(t.amount).toLocaleString()} ر.س</td>
-                        <td className="p-3 text-xs text-primary">{Number(t.commission_amount || 0).toLocaleString()} ر.س</td>
-                        <td className="p-3 text-xs text-teal font-semibold">{Number(t.net_amount || 0).toLocaleString()} ر.س</td>
-                        <td className="p-3">{statusBadge(t.status)}</td>
-                        <td className="p-3 text-xs text-muted-foreground font-mono">{t.payment_reference || "-"}</td>
-                      </tr>
-                    ))}
-                    {transactions.length === 0 && (
-                      <tr><td colSpan={7} className="p-12 text-center text-muted-foreground">لا توجد معاملات بعد</td></tr>
-                    )}
-                  </tbody>
-                </table>
+          <TabsContent value="transactions" className="mt-6 space-y-6">
+            <div className="flex flex-wrap gap-2.5">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="بحث بالمرجع..." value={search} onChange={e => setSearch(e.target.value)} className="ps-10" />
               </div>
             </div>
+            <Panel flush>
+              {transactions.length === 0 ? (
+                <EmptyState
+                  icon={CreditCard}
+                  title="لا توجد معاملات بعد"
+                  action={<Button asChild size="sm" variant="outline"><Link to="/admin/events">عرض جميع الفعاليات</Link></Button>}
+                />
+              ) : visibleTransactions.length === 0 ? (
+                <EmptyState
+                  icon={Search}
+                  title="لا توجد معاملات مطابقة"
+                  action={<Button size="sm" variant="outline" onClick={() => setSearch("")}>مسح البحث</Button>}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">النوع</TableHead>
+                      <TableHead>التاريخ</TableHead>
+                      <TableHead>المبلغ</TableHead>
+                      <TableHead>العمولة</TableHead>
+                      <TableHead>الصافي</TableHead>
+                      <TableHead>الحالة</TableHead>
+                      <TableHead className="pe-6">المرجع</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleTransactions.map(t => (
+                      <TableRow key={t.id}>
+                        <TableCell className="whitespace-nowrap ps-6 font-semibold">{txTypeLabel[t.transaction_type] || t.transaction_type}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(t.created_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap font-semibold">{money(Number(t.amount))}</TableCell>
+                        <TableCell className="whitespace-nowrap">{money(Number(t.commission_amount || 0))}</TableCell>
+                        <TableCell className="whitespace-nowrap">{money(Number(t.net_amount || 0))}</TableCell>
+                        <TableCell>{statusBadge(t.status)}</TableCell>
+                        <TableCell className="pe-6 text-xs text-muted-foreground">
+                          {t.payment_reference ? <bdi dir="ltr" className="font-mono">{t.payment_reference}</bdi> : "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Panel>
           </TabsContent>
 
-          {/* Payouts */}
-          <TabsContent value="payouts" className="space-y-4">
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-border/50 bg-muted/30">
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">التاريخ</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الحساب</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">المبلغ</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">البنك</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">IBAN</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الحالة</th>
-                    <th className="text-right p-3 text-xs text-muted-foreground font-semibold">إجراء</th>
-                  </tr></thead>
-                  <tbody>
+          <TabsContent value="payouts" className="mt-6">
+            <Panel flush>
+              {payouts.length === 0 ? (
+                <EmptyState
+                  icon={Wallet}
+                  title="لا توجد تسويات بعد"
+                  action={<Button asChild size="sm" variant="outline"><Link to="/admin/organizers">عرض المنظمين</Link></Button>}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">الحساب</TableHead>
+                      <TableHead>التاريخ</TableHead>
+                      <TableHead>المبلغ</TableHead>
+                      <TableHead>البنك</TableHead>
+                      <TableHead><bdi dir="ltr">IBAN</bdi></TableHead>
+                      <TableHead>الحالة</TableHead>
+                      <TableHead className="pe-6">إجراء</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {payouts.map(p => (
-                      <tr key={p.id} className="border-b border-border/30 hover:bg-muted/20">
-                        <td className="p-3 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString("ar-SA")}</td>
-                        <td className="p-3 text-xs font-semibold text-foreground">{p.account_holder_name || "-"}</td>
-                        <td className="p-3 text-xs font-bold text-foreground">{Number(p.amount).toLocaleString()} ر.س</td>
-                        <td className="p-3 text-xs text-muted-foreground">{p.bank_name || "-"}</td>
-                        <td className="p-3 text-xs text-muted-foreground font-mono">{p.iban || "-"}</td>
-                        <td className="p-3">{statusBadge(p.status)}</td>
-                        <td className="p-3">
+                      <TableRow key={p.id}>
+                        <TableCell className="whitespace-nowrap ps-6 font-semibold">{p.account_holder_name || "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(p.created_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap font-semibold">{money(Number(p.amount))}</TableCell>
+                        <TableCell className="whitespace-nowrap">{p.bank_name || "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {p.iban ? <bdi dir="ltr" className="font-mono">{p.iban}</bdi> : "—"}
+                        </TableCell>
+                        <TableCell>{statusBadge(p.status)}</TableCell>
+                        <TableCell className="pe-6">
                           {p.status === "pending" && (
-                            <Button size="sm" className="h-7 text-[10px] bg-green-600 hover:bg-green-700 text-white" onClick={() => markPayoutPaid(p.id)}>
-                              <Check className="w-3 h-3 ml-1" /> تم الدفع
+                            <Button size="sm" variant="soft" onClick={() => markPayoutPaid(p.id)}>
+                              <Check className="h-4 w-4" /> تم الدفع
                             </Button>
                           )}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                    {payouts.length === 0 && (
-                      <tr><td colSpan={7} className="p-12 text-center text-muted-foreground">لا توجد تسويات بعد</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                  </TableBody>
+                </Table>
+              )}
+            </Panel>
           </TabsContent>
 
-          {/* Commission Settings */}
-          <TabsContent value="commissions" className="space-y-4">
-            <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-4">
-              <h2 className="font-bold text-foreground">نسب العمولات</h2>
-              <p className="text-xs text-muted-foreground">تعديل نسبة العمولة التي تحصل عليها المنصة من كل عملية</p>
+          <TabsContent value="commissions" className="mt-6">
+            <Panel title="نسب العمولات" description="تعديل نسبة العمولة التي تحصل عليها المنصة من كل عملية">
+              {commissions.length === 0 ? (
+                <EmptyState icon={TrendingUp} title="لا توجد نسب عمولات بعد" />
+              ) : (
               <div className="space-y-3">
                 {commissions.map(c => (
-                  <div key={c.id} className="flex items-center justify-between bg-muted/30 rounded-xl p-4">
-                    <div>
-                      <p className="font-semibold text-foreground text-sm">{categoryLabel[c.category] || c.category}</p>
-                      <p className="text-xs text-muted-foreground">الحد الأدنى: {c.min_amount} ر.س</p>
+                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/50 p-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold leading-[22px]">{categoryLabel[c.category] || c.category}</p>
+                      <p className="text-xs leading-[18px] text-muted-foreground">الحد الأدنى: {money(Number(c.min_amount || 0))}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       {editingCommission === c.id ? (
                         <>
-                          <Input type="number" value={editRate} onChange={e => setEditRate(e.target.value)} className="w-20 h-8 text-xs" min={0} max={100} />
-                          <span className="text-xs text-muted-foreground">%</span>
-                          <Button size="sm" className="h-8" onClick={() => saveCommission(c.id)}><Save className="w-3 h-3" /></Button>
-                          <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingCommission(null)}><X className="w-3 h-3" /></Button>
+                          <Input type="number" aria-label="نسبة العمولة" value={editRate} onChange={e => setEditRate(e.target.value)} className="h-9 w-20" min={0} max={100} />
+                          <span className="text-sm text-muted-foreground">%</span>
+                          <Button size="icon" className="h-9 w-9" aria-label="حفظ" onClick={() => saveCommission(c.id)}><Save className="h-4 w-4" /></Button>
+                          <Button size="icon" variant="ghost" className="h-9 w-9" aria-label="إلغاء" onClick={() => setEditingCommission(null)}><X className="h-4 w-4" /></Button>
                         </>
                       ) : (
                         <>
-                          <span className="text-xl font-bold text-primary">{c.rate_percent}%</span>
-                          <Button size="sm" variant="ghost" className="h-8" onClick={() => { setEditingCommission(c.id); setEditRate(String(c.rate_percent)); }}>
-                            <Edit2 className="w-3 h-3" />
+                          <span className="text-xl font-bold leading-8">{formatPercent(c.rate_percent)}</span>
+                          <Button size="icon" variant="ghost" className="h-9 w-9" aria-label="تعديل" onClick={() => { setEditingCommission(c.id); setEditRate(String(c.rate_percent)); }}>
+                            <Edit2 className="h-4 w-4" />
                           </Button>
                         </>
                       )}
@@ -232,7 +267,8 @@ const AdminFinance = () => {
                   </div>
                 ))}
               </div>
-            </div>
+              )}
+            </Panel>
           </TabsContent>
         </Tabs>
       </div>

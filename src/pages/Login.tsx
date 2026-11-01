@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { motion } from "framer-motion";
 import BrandLogo from "@/components/brand/BrandLogo";
 import { Mail, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,11 +105,7 @@ const Login = () => {
 
       {/* Left side - Form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/">
               <BrandLogo alt={t("pgAuth.common.brandAlt")} className="h-16" />
@@ -131,14 +126,14 @@ const Login = () => {
             <div className="space-y-2">
               <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
+                  className="pe-10 rtl:ps-10"
                   dir="ltr"
                   required
                 />
@@ -166,15 +161,15 @@ const Login = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? t("pgAuth.login.submitting") : t("pgAuth.login.submit")}
             </Button>
           </form>
 
           {/* Demo Accounts */}
-          <div className="mt-6 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5">
-            <p className="text-xs text-muted-foreground mb-3 text-center font-semibold">{t("pgAuth.login.demoTitle")}</p>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mt-6 rounded-xl bg-muted/60 p-4">
+            <p className="mb-3 text-center text-xs font-semibold text-muted-foreground">{t("pgAuth.login.demoTitle")}</p>
+            <div className="space-y-2">
               {[
                 { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
                 { label: t("pgAuth.login.demoOrganizerPublic"), email: "org-public@nakfeek.sa" },
@@ -186,22 +181,22 @@ const Login = () => {
                   key={demo.email}
                   type="button"
                   onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
-                  className="text-xs px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent/10 hover:border-primary/50 transition-all text-start truncate"
+                  className="flex w-full items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-start text-xs transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <span className="block font-semibold">{demo.label}</span>
-                  <span className="text-muted-foreground text-[10px]" dir="ltr">{demo.email}</span>
+                  <span className="truncate font-semibold">{demo.label}</span>
+                  <bdi dir="ltr" className="flex-none text-muted-foreground">{demo.email}</bdi>
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2 text-center" dir="ltr">Password: Demo@12345</p>
+            <p className="mt-3 text-center text-xs text-muted-foreground" dir="ltr">Password: Demo@12345</p>
           </div>
 
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               {t("pgAuth.common.backHome")}
             </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

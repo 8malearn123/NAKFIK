@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
+import { CHART_COLORS } from "@/components/app/TrendChart";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { Activity, AlertTriangle, ArrowLeft, DoorOpen, Flame, TrendingUp, Users, Clock, Settings2 } from "lucide-react";
+import { formatNumber, formatPercent, formatTime } from "@/lib/format";
+import { AlertTriangle, ArrowRight, DoorOpen, ScanLine, Settings2, TrendingUp } from "lucide-react";
 
 interface Checkpoint {
   id: string;
@@ -31,21 +38,33 @@ interface RegMeta {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-const pressureBucket = (pct: number) => {
-  if (pct >= 90) return { label: "ممتلئ", cls: "bg-destructive text-destructive-foreground", bar: "bg-destructive" };
-  if (pct >= 75) return { label: "ضغط عالٍ", cls: "bg-brand-brick text-white", bar: "bg-brand-brick" };
-  if (pct >= 50) return { label: "متوسط", cls: "bg-brand-gold text-white", bar: "bg-brand-gold" };
-  if (pct >= 25) return { label: "منخفض", cls: "bg-brand-teal text-white", bar: "bg-brand-teal" };
-  return { label: "هادئ", cls: "bg-muted text-muted-foreground", bar: "bg-muted-foreground/40" };
+const pressureBucket = (pct: number): { label: string; tone: StatusTone; bar: string } => {
+  if (pct >= 90) return { label: "ممتلئ", tone: "danger", bar: CHART_COLORS.danger };
+  if (pct >= 75) return { label: "ضغط عالٍ", tone: "danger", bar: CHART_COLORS.danger };
+  if (pct >= 50) return { label: "متوسط", tone: "warning", bar: CHART_COLORS.gold };
+  if (pct >= 25) return { label: "منخفض", tone: "success", bar: CHART_COLORS.primary };
+  return { label: "هادئ", tone: "neutral", bar: CHART_COLORS.primary };
 };
 
-const heatColor = (pct: number) => {
-  if (pct === 0) return "bg-muted/30";
-  if (pct < 20) return "bg-brand-teal/20";
-  if (pct < 40) return "bg-brand-teal/50";
-  if (pct < 60) return "bg-brand-gold/60";
-  if (pct < 80) return "bg-brand-brick/70";
-  return "bg-destructive";
+// تدرج بلون واحد للكثافة: كل درجة أغمق من سابقتها، والنص يبقى مقروءاً بنسبة 4.5:1 على الأقل
+const HEAT_STEPS = ["#EDE7F2", "#D5C8E0", "#B9A7C6", "#7A5C92", "#492C5A"];
+
+const heatStyle = (pct: number) => {
+  if (pct === 0) return undefined;
+  const step = pct < 20 ? 0 : pct < 40 ? 1 : pct < 60 ? 2 : pct < 80 ? 3 : 4;
+  return { background: HEAT_STEPS[step], color: step >= 3 ? "#FFFFFF" : "#1C1524" };
+};
+
+const staffCount = (n: number) => {
+  if (n === 1) return "موظف واحد";
+  if (n === 2) return "موظفان";
+  return n <= 10 ? `${formatNumber(n)} موظفين` : `${formatNumber(n)} موظفاً`;
+};
+
+const feedLabel = (n: number) => {
+  if (n === 1) return "آخر عملية";
+  if (n === 2) return "آخر عمليتين";
+  return `آخر ${formatNumber(n)} ${n <= 10 ? "عمليات" : "عملية"}`;
 };
 
 const EventHeatmap = () => {
@@ -176,132 +195,145 @@ const EventHeatmap = () => {
 
   const liveFeed = scans.slice(0, 25);
 
+  const header = (actions?: React.ReactNode) => (
+    <div className="space-y-2">
+      <Link to="/dashboard/events" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+        <ArrowRight className="h-4 w-4" /> العودة لفعالياتي
+      </Link>
+      <PageHeader
+        title="الخارطة الحرارية للضغط"
+        description={event?.title_ar ? `${event.title_ar}، تحديث مباشر` : "تحديث مباشر"}
+        actions={actions}
+      />
+    </div>
+  );
+
   if (loading) return (
     <DashboardLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="space-y-6">
+        {header()}
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-40 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+        </div>
+        <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
       </div>
     </DashboardLayout>
   );
 
+  const critical = gateStats.filter(g => g.pct >= 85);
+
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Link to="/dashboard/events" className="hover:text-foreground"><ArrowLeft className="w-4 h-4 inline" /> فعالياتي</Link>
-            </div>
-            <h1 className="font-bold text-2xl text-foreground flex items-center gap-2">
-              <Flame className="w-6 h-6 text-brand-brick" /> الخارطة الحرارية للضغط
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">{event?.title_ar} — تحديث مباشر</p>
-          </div>
-          <Button variant="outline" className="rounded-full" asChild>
+        {header(
+          <Button variant="outline" asChild>
             <Link to={`/dashboard/events/${eventId}/checkpoints`}>
-              <Settings2 className="w-4 h-4" /> إدارة البوابات
+              <Settings2 className="h-4 w-4" /> إدارة البوابات
             </Link>
-          </Button>
-        </div>
+          </Button>,
+        )}
 
         {/* Critical alerts */}
-        {gateStats.filter(g => g.pct >= 85).length > 0 && (
-          <div className="bg-destructive/10 border-2 border-destructive rounded-2xl p-4 flex items-start gap-3">
-            <AlertTriangle className="w-6 h-6 text-destructive flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-bold text-destructive">⚠️ تنبيه: بوابات تحت ضغط حرج</p>
-              <p className="text-sm text-foreground/80 mt-1">
-                {gateStats.filter(g => g.pct >= 85).map(g => `${g.name_ar} (${g.pct}%)`).join(" • ")}
-                {" — "}يُنصح بإعادة توزيع الموظفين فوراً
+        {critical.length > 0 && (
+          <div className="flex items-start gap-3 rounded-2xl bg-[#FBECEA] p-4">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#B42F24]" />
+            <div className="flex-1 text-sm">
+              <p className="mb-0.5 font-bold">تنبيه: بوابات تحت ضغط حرج</p>
+              <p className="text-muted-foreground">
+                {critical.map(g => `${g.name_ar} (${formatPercent(g.pct)})`).join("، ")}، يُنصح بإعادة توزيع الموظفين فوراً
               </p>
             </div>
           </div>
         )}
 
         {gateStats.length === 0 && (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-            <DoorOpen className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <h3 className="font-bold text-foreground mb-1">لا توجد بوابات معدّة</h3>
-            <p className="text-sm text-muted-foreground mb-4">أضف نقاط الدخول أولاً لتظهر بياناتها هنا</p>
-            <Button asChild className="rounded-full"><Link to={`/dashboard/events/${eventId}/checkpoints`}>إعداد البوابات</Link></Button>
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={DoorOpen}
+              title="لا توجد بوابات معدّة"
+              description="أضف نقاط الدخول أولاً لتظهر بياناتها هنا"
+              action={<Button asChild><Link to={`/dashboard/events/${eventId}/checkpoints`}>إعداد البوابات</Link></Button>}
+            />
           </div>
         )}
 
         {gateStats.length > 0 && (
           <>
             {/* Live gate pressure cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               {gateStats.map(g => {
                 const pb = pressureBucket(g.pct);
                 const next15 = prediction.get(g.id) || 0;
                 return (
-                  <div key={g.id} className="bg-card rounded-2xl border border-border/50 p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full" style={{ background: `#${g.color}` }} />
-                        <span className="font-bold text-foreground text-sm">{g.name_ar}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${pb.cls}`}>{pb.label}</span>
+                  <div key={g.id} className="flex min-w-0 flex-col gap-3 rounded-2xl bg-card px-6 py-5 shadow-soft">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                        <i className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: `#${g.color}` }} />
+                        <span className="truncate">{g.name_ar}</span>
+                      </span>
+                      <StatusBadge tone={pb.tone}>{pb.label}</StatusBadge>
                     </div>
                     <div>
                       <div className="flex items-baseline gap-1.5">
-                        <span className="text-2xl font-bold text-foreground tabular-nums">{g.count}</span>
-                        <span className="text-xs text-muted-foreground">/ {g.capacity || "∞"}</span>
-                        {g.capacity > 0 && <span className="text-xs font-semibold text-foreground mr-auto">{g.pct}%</span>}
+                        <span className="text-[32px] font-bold leading-10">{formatNumber(g.count)}</span>
+                        <span className="text-xs text-muted-foreground">{g.capacity > 0 ? `من ${formatNumber(g.capacity)}` : "بلا سعة محددة"}</span>
+                        {g.capacity > 0 && <b className="ms-auto text-sm font-bold">{g.pct}%</b>}
                       </div>
-                      <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
-                        <div className={`h-full ${pb.bar} transition-all duration-500`} style={{ width: `${g.pct}%` }} />
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${g.pct}%`, background: pb.bar }} />
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <TrendingUp className="w-3 h-3" />
-                      <span>آخر 15د: <strong className="text-foreground">{next15}</strong> دخول</span>
-                    </div>
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      <span>آخر 15 دقيقة: <b className="font-semibold text-foreground">{formatNumber(next15)}</b> دخول</span>
+                    </p>
                   </div>
                 );
               })}
             </div>
 
             {/* Hourly heatmap matrix */}
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                <h3 className="font-bold text-foreground flex items-center gap-2"><Clock className="w-4 h-4" /> الشبكة الزمنية × البوابات (اليوم)</h3>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <span>هادئ</span>
-                  <span className="w-3 h-3 rounded bg-muted/30 border border-border" />
-                  <span className="w-3 h-3 rounded bg-brand-teal/50" />
-                  <span className="w-3 h-3 rounded bg-brand-gold/60" />
-                  <span className="w-3 h-3 rounded bg-brand-brick/70" />
-                  <span className="w-3 h-3 rounded bg-destructive" />
-                  <span>ذروة</span>
+            <Panel
+              flush
+              title="الشبكة الزمنية × البوابات (اليوم)"
+              actions={
+                <div className="flex flex-none items-center gap-1 pt-1 text-xs text-muted-foreground">
+                  <span className="me-1">هادئ</span>
+                  {HEAT_STEPS.map(c => <i key={c} className="h-3 w-3 rounded-[3px]" style={{ background: c }} />)}
+                  <span className="ms-1">ذروة</span>
                 </div>
-              </div>
-              <div className="overflow-x-auto p-4">
-                <table className="w-full text-xs">
+              }
+            >
+              {/* عرض ثابت على الشاشات الضيقة حتى تتساوى الأعمدة، ويتم التمرير داخل البطاقة */}
+              <div className="px-6 pb-6">
+                <Table className="w-[44rem] table-fixed text-xs md:w-full">
                   <thead>
                     <tr>
-                      <th className="text-right p-1 font-semibold text-muted-foreground sticky right-0 bg-card min-w-[120px]">البوابة</th>
-                      {HOURS.map(h => <th key={h} className="p-1 font-medium text-muted-foreground text-center w-9">{h}</th>)}
+                      <th className="sticky start-0 z-10 w-28 bg-card pb-1.5 pe-3 text-start font-medium text-muted-foreground xl:w-40">البوابة</th>
+                      {HOURS.map(h => <th key={h} className="px-0.5 pb-1.5 text-center font-medium text-muted-foreground">{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {checkpoints.map(c => (
                       <tr key={c.id}>
-                        <td className="p-1 font-medium text-foreground sticky right-0 bg-card">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full" style={{ background: `#${c.color}` }} />
-                            {c.name_ar}
-                          </div>
+                        <td className="sticky start-0 z-10 bg-card py-0.5 pe-3 text-sm font-medium">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <i className="h-2 w-2 flex-none rounded-full" style={{ background: `#${c.color}` }} />
+                            <span className="truncate" title={c.name_ar}>{c.name_ar}</span>
+                          </span>
                         </td>
                         {HOURS.map(h => {
                           const v = hourMatrix.grid[c.id]?.[h] || 0;
                           const pct = (v / hourMatrix.max) * 100;
                           return (
                             <td key={h} className="p-0.5">
-                              <div className={`h-8 rounded ${heatColor(pct)} flex items-center justify-center text-[10px] font-semibold transition-all hover:scale-110 cursor-help`}
-                                title={`${c.name_ar} • ${h}:00 → ${v} دخول`}>
-                                {v > 0 ? v : ""}
+                              <div
+                                className="flex h-8 items-center justify-center rounded-md bg-muted/50 text-xs font-semibold"
+                                style={heatStyle(pct)}
+                                title={`${c.name_ar}، الساعة ${h}:00، ${formatNumber(v)} دخول`}
+                              >
+                                {v > 0 ? formatNumber(v) : ""}
                               </div>
                             </td>
                           );
@@ -309,104 +341,91 @@ const EventHeatmap = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Table>
               </div>
-            </div>
+            </Panel>
 
-            <div className="grid lg:grid-cols-2 gap-4">
+            <div className="grid gap-6 lg:grid-cols-2">
               {/* Source breakdown */}
-              <div className="bg-card rounded-2xl border border-border/50 p-4">
-                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><Users className="w-4 h-4" /> مصدر الحضور</h3>
+              <Panel title="مصدر الحضور">
                 {sourceBreakdown.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">لا توجد بيانات بعد</p>
+                  <p className="py-12 text-center text-sm text-muted-foreground">لا توجد بيانات بعد</p>
                 ) : (
-                  <div className="space-y-2.5">
+                  <div className="space-y-4">
                     {sourceBreakdown.map(s => (
                       <div key={s.name}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="font-medium text-foreground">{s.name}</span>
-                          <span className="text-muted-foreground tabular-nums">{s.count} ({s.pct}%)</span>
+                        <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                          <span className="truncate font-semibold">{s.name}</span>
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">{formatNumber(s.count)}، {formatPercent(s.pct)}</span>
                         </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-gradient-to-l from-brand-purple to-brand-teal" style={{ width: `${s.pct}%` }} />
+                        <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${s.pct}%` }} />
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </Panel>
 
               {/* Staff recommendations */}
-              <div className="bg-card rounded-2xl border border-border/50 p-4">
-                <h3 className="font-bold text-foreground mb-3 flex items-center gap-2"><Activity className="w-4 h-4" /> توصيات توزيع الموظفين</h3>
-                <p className="text-xs text-muted-foreground mb-3">اقتراح توزيع 10 موظفين حسب الضغط الحالي</p>
-                <div className="space-y-2">
+              <Panel title="توصيات توزيع الموظفين" description="اقتراح توزيع 10 موظفين حسب الضغط الحالي">
+                <div className="divide-y divide-border">
                   {recommendations.map(r => (
-                    <div key={r.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ background: `#${r.color}` }} />
-                        <span className="font-medium text-foreground text-sm">{r.name_ar}</span>
-                        <span className="text-[10px] text-muted-foreground">({r.pct}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {Array.from({ length: r.staff }).map((_, i) => (
-                          <span key={i} className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">👤</span>
-                        ))}
-                        <span className="text-xs font-bold text-foreground mr-1">{r.staff}</span>
-                      </div>
+                    <div key={r.id} className="flex items-center gap-2.5 py-3 first:pt-0 last:pb-0">
+                      <i className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: `#${r.color}` }} />
+                      <span className="min-w-0 truncate text-sm font-semibold">{r.name_ar}</span>
+                      <span className="text-xs text-muted-foreground">{formatPercent(r.pct)}</span>
+                      <span className="ms-auto whitespace-nowrap text-sm font-semibold">{staffCount(r.staff)}</span>
                     </div>
                   ))}
                 </div>
-              </div>
+              </Panel>
             </div>
 
             {/* Live feed */}
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                <h3 className="font-bold text-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-brand-teal animate-pulse" />
-                  التدفّق الحي
-                </h3>
-                <span className="text-xs text-muted-foreground">آخر {liveFeed.length} عملية</span>
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {liveFeed.length === 0 ? (
-                  <p className="p-6 text-center text-sm text-muted-foreground">لا توجد مسحات بعد</p>
-                ) : (
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30 sticky top-0">
-                      <tr>
-                        <th className="text-right p-2.5 font-semibold text-muted-foreground text-xs">الوقت</th>
-                        <th className="text-right p-2.5 font-semibold text-muted-foreground text-xs">الحاضر</th>
-                        <th className="text-right p-2.5 font-semibold text-muted-foreground text-xs">التذكرة</th>
-                        <th className="text-right p-2.5 font-semibold text-muted-foreground text-xs">البوابة</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
+            <Panel flush title="التدفّق الحي" description={liveFeed.length > 0 ? feedLabel(liveFeed.length) : undefined} actions={<StatusBadge tone="success">مباشر</StatusBadge>}>
+              {liveFeed.length === 0 ? (
+                <EmptyState
+                  icon={ScanLine}
+                  title="لا توجد مسحات بعد"
+                  action={<Button asChild><Link to="/dashboard/check-in">تسجيل الحضور</Link></Button>}
+                />
+              ) : (
+                <div className="max-h-80 overflow-auto [&>div]:overflow-visible">
+                  <Table>
+                    <TableHeader className="sticky top-0 z-10">
+                      <TableRow>
+                        <TableHead className="ps-6">الوقت</TableHead>
+                        <TableHead>الحاضر</TableHead>
+                        <TableHead>التذكرة</TableHead>
+                        <TableHead className="pe-6">البوابة</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {liveFeed.map(s => {
                         const cp = checkpoints.find(c => c.id === s.checkpoint_id);
                         const reg = s.registration_id ? regs[s.registration_id] : null;
                         return (
-                          <tr key={s.id} className="hover:bg-muted/20">
-                            <td className="p-2.5 text-xs text-muted-foreground tabular-nums">{new Date(s.scanned_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</td>
-                            <td className="p-2.5 text-foreground">{reg?.attendee_name || "—"}</td>
-                            <td className="p-2.5 text-muted-foreground">{reg?.ticket_name || "—"}</td>
-                            <td className="p-2.5">
+                          <TableRow key={s.id}>
+                            <TableCell className="whitespace-nowrap ps-6 text-xs text-muted-foreground">{formatTime(s.scanned_at)}</TableCell>
+                            <TableCell className="whitespace-nowrap font-semibold">{reg?.attendee_name || "—"}</TableCell>
+                            <TableCell className="whitespace-nowrap text-muted-foreground"><bdi>{reg?.ticket_name || "—"}</bdi></TableCell>
+                            <TableCell className="whitespace-nowrap pe-6">
                               {cp ? (
-                                <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                                  <span className="w-2 h-2 rounded-full" style={{ background: `#${cp.color}` }} />
+                                <span className="inline-flex items-center gap-2">
+                                  <i className="h-2 w-2 flex-none rounded-full" style={{ background: `#${cp.color}` }} />
                                   {cp.name_ar}
                                 </span>
-                              ) : <span className="text-muted-foreground text-xs">بدون</span>}
-                            </td>
-                          </tr>
+                              ) : <span className="text-xs text-muted-foreground">بدون</span>}
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Panel>
           </>
         )}
       </div>

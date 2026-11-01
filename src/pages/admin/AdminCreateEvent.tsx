@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
 import { supabase } from "@/integrations/supabase/client";
 import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { PlusCircle, Search, Building2 } from "lucide-react";
+import { Building2, ChevronLeft, Info, Plus, Search } from "lucide-react";
 
 interface OrgRow {
   id: string;
@@ -56,56 +59,58 @@ const AdminCreateEvent = () => {
 
   return (
     <AdminLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground flex items-center gap-2">
-            <PlusCircle className="w-6 h-6 text-primary" /> إنشاء فعالية لمنظم
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">اختر المنظم الذي ستُنسب إليه الفعالية، ثم سيتم نقلك لنموذج الإنشاء.</p>
-        </div>
+      <div className="space-y-6">
+        <PageHeader title="إنشاء فعالية لمنظم" description="اختر المنظم الذي ستُنسب إليه الفعالية، ثم سيتم نقلك لنموذج الإنشاء." />
 
-        <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-4">
-          <div className="space-y-2">
-            <Label>ابحث عن منظم</Label>
+        <Panel bodyClassName="space-y-5">
+          <div className="max-w-md space-y-2">
+            <Label htmlFor="org-search">ابحث عن منظم</Label>
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم المنظم..." className="pr-10" />
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input id="org-search" value={search} onChange={e => setSearch(e.target.value)} placeholder="اسم المنظم..." className="ps-10" />
             </div>
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3].map(i => <div key={i} className="h-[72px] animate-pulse rounded-xl bg-muted/60" />)}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-8 space-y-2">
-              <Building2 className="w-10 h-10 text-muted-foreground mx-auto" />
-              <p className="text-muted-foreground text-sm">لا يوجد منظمين مطابقين</p>
-            </div>
+            <EmptyState
+              icon={Building2}
+              title={search ? "لا يوجد منظمون مطابقون" : "لا يوجد منظمون بعد"}
+              action={search ? (
+                <Button size="sm" variant="outline" onClick={() => setSearch("")}>مسح البحث</Button>
+              ) : (
+                <Button asChild size="sm"><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>
+              )}
+            />
           ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            <div className="grid max-h-[400px] gap-3 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map(o => (
                 <button
                   key={o.id}
                   onClick={() => handleSelect(o)}
-                  className="w-full text-right bg-muted/40 hover:bg-primary/10 border border-border/50 rounded-xl p-4 flex items-center justify-between transition-colors"
+                  className="flex min-w-0 items-center gap-3 rounded-xl bg-muted/50 p-4 text-start transition-colors hover:bg-muted"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <span className="font-semibold text-foreground">{o.name}</span>
-                  </div>
-                  <span className="text-xs text-primary font-medium">إنشاء بهذا الاسم ←</span>
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                    <Building2 className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold leading-[22px]">{o.name}</span>
+                    <span className="block text-xs leading-[18px] text-muted-foreground">إنشاء بهذا الاسم</span>
+                  </span>
+                  <ChevronLeft className="h-4 w-4 flex-none text-muted-foreground" />
                 </button>
               ))}
             </div>
           )}
-        </div>
 
-        <div className="bg-muted/40 rounded-xl border border-border/50 p-4 text-sm text-muted-foreground">
-          💡 سيتم تفعيل وضع "الدخول كحساب" مؤقتاً لإنشاء الفعالية. يمكنك الخروج منه من الشريط العلوي بعد الانتهاء.
-        </div>
+          <p className="flex items-start gap-2 text-xs leading-[18px] text-muted-foreground">
+            <Info className="mt-px h-3.5 w-3.5 flex-none" />
+            سيتم تفعيل وضع "الدخول كحساب" مؤقتاً لإنشاء الفعالية. يمكنك الخروج منه من الشريط العلوي بعد الانتهاء.
+          </p>
+        </Panel>
       </div>
     </AdminLayout>
   );

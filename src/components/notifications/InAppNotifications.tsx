@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import EmptyState from "@/components/app/EmptyState";
+import Panel from "@/components/app/Panel";
 import { Button } from "@/components/ui/button";
 import { Bell, Check, Inbox } from "lucide-react";
+import { formatDateShort, formatNumber, formatTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface InAppNotif {
   id: string;
@@ -14,7 +18,7 @@ interface InAppNotif {
 }
 
 const InAppNotifications = () => {
-  const { t, lang } = useLanguage();
+  const { t } = useLanguage();
   const [notifications, setNotifications] = useState<InAppNotif[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,76 +62,55 @@ const InAppNotifications = () => {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   if (loading) {
-    return (
-      <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
-        <p className="text-muted-foreground text-sm mt-3">{t("common.loading")}</p>
-      </div>
-    );
+    return <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />;
   }
 
   if (notifications.length === 0) {
     return (
-      <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-        <Inbox className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-        <h3 className="font-semibold text-foreground">{t("inbox.emptyTitle")}</h3>
-        <p className="text-sm text-muted-foreground mt-1">{t("inbox.emptyDesc")}</p>
+      <div className="rounded-2xl bg-card shadow-soft">
+        <EmptyState icon={Inbox} title={t("inbox.emptyTitle")} description={t("inbox.emptyDesc")} />
       </div>
     );
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-border/50 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-foreground flex items-center gap-2">
-          <Bell className="w-4 h-4 text-primary" />
-          {t("inbox.title")}
-          {unreadCount > 0 && (
-            <span className="bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full font-bold">
-              {unreadCount}
-            </span>
-          )}
-        </h3>
-        {unreadCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={markAllRead} className="text-xs">
+    <Panel
+      flush
+      title={t("inbox.title")}
+      description={unreadCount > 0 ? `${formatNumber(unreadCount)} غير مقروء` : undefined}
+      actions={
+        unreadCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={markAllRead} className="-my-1 flex-none text-[13px] text-primary">
             <Check className="w-3.5 h-3.5" />
             {t("inbox.markAllRead")}
           </Button>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        {notifications.map((notif) => (
-          <div
-            key={notif.id}
-            className={`p-4 rounded-xl transition-colors cursor-pointer ${
-              notif.is_read ? "bg-muted/30" : "bg-primary/5 border border-primary/10"
-            }`}
-            onClick={() => !notif.is_read && markAsRead(notif.id)}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
+        )
+      }
+    >
+      <div className="divide-y divide-border border-t border-border">
+        {notifications.map((notif) => {
+          const time = `${formatDateShort(notif.created_at)}، ${formatTime(notif.created_at)}`;
+          return (
+            <div
+              key={notif.id}
+              className={cn("flex items-start gap-3 px-6 py-4 transition-colors", !notif.is_read && "cursor-pointer hover:bg-muted/50")}
+              onClick={() => !notif.is_read && markAsRead(notif.id)}
+            >
+              <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary"><Bell className="h-[17px] w-[17px]" /></span>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  {!notif.is_read && (
-                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                  )}
-                  <p className="font-semibold text-foreground text-sm">{notif.title}</p>
+                  {!notif.is_read && <i className="h-2 w-2 flex-none rounded-full bg-primary" />}
+                  <p className={cn("text-sm leading-[22px]", notif.is_read ? "font-medium" : "font-semibold")}>{notif.title}</p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">{notif.body}</p>
+                <p className="text-[13px] leading-5 text-muted-foreground">{notif.body}</p>
+                <p className="mt-1 text-xs leading-[18px] text-muted-foreground sm:hidden">{time}</p>
               </div>
-              <span className="text-xs text-muted-foreground whitespace-nowrap ms-3">
-                {new Date(notif.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", {
-                  day: "numeric",
-                  month: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+              <span className="hidden whitespace-nowrap text-xs leading-[22px] text-muted-foreground sm:block">{time}</span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-    </div>
+    </Panel>
   );
 };
 

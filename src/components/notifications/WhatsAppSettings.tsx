@@ -1,18 +1,44 @@
 import { useState, useEffect } from "react";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Save, Key, Phone, Wifi, WifiOff, ExternalLink, Link2, Server,
-  MessageSquare, CreditCard, TestTube, CheckCircle2, XCircle, Loader2,
-} from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle2, Link2, Loader2, MessageSquare, Save, Server, TestTube } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type ConnectionType = "rest_api" | "qr_gateway" | "nakfeek" | "deeplink";
+
+const METHODS: { key: ConnectionType; includes: ConnectionType[]; icon: typeof Server; title: string; description: React.ReactNode }[] = [
+  {
+    key: "rest_api",
+    includes: ["rest_api", "qr_gateway"],
+    icon: Server,
+    title: "ربط واتساب الخاص بك",
+    description: <>REST API أو QR Gateway — <bdi dir="ltr">Twilio, 360dialog, UltraMsg...</bdi></>,
+  },
+  {
+    key: "nakfeek",
+    includes: ["nakfeek"],
+    icon: MessageSquare,
+    title: "الإرسال من خلال نكفيك",
+    description: "إرسال مدفوع من رقم نكفيك الرسمي — حصة شهرية حسب الباقة",
+  },
+  {
+    key: "deeplink",
+    includes: ["deeplink"],
+    icon: Link2,
+    title: "هيبرلينك فقط (مجاني)",
+    description: "يفتح واتساب مع رسالة جاهزة — ترسل بنفسك يدوياً",
+  },
+];
 
 const WhatsAppSettings = () => {
   const [loading, setLoading] = useState(true);
@@ -166,10 +192,10 @@ const WhatsAppSettings = () => {
       if (error) throw error;
 
       if (data?.success) {
-        toast.success(data.message || "✅ الاتصال يعمل!");
+        toast.success(data.message || "الاتصال يعمل!");
         setSettings(prev => ({ ...prev, is_verified: true }));
       } else {
-        toast.error(data?.message || "❌ فشل الاختبار");
+        toast.error(data?.message || "فشل الاختبار");
       }
     } catch (err: any) {
       toast.error(err.message || "خطأ في الاختبار");
@@ -180,114 +206,55 @@ const WhatsAppSettings = () => {
 
   if (loading) {
     return (
-      <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+      <div className="space-y-6">
+        <div className="h-44 animate-pulse rounded-2xl bg-card shadow-soft" />
+        <div className="h-44 animate-pulse rounded-2xl bg-card shadow-soft" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Method Selection - 3 Radio Cards */}
-      <div className="bg-card rounded-2xl border border-border/50 p-6">
-        <h3 className="font-bold text-foreground mb-4">طريقة إرسال واتساب</h3>
-        <div className="grid gap-3">
-          {/* Card 1: External API */}
-          <button
-            onClick={() => setConnectionType("rest_api")}
-            className={`p-4 rounded-xl border-2 text-right transition-all ${
-              connectionType === "rest_api" || connectionType === "qr_gateway"
-                ? "border-primary bg-primary/5"
-                : "border-border/50 hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Server className="w-5 h-5 text-blue-500" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-foreground text-sm">ربط واتساب الخاص بك</p>
-                <p className="text-xs text-muted-foreground">REST API أو QR Gateway — Twilio, 360dialog, UltraMsg...</p>
-              </div>
-              {(connectionType === "rest_api" || connectionType === "qr_gateway") && (
-                <CheckCircle2 className="w-5 h-5 text-primary" />
-              )}
-            </div>
-          </button>
-
-          {/* Card 2: Nakfeek */}
-          <button
-            onClick={() => setConnectionType("nakfeek")}
-            className={`p-4 rounded-xl border-2 text-right transition-all ${
-              connectionType === "nakfeek"
-                ? "border-primary bg-primary/5"
-                : "border-border/50 hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-foreground text-sm">الإرسال من خلال نكفيك</p>
-                <p className="text-xs text-muted-foreground">إرسال مدفوع من رقم نكفيك الرسمي — حصة شهرية حسب الباقة</p>
-              </div>
-              {connectionType === "nakfeek" && <CheckCircle2 className="w-5 h-5 text-primary" />}
-            </div>
-          </button>
-
-          {/* Card 3: Deep Link */}
-          <button
-            onClick={() => setConnectionType("deeplink")}
-            className={`p-4 rounded-xl border-2 text-right transition-all ${
-              connectionType === "deeplink"
-                ? "border-primary bg-primary/5"
-                : "border-border/50 hover:border-border"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <Link2 className="w-5 h-5 text-amber-500" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-foreground text-sm">هيبرلينك فقط (مجاني)</p>
-                <p className="text-xs text-muted-foreground">يفتح واتساب مع رسالة جاهزة — ترسل بنفسك يدوياً</p>
-              </div>
-              {connectionType === "deeplink" && <CheckCircle2 className="w-5 h-5 text-primary" />}
-            </div>
-          </button>
+      {/* Method Selection */}
+      <Panel title="طريقة إرسال واتساب">
+        <div role="radiogroup" aria-label="طريقة إرسال واتساب" className="grid gap-4 xl:grid-cols-3">
+          {METHODS.map((m) => {
+            const selected = m.includes.includes(connectionType);
+            return (
+              <button
+                key={m.key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setConnectionType(m.key)}
+                className={cn("flex items-start gap-3 rounded-xl p-4 text-start transition-colors", selected ? "bg-secondary" : "bg-muted/50 hover:bg-muted")}
+              >
+                <span className={cn("grid h-9 w-9 flex-none place-items-center rounded-[10px] text-primary", selected ? "bg-card" : "bg-secondary")}>
+                  <m.icon className="h-[17px] w-[17px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold leading-[22px]">{m.title}</span>
+                  <span className="block text-xs leading-[18px] text-muted-foreground">{m.description}</span>
+                </span>
+                {selected && <CheckCircle2 className="h-5 w-5 flex-none text-primary" />}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </Panel>
 
       {/* REST API / QR Gateway Config */}
       {(connectionType === "rest_api" || connectionType === "qr_gateway") && (
-        <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-5">
-          <h3 className="font-bold text-foreground flex items-center gap-2">
-            <Key className="w-4 h-4 text-primary" />
-            إعدادات الاتصال الخارجي
-          </h3>
-
+        <Panel title="إعدادات الاتصال الخارجي" bodyClassName="space-y-5">
           {/* Sub-type toggle */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setConnectionType("rest_api")}
-              className={`flex-1 p-2.5 rounded-xl text-sm font-semibold transition-all ${
-                connectionType === "rest_api" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground"
-              }`}
-            >
-              REST API
-            </button>
-            <button
-              onClick={() => setConnectionType("qr_gateway")}
-              className={`flex-1 p-2.5 rounded-xl text-sm font-semibold transition-all ${
-                connectionType === "qr_gateway" ? "bg-primary text-primary-foreground" : "bg-muted/50 text-muted-foreground"
-              }`}
-            >
-              QR Gateway
-            </button>
-          </div>
+          <Tabs value={connectionType} onValueChange={(v) => setConnectionType(v as ConnectionType)}>
+            <TabsList>
+              <TabsTrigger value="rest_api">REST API</TabsTrigger>
+              <TabsTrigger value="qr_gateway">QR Gateway</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>اسم المزود</Label>
               <Input
@@ -307,43 +274,44 @@ const WhatsAppSettings = () => {
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>طريقة المصادقة</Label>
-                <Select value={settings.auth_method} onValueChange={(v) => setSettings({ ...settings, auth_method: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bearer">Bearer Token</SelectItem>
-                    <SelectItem value="api_key">API Key</SelectItem>
-                    <SelectItem value="basic">Basic Auth</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>مفتاح / توكن المصادقة</Label>
-                <Input
-                  type="password"
-                  placeholder="أدخل المفتاح"
-                  value={settings.auth_value}
-                  onChange={(e) => setSettings({ ...settings, auth_value: e.target.value })}
-                  dir="ltr"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>طريقة المصادقة</Label>
+              <Select value={settings.auth_method} onValueChange={(v) => setSettings({ ...settings, auth_method: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bearer">Bearer Token</SelectItem>
+                  <SelectItem value="api_key">API Key</SelectItem>
+                  <SelectItem value="basic">Basic Auth</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>مفتاح / توكن المصادقة</Label>
+              <Input
+                type="password"
+                placeholder="أدخل المفتاح"
+                value={settings.auth_value}
+                onChange={(e) => setSettings({ ...settings, auth_value: e.target.value })}
+                dir="ltr"
+                className="placeholder:text-end"
+              />
             </div>
 
             {connectionType === "qr_gateway" && (
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label>Instance ID</Label>
                 <Input
                   placeholder="معرف الجلسة من المزود"
                   value={settings.instance_id}
                   onChange={(e) => setSettings({ ...settings, instance_id: e.target.value })}
                   dir="ltr"
+                  className="placeholder:text-end"
                 />
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label>Body Template (JSON)</Label>
               <Textarea
                 placeholder='{"to": "{{phone}}", "message": "{{message}}"}'
@@ -354,117 +322,89 @@ const WhatsAppSettings = () => {
                 className="font-mono text-xs"
               />
               <p className="text-xs text-muted-foreground">
-                استخدم {"{{phone}}"} و {"{{message}}"} كمتغيرات. للـ QR Gateway أضف {"{{instance_id}}"}
+                استخدم <bdi dir="ltr">{"{{phone}}"}</bdi> و <bdi dir="ltr">{"{{message}}"}</bdi> كمتغيرات. للـ QR Gateway أضف <bdi dir="ltr">{"{{instance_id}}"}</bdi>
               </p>
             </div>
           </div>
 
           {/* Test Connection */}
-          <div className="p-4 bg-muted/50 rounded-xl space-y-3">
-            <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
-              <TestTube className="w-4 h-4 text-primary" />
-              اختبار الاتصال
-            </h4>
-            <div className="flex gap-3">
+          <div className="space-y-3 rounded-xl bg-muted/50 p-4">
+            <h4 className="text-sm font-semibold">اختبار الاتصال</h4>
+            <div className="flex max-w-md gap-3">
               <Input
                 placeholder="966XXXXXXXXX"
                 value={testPhone}
                 onChange={(e) => setTestPhone(e.target.value)}
                 dir="ltr"
-                className="flex-1"
+                className="min-w-0 flex-1"
               />
-              <Button
-                variant="outline"
-                className="rounded-full"
-                onClick={handleTestConnection}
-                disabled={testing}
-              >
+              <Button variant="outline" onClick={handleTestConnection} disabled={testing}>
                 {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}
                 {testing ? "جارٍ..." : "اختبار"}
               </Button>
             </div>
-            {settings.is_verified && (
-              <p className="text-xs text-emerald-500 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                تم التحقق — الاتصال يعمل
-              </p>
-            )}
+            {settings.is_verified && <StatusBadge tone="success">تم التحقق — الاتصال يعمل</StatusBadge>}
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button className="rounded-full" onClick={handleSave} disabled={saving}>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button onClick={handleSave} disabled={saving}>
               <Save className="w-4 h-4" />
               {saving ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
             </Button>
             <div className="flex items-center gap-2">
               <Switch
+                aria-label="تفعيل"
                 checked={settings.is_active}
                 onCheckedChange={(checked) => setSettings({ ...settings, is_active: checked })}
               />
               <span className="text-sm text-muted-foreground">تفعيل</span>
             </div>
           </div>
-        </div>
+        </Panel>
       )}
 
       {/* Nakfeek Method - Quota Display */}
       {connectionType === "nakfeek" && (
-        <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-5">
-          <h3 className="font-bold text-foreground flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-emerald-500" />
-            الإرسال من خلال نكفيك
-          </h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 bg-muted/50 rounded-xl text-center">
-              <p className="text-2xl font-bold text-foreground">{quota.plan_monthly_quota}</p>
-              <p className="text-xs text-muted-foreground">الحصة الشهرية</p>
-            </div>
-            <div className="p-3 bg-muted/50 rounded-xl text-center">
-              <p className="text-2xl font-bold text-foreground">{quota.messages_used_this_month}</p>
-              <p className="text-xs text-muted-foreground">المستخدم</p>
-            </div>
-            <div className="p-3 bg-muted/50 rounded-xl text-center">
-              <p className="text-2xl font-bold text-emerald-500">
-                {Math.max(0, quota.plan_monthly_quota - quota.messages_used_this_month)}
-              </p>
-              <p className="text-xs text-muted-foreground">المتبقي</p>
-            </div>
-            <div className="p-3 bg-muted/50 rounded-xl text-center">
-              <p className="text-2xl font-bold text-foreground">{quota.credit_balance_sar} <span className="text-xs">ر.س</span></p>
-              <p className="text-xs text-muted-foreground">الرصيد</p>
-            </div>
+        <Panel title="الإرسال من خلال نكفيك" bodyClassName="space-y-5">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              { label: "الحصة الشهرية", value: formatNumber(quota.plan_monthly_quota) },
+              { label: "المستخدم", value: formatNumber(quota.messages_used_this_month) },
+              { label: "المتبقي", value: formatNumber(Math.max(0, quota.plan_monthly_quota - quota.messages_used_this_month)) },
+              { label: "الرصيد", value: formatNumber(quota.credit_balance_sar), unit: "ر.س" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl bg-muted/50 p-4">
+                <p className="text-[13px] leading-5 text-muted-foreground">{item.label}</p>
+                <p className="mt-1 text-2xl font-bold leading-8">
+                  {item.value} {item.unit && <span className="text-sm font-semibold text-muted-foreground">{item.unit}</span>}
+                </p>
+              </div>
+            ))}
           </div>
 
-          <div className="p-3 bg-amber-500/10 rounded-xl">
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              سعر الزيادة: {quota.overage_rate_sar} ر.س / رسالة بعد انتهاء الحصة الشهرية
-            </p>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            سعر الزيادة: {formatNumber(quota.overage_rate_sar)} ر.س / رسالة بعد انتهاء الحصة الشهرية
+          </p>
 
-          <Button className="rounded-full" onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving}>
             <Save className="w-4 h-4" />
             {saving ? "جارٍ الحفظ..." : "تفعيل هذه الطريقة"}
           </Button>
-        </div>
+        </Panel>
       )}
 
       {/* Deeplink - No Setup */}
       {connectionType === "deeplink" && (
-        <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-4">
-          <h3 className="font-bold text-foreground flex items-center gap-2">
-            <Link2 className="w-4 h-4 text-amber-500" />
-            هيبرلينك واتساب (مجاني)
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            لا يحتاج إعداد. عند إرسال رسالة، سيفتح واتساب على جهازك مع الرسالة جاهزة للإرسال.
-            مناسب للقوائم الصغيرة (أقل من 20 شخص).
+        <Panel title="هيبرلينك واتساب (مجاني)" bodyClassName="space-y-4">
+          <p className="text-sm leading-6 text-muted-foreground">
+            لا يحتاج إلى إعداد. عند إرسال رسالة، سيفتح واتساب على جهازك مع الرسالة جاهزة للإرسال.
+            مناسب للقوائم الصغيرة (أقل من 20 شخصاً).
           </p>
-          <Button className="rounded-full" onClick={handleSave} disabled={saving}>
+          <Button onClick={handleSave} disabled={saving}>
             <Save className="w-4 h-4" />
             {saving ? "جارٍ الحفظ..." : "حفظ الطريقة"}
           </Button>
-        </div>
+        </Panel>
       )}
     </div>
   );

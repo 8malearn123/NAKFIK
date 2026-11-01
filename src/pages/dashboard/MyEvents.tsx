@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { useEffectiveUser } from "@/hooks/useEffectiveUser";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -10,21 +13,28 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Calendar, PlusCircle, Search, Eye, Edit, Trash2, MapPin, Users, Send, DoorOpen, Pencil, IdCard, Copy, Lock, AlertTriangle, ClipboardList, CalendarDays, CalendarClock,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertTriangle, Calendar, CalendarClock, CalendarDays, ClipboardList, Copy, DoorOpen, Eye, IdCard, Lock, MapPin, MoreHorizontal, Pencil, Plus, Search, Send, Trash2, Users,
+  type LucideIcon,
 } from "lucide-react";
 import { computeEventReadiness, READINESS_THRESHOLD, type EventReadiness } from "@/lib/eventHealth";
+import { formatNumber, formatPercent, formatTime, formatWeekday, percent } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import EventScheduleDialog from "@/components/dashboard/EventScheduleDialog";
 
 type EventStatus = "draft" | "pending_review" | "approved" | "published" | "rejected" | "completed" | "cancelled";
 
-const statusConfig: Record<EventStatus, { label: string; className: string }> = {
-  draft: { label: "مسودة", className: "bg-muted text-muted-foreground" },
-  pending_review: { label: "قيد المراجعة", className: "bg-amber-100 text-amber-800" },
-  approved: { label: "معتمدة", className: "bg-teal/10 text-teal" },
-  published: { label: "منشورة", className: "bg-teal/10 text-teal" },
-  rejected: { label: "مرفوضة", className: "bg-destructive/10 text-destructive" },
-  completed: { label: "منتهية", className: "bg-secondary text-secondary-foreground" },
-  cancelled: { label: "ملغاة", className: "bg-muted text-muted-foreground" },
+const statusConfig: Record<EventStatus, { label: string; tone: StatusTone }> = {
+  draft: { label: "مسودة", tone: "neutral" },
+  pending_review: { label: "قيد المراجعة", tone: "warning" },
+  approved: { label: "معتمدة", tone: "success" },
+  published: { label: "منشورة", tone: "success" },
+  rejected: { label: "مرفوضة", tone: "danger" },
+  completed: { label: "منتهية", tone: "neutral" },
+  cancelled: { label: "ملغاة", tone: "neutral" },
 };
 
 const statusFilters: { key: EventStatus | "all"; label: string }[] = [
@@ -48,6 +58,18 @@ interface EventRow {
   is_online: boolean;
   description_ar: string | null;
   tickets?: { count: number }[];
+}
+
+interface EventAction {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  title?: string;
+  to?: string;
+  external?: boolean;
+  run?: () => void;
+  disabled?: boolean;
+  busy?: boolean;
 }
 
 const MyEvents = () => {
@@ -220,7 +242,7 @@ const MyEvents = () => {
     const readiness = readinessOf(event);
     if (!readiness.ready) {
       toast.error(
-        `لا يمكن الإرسال — صحة الفعالية ${readiness.score}% (المطلوب ${READINESS_THRESHOLD}%).\nالناقص: ${readiness.missing.map(m => m.missingLabel).join("، ")}`
+        `لا يمكن الإرسال — صحة الفعالية ${formatPercent(readiness.score)} (المطلوب ${formatPercent(READINESS_THRESHOLD)}).\nالناقص: ${readiness.missing.map(m => m.missingLabel).join("، ")}`
       );
       return;
     }
@@ -239,176 +261,208 @@ const MyEvents = () => {
     return matchStatus && matchSearch;
   });
 
+  const filterCount = (key: EventStatus | "all") => (key === "all" ? events.length : events.filter((e) => e.status === key).length);
+
+  // كل إجراءات البطاقة في مكان واحد، موزعة على مجموعات القائمة
+  const actionsOf = (event: EventRow, readiness: EventReadiness | null) => {
+    const base = `/dashboard/events/${event.id}`;
+    const ready = !!readiness?.ready;
+    const operate: EventAction[] = [
+      ...(event.type === "private" ? [{ key: "guests", label: "المدعوون", icon: Users, to: `${base}/guests` }] : []),
+      { key: "attendance", label: "الحضور", icon: ClipboardList, to: `${base}/attendance`, title: "قائمة الحضور — الدخول والخروج ومدة البقاء" },
+      { key: "days", label: "الأيام", icon: CalendarDays, to: `${base}/days`, title: "أيام الفعالية — فريق وبوابات وتجهيزات لكل يوم" },
+      { key: "checkpoints", label: "البوابات", icon: DoorOpen, to: `${base}/checkpoints` },
+      { key: "staff", label: "الفريق", icon: Users, to: `${base}/staff`, title: "فريق الفعالية — أدوار بصلاحيات محددة" },
+      { key: "featured", label: "البطاقات الخاصة", icon: IdCard, to: `${base}/featured-cards` },
+    ];
+    const manage: EventAction[] = [
+      ...(event.status === "draft" && event.type === "public"
+        ? [{
+            key: "submit",
+            label: "تقديم للمراجعة",
+            icon: ready ? Send : Lock,
+            run: () => handleSubmitForReview(event),
+            disabled: !ready,
+            title: ready ? undefined : `أكمل البيانات الناقصة أولاً — الصحة ${formatPercent(readiness?.score ?? 0)} والمطلوب ${formatPercent(READINESS_THRESHOLD)}`,
+          }]
+        : []),
+      { key: "view", label: "عرض", icon: Eye, to: `/events/${event.id}`, external: true },
+      { key: "edit", label: "تعديل", icon: Pencil, to: `${base}/edit` },
+      ...(event.status !== "completed"
+        ? [{ key: "schedule", label: "إلغاء / إعادة جدولة", icon: CalendarClock, run: () => setSchedEvent(event), title: "إلغاء / إعادة جدولة — مع إشعار جميع المسجلين تلقائياً" }]
+        : []),
+      { key: "duplicate", label: "نسخ الفعالية", icon: Copy, run: () => onDuplicateClick(event.id), disabled: duplicating === event.id, busy: duplicating === event.id },
+    ];
+    return { operate, manage };
+  };
+
+  // زر واحد ظاهر هو الخطوة التالية للفعالية حسب حالتها، والباقي في القائمة
+  const primaryKey = (event: EventRow, readiness: EventReadiness | null) => {
+    if (event.status === "draft" && event.type === "public") return readiness?.ready ? "submit" : "edit";
+    if (event.status === "draft" || event.status === "rejected") return "edit";
+    if (event.status === "pending_review" || event.status === "cancelled") return "view";
+    return event.type === "private" ? "guests" : "attendance";
+  };
+
+  const menuItem = (action: EventAction) => {
+    const body = (
+      <>
+        <action.icon className={cn("h-4 w-4", action.busy && "animate-pulse")} /> {action.label}
+      </>
+    );
+    return action.to ? (
+      <DropdownMenuItem key={action.key} asChild title={action.title}>
+        <Link to={action.to} target={action.external ? "_blank" : undefined}>{body}</Link>
+      </DropdownMenuItem>
+    ) : (
+      <DropdownMenuItem key={action.key} disabled={action.disabled} title={action.title} onClick={action.run}>{body}</DropdownMenuItem>
+    );
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">فعالياتي</h1>
-            <p className="text-muted-foreground text-sm">إدارة جميع فعالياتك من مكان واحد</p>
-          </div>
-          <Button className="rounded-full" asChild>
-            <Link to="/dashboard/events/create">
-              <PlusCircle className="w-4 h-4" />
-              إنشاء فعالية جديدة
-            </Link>
-          </Button>
-        </div>
+        <PageHeader
+          title="فعالياتي"
+          description="إدارة جميع فعالياتك من مكان واحد"
+          actions={
+            <Button asChild>
+              <Link to="/dashboard/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية جديدة</Link>
+            </Button>
+          }
+        />
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input type="text" placeholder="ابحث عن فعالية..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full h-10 pr-10 pl-4 rounded-xl bg-card text-foreground text-sm border border-border focus:outline-none focus:ring-2 focus:ring-primary/50" />
+        {!loading && events.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
+              <Tabs value={filter} onValueChange={(v) => setFilter(v as EventStatus | "all")}>
+                <TabsList className="w-max">
+                  {statusFilters.map((sf) => (
+                    <TabsTrigger key={sf.key} value={sf.key} className="gap-1.5 px-3 sm:px-4">
+                      {sf.label}
+                      <span className="text-xs font-normal text-muted-foreground">{formatNumber(filterCount(sf.key))}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="relative w-full sm:w-64 xl:ms-auto">
+              <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input type="text" placeholder="ابحث عن فعالية..." value={search} onChange={(e) => setSearch(e.target.value)} className="ps-9" />
+            </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {statusFilters.map((sf) => (
-              <Button key={sf.key} variant={filter === sf.key ? "default" : "secondary"} size="sm" className="rounded-full" onClick={() => setFilter(sf.key)}>
-                {sf.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+        )}
 
-        <div className="space-y-3">
-          {loading ? (
-            [1, 2, 3].map(i => <div key={i} className="animate-pulse bg-card rounded-2xl h-24 border border-border/50" />)
-          ) : filtered.length > 0 ? (
-            filtered.map((event, i) => {
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+        ) : filtered.length > 0 ? (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((event) => {
               const status = statusConfig[event.status] || statusConfig.draft;
               const readiness = event.status === "draft" && event.type === "public" ? readinessOf(event) : null;
+              const { operate, manage } = actionsOf(event, readiness);
+              const primary = [...operate, ...manage].find((a) => a.key === primaryKey(event, readiness))!;
+              const others = (group: EventAction[]) => group.filter((a) => a.key !== primary.key);
+              const ended = event.status === "completed" || event.status === "cancelled";
+              const attendees = event.current_attendees_count || 0;
+              const filled = percent(attendees, event.max_attendees || 0);
               return (
-                <motion.div key={event.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-card rounded-2xl border border-border/50 hover:border-primary/20 hover:shadow-md transition-all p-4 flex gap-4">
-                  {event.cover_image_url && (
-                    <img src={event.cover_image_url} alt={event.title_ar} className="w-28 h-20 rounded-xl object-cover flex-shrink-0 hidden sm:block" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-foreground truncate">{event.title_ar}</h3>
-                    <div className="flex items-center gap-3 mt-1.5 text-muted-foreground text-xs">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {new Date(event.start_date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {event.is_online ? "أونلاين" : (event.venue_name || "غير محدد")}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3.5 h-3.5" />
-                        {event.current_attendees_count}/{event.max_attendees || "∞"}
-                      </span>
+                <article key={event.id} className="flex flex-col overflow-hidden rounded-2xl bg-card shadow-soft">
+                  <div
+                    className="flex h-[76px] items-center justify-between gap-3 bg-secondary px-5"
+                    style={event.cover_image_url ? { background: `url(${event.cover_image_url}) center/cover` } : undefined}
+                  >
+                    <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-white/85 text-primary">
+                      <Calendar className="h-5 w-5" />
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge tone="neutral" className="bg-white">{event.type === "public" ? "عامة" : "خاصة"}</StatusBadge>
+                      <StatusBadge tone={status.tone} className="bg-white">{status.label}</StatusBadge>
                     </div>
-                    <div className="flex items-center gap-2 mt-3 flex-wrap">
-                      <span className={`text-[11px] font-semibold rounded-full px-3 py-1 ${status.className}`}>{status.label}</span>
-                      <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-3 py-1">
-                        {event.type === "public" ? "عامة" : "خاصة"}
-                      </span>
-                      {readiness && (
-                        <span className={`text-[11px] font-semibold rounded-full px-3 py-1 ${
-                          readiness.ready ? "bg-green-500/10 text-green-700" : "bg-amber-100 text-amber-800"
-                        }`}>
-                          الصحة: {readiness.score}%
-                        </span>
-                      )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3 px-5 pb-5 pt-4">
+                    <h3 className="truncate text-base font-bold leading-6">{event.title_ar}</h3>
+                    <div className="space-y-1 text-[13px] leading-5 text-muted-foreground">
+                      <p className="flex items-center gap-2"><Calendar className="h-[15px] w-[15px] flex-none opacity-70" /> {formatWeekday(event.start_date)}، {formatTime(event.start_date)}</p>
+                      <p className="flex items-center gap-2"><MapPin className="h-[15px] w-[15px] flex-none opacity-70" /> <span className="truncate">{event.is_online ? "أونلاين" : (event.venue_name || "غير محدد")}</span></p>
                     </div>
+                    {event.max_attendees ? (
+                      <div className="flex min-w-0 flex-col gap-1.5">
+                        <div className="flex items-baseline justify-between gap-2 whitespace-nowrap text-xs leading-[18px] text-muted-foreground">
+                          <span><b className="text-sm font-bold leading-5 text-foreground">{formatNumber(attendees)}</b> من {formatNumber(event.max_attendees)} مسجّل</span>
+                          <span>{filled}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(filled, 100)}%` }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs leading-[18px] text-muted-foreground"><b className="text-sm font-bold leading-5 text-foreground">{formatNumber(attendees)}</b> مسجّل</p>
+                    )}
+                    {readiness?.ready && (
+                      <StatusBadge tone="success" className="self-start">الصحة: {formatPercent(readiness.score)}</StatusBadge>
+                    )}
                     {readiness && !readiness.ready && (
-                      <div className="mt-2 text-[11px] text-amber-700 bg-amber-500/10 border border-amber-400/30 rounded-lg px-2.5 py-1.5 flex items-start gap-1.5 leading-relaxed">
-                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                        <span>
-                          <b>لإرسالها للمراجعة أكمل:</b> {readiness.missing.map(m => m.missingLabel).join("، ")}
-                        </span>
+                      <div className="space-y-2 rounded-xl bg-muted/50 p-3">
+                        <StatusBadge tone="warning">الصحة: {formatPercent(readiness.score)}</StatusBadge>
+                        <p className="flex items-start gap-1.5 text-xs leading-5 text-muted-foreground">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-none text-[#9A5F12]" />
+                          <span><b className="font-semibold text-foreground">لإرسالها للمراجعة أكمل:</b> {readiness.missing.map((m) => m.missingLabel).join("، ")}</span>
+                        </p>
                       </div>
                     )}
+                    <div className="mt-auto flex items-center gap-2 pt-1">
+                      {primary.to ? (
+                        <Button asChild size="sm" variant={ended ? "outline" : "soft"} className="min-w-0 flex-1">
+                          <Link to={primary.to} target={primary.external ? "_blank" : undefined} title={primary.title}>
+                            <primary.icon className="h-[15px] w-[15px]" /> {primary.label}
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="soft" className="min-w-0 flex-1" title={primary.title} onClick={primary.run}>
+                          <primary.icon className="h-[15px] w-[15px]" /> {primary.label}
+                        </Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="outline" className="h-9 w-9 flex-none" aria-label="المزيد"><MoreHorizontal className="h-[18px] w-[18px]" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          {others(operate).map(menuItem)}
+                          <DropdownMenuSeparator />
+                          {others(manage).map(menuItem)}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(event.id)}>
+                            <Trash2 className="h-4 w-4" /> حذف
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {event.status === "draft" && event.type === "public" && (
-                      <Button
-                        variant={readiness?.ready ? "default" : "secondary"}
-                        size="sm"
-                        className="h-8 text-xs rounded-full disabled:opacity-60"
-                        disabled={!readiness?.ready}
-                        title={readiness?.ready ? undefined : `أكمل البيانات الناقصة أولاً — الصحة ${readiness?.score}% والمطلوب ${READINESS_THRESHOLD}%`}
-                        onClick={() => handleSubmitForReview(event)}
-                      >
-                        {readiness?.ready ? <Send className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} تقديم للمراجعة
-                      </Button>
-                    )}
-                    {event.type === "private" && (
-                      <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
-                        <Link to={`/dashboard/events/${event.id}/guests`}>
-                          <Users className="w-3.5 h-3.5" /> المدعوون
-                        </Link>
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
-                      <Link to={`/dashboard/events/${event.id}/attendance`} title="قائمة الحضور — الدخول والخروج ومدة البقاء">
-                        <ClipboardList className="w-3.5 h-3.5" /> الحضور
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
-                      <Link to={`/dashboard/events/${event.id}/days`} title="أيام الفعالية — فريق وبوابات وتجهيزات لكل يوم">
-                        <CalendarDays className="w-3.5 h-3.5" /> الأيام
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
-                      <Link to={`/dashboard/events/${event.id}/checkpoints`}>
-                        <DoorOpen className="w-3.5 h-3.5" /> البوابات
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
-                      <Link to={`/dashboard/events/${event.id}/staff`} title="فريق الفعالية — أدوار بصلاحيات محددة">
-                        <Users className="w-3.5 h-3.5" /> الفريق
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-8 text-xs rounded-full" asChild>
-                      <Link to={`/dashboard/events/${event.id}/featured-cards`}>
-                        <IdCard className="w-3.5 h-3.5" /> البطاقات الخاصة
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="عرض">
-                      <Link to={`/events/${event.id}`} target="_blank"><Eye className="w-4 h-4" /></Link>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" asChild title="تعديل">
-                      <Link to={`/dashboard/events/${event.id}/edit`}><Pencil className="w-4 h-4" /></Link>
-                    </Button>
-                    {event.status !== "completed" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-amber-600 hover:text-amber-700"
-                        onClick={() => setSchedEvent(event)}
-                        title="إلغاء / إعادة جدولة — مع إشعار جميع المسجلين تلقائياً"
-                      >
-                        <CalendarClock className="w-4 h-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onDuplicateClick(event.id)}
-                      disabled={duplicating === event.id}
-                      title="نسخ الفعالية"
-                    >
-                      <Copy className={`w-4 h-4 ${duplicating === event.id ? "animate-pulse" : ""}`} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(event.id)} title="حذف">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </motion.div>
+                </article>
               );
-            })
-          ) : (
-            <div className="text-center py-16 bg-card rounded-2xl border border-border/50">
-              <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground font-semibold">لا توجد فعاليات</p>
-              <p className="text-muted-foreground text-sm mb-4">أنشئ فعاليتك الأولى الآن</p>
-              <Button className="rounded-full" asChild>
-                <Link to="/dashboard/events/create"><PlusCircle className="w-4 h-4" /> إنشاء فعالية</Link>
-              </Button>
-            </div>
-          )}
-        </div>
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-card shadow-soft">
+            {events.length > 0 ? (
+              <EmptyState
+                icon={Calendar}
+                title="لا توجد فعاليات"
+                action={<Button variant="outline" onClick={() => { setFilter("all"); setSearch(""); }}>إعادة تعيين</Button>}
+              />
+            ) : (
+              <EmptyState
+                icon={Calendar}
+                title="لا توجد فعاليات"
+                description="أنشئ فعاليتك الأولى الآن"
+                action={<Button asChild><Link to="/dashboard/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية</Link></Button>}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* حوار إلغاء / إعادة جدولة الفعالية — يُشعر جميع المسجلين ويحفظ في السجل */}
@@ -425,10 +479,10 @@ const MyEvents = () => {
       {/* نافذة توضيح عدم توفر ميزة النسخ */}
       <Dialog open={dupBlockOpen} onOpenChange={setDupBlockOpen}>
         <DialogContent dir="rtl" className="max-w-sm rounded-2xl">
-          <DialogHeader className="text-center sm:text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-brand-brick/10 flex items-center justify-center mx-auto">
-              <Lock className="w-7 h-7 text-brand-brick" />
-            </div>
+          <DialogHeader className="items-center space-y-3 text-center sm:text-center">
+            <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary">
+              <Lock className="h-[18px] w-[18px]" />
+            </span>
             <DialogTitle>
               {dupAccess === "expired" ? "انتهى اشتراكك" : "ميزة غير متاحة في باقتك"}
             </DialogTitle>
@@ -438,13 +492,13 @@ const MyEvents = () => {
                 : "ميزة نسخ الفعالية متاحة في الباقات المدفوعة فقط. قم بترقية باقتك للاستفادة منها."}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col sm:flex-col gap-2">
-            <Button className="w-full rounded-full" asChild>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button className="w-full" asChild>
               <Link to="/dashboard/subscription">
                 {dupAccess === "expired" ? "تجديد الباقة" : "ترقية الباقة"}
               </Link>
             </Button>
-            <Button variant="ghost" className="w-full rounded-full" onClick={() => setDupBlockOpen(false)}>
+            <Button variant="ghost" className="w-full" onClick={() => setDupBlockOpen(false)}>
               إغلاق
             </Button>
           </DialogFooter>

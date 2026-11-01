@@ -786,70 +786,64 @@ const PrivateInvitations = () => {
 
         {/* Create/Edit Dialog */}
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent dir="rtl" className="max-w-5xl max-h-[92vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className={mode ? `${DIALOG_CLS} h-[min(820px,90dvh)] max-w-4xl` : `${DIALOG_CLS} max-w-2xl`}>
+            <DialogHeader className={DIALOG_HEAD}>
               <DialogTitle>{editing ? "تعديل الدعوة" : "دعوة خاصة جديدة"}</DialogTitle>
+              {!mode && <DialogDescription>كيف تريد تجهيز دعوتك؟</DialogDescription>}
             </DialogHeader>
 
             {!mode ? (
-              <div className="py-4">
-                <p className="text-center text-sm text-muted-foreground mb-6">
-                  كيف تريد تجهيز دعوتك؟
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm((f) => ({ ...f, use_custom_template: false }));
-                      setMode("nakfeek");
-                    }}
-                    className="group relative rounded-2xl border-2 border-border hover:border-primary p-6 text-right transition-all hover:-translate-y-1 hover:shadow-elegant bg-gradient-to-br from-primary/5 via-card to-brand-gold/5"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-brand-mauve flex items-center justify-center text-primary-foreground mb-3">
-                      <Palette className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold font-cairo text-lg mb-1">خيارات نكفيك</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      اختر من قوالب جاهزة احترافية حسب نوع المناسبة — ألوان وخطوط ورسائل مُعدّة مسبقاً.
-                    </p>
-                  </button>
+              <div className="grid gap-4 overflow-y-auto px-6 pb-6 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((f) => ({ ...f, use_custom_template: false }));
+                    setMode("nakfeek");
+                  }}
+                  className={MODE_TILE}
+                >
+                  <span className={ICON_TILE}><Palette className="h-[17px] w-[17px]" /></span>
+                  <span className="mt-3 block text-[15px] font-bold leading-6">خيارات نكفيك</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-muted-foreground">
+                    اختر من قوالب جاهزة احترافية حسب نوع المناسبة — ألوان وخطوط ورسائل مُعدّة مسبقاً.
+                  </span>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForm((f) => ({ ...f, use_custom_template: true }));
-                      setMode("custom");
-                    }}
-                    className="group relative rounded-2xl border-2 border-border hover:border-brand-gold p-6 text-right transition-all hover:-translate-y-1 hover:shadow-elegant bg-gradient-to-br from-brand-gold/10 via-card to-brand-brick/5"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-gold to-brand-brick flex items-center justify-center text-white mb-3">
-                      <ImageIcon className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold font-cairo text-lg mb-1">تصميمي الخاص</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      ارفع تصميمك الجاهز، وحدّد موقع اسم المدعو ليُكتب تلقائياً على كل دعوة.
-                    </p>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm((f) => ({ ...f, use_custom_template: true }));
+                    setMode("custom");
+                  }}
+                  className={MODE_TILE}
+                >
+                  <span className={ICON_TILE}><ImageIcon className="h-[17px] w-[17px]" /></span>
+                  <span className="mt-3 block text-[15px] font-bold leading-6">تصميمي الخاص</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-muted-foreground">
+                    ارفع تصميمك الجاهز، وحدّد موقع اسم المدعو ليُكتب تلقائياً على كل دعوة.
+                  </span>
+                </button>
               </div>
             ) : (
-            <Tabs defaultValue={mode === "custom" ? "custom" : "basic"} key={mode}>
-              <TabsList className={`grid ${mode === "custom" ? "grid-cols-4" : "grid-cols-4"}`}>
-                <TabsTrigger value="basic">الأساسيات</TabsTrigger>
-                <TabsTrigger value="venue">الموقع</TabsTrigger>
-                <TabsTrigger value="extras">إضافات</TabsTrigger>
-                {mode === "nakfeek" ? (
-                  <TabsTrigger value="design"><Palette className="w-3 h-3 ml-1" /> التصميم</TabsTrigger>
-                ) : (
-                  <TabsTrigger value="custom"><ImageIcon className="w-3 h-3 ml-1" /> تصميمي</TabsTrigger>
-                )}
-              </TabsList>
+            <Tabs defaultValue={mode === "custom" ? "custom" : "basic"} key={mode} className="flex min-h-0 flex-1 flex-col">
+              <div className="px-6 pb-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="basic" className="px-1 sm:px-4">الأساسيات</TabsTrigger>
+                  <TabsTrigger value="venue" className="px-1 sm:px-4">الموقع</TabsTrigger>
+                  <TabsTrigger value="extras" className="px-1 sm:px-4">إضافات</TabsTrigger>
+                  {mode === "nakfeek" ? (
+                    <TabsTrigger value="design" className="px-1 sm:px-4">التصميم</TabsTrigger>
+                  ) : (
+                    <TabsTrigger value="custom" className="px-1 sm:px-4">تصميمي</TabsTrigger>
+                  )}
+                </TabsList>
+              </div>
 
-              <TabsContent value="basic" className="space-y-3 mt-4">
+              <TabsContent value="basic" className={`${TAB_BODY} space-y-4`}>
                 {mode === "nakfeek" && (
-                  <div>
+                  <div className="space-y-2">
                     <Label>نوع المناسبة</Label>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5 mt-2">
+                    <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
                       {Object.entries(CATEGORY_PRESETS).map(([key, p]) => {
                         const active = form.category === key;
                         const Icon = p.Icon;
@@ -857,6 +851,7 @@ const PrivateInvitations = () => {
                           <button
                             key={key}
                             type="button"
+                            aria-pressed={active}
                             onClick={() => {
                               setForm((f) => ({
                                 ...f,
@@ -869,83 +864,60 @@ const PrivateInvitations = () => {
                                 custom_message: f.custom_message || p.message,
                               }));
                             }}
-                            style={active ? {
-                              borderColor: p.theme,
-                              background: `linear-gradient(135deg, ${p.theme}15, ${p.accent}20)`,
-                              boxShadow: `0 6px 20px -8px ${p.theme}60`,
-                            } : undefined}
-                            className={`group relative rounded-2xl border-2 p-3 text-xs flex flex-col items-center gap-2 transition-all duration-300 ${
-                              active
-                                ? "scale-[1.03] font-bold"
-                                : "border-border/60 hover:border-primary/40 hover:-translate-y-0.5 hover:shadow-md bg-card"
-                            }`}
+                            className={`${choiceCls(active)} flex flex-col items-center gap-2 rounded-xl p-3 text-xs last:col-span-3 sm:last:col-span-1`}
                           >
-                            <span
-                              style={{
-                                background: active
-                                  ? `linear-gradient(135deg, ${p.theme}, ${p.accent})`
-                                  : undefined,
-                                color: active ? "#fff" : p.theme,
-                              }}
-                              className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                                active ? "shadow-lg" : "bg-muted/60 group-hover:bg-muted"
-                              }`}
-                            >
-                              <Icon className="w-5 h-5" strokeWidth={active ? 2.4 : 2} />
+                            <span className={`grid h-9 w-9 place-items-center rounded-[10px] ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-primary"}`}>
+                              <Icon className="h-[17px] w-[17px]" />
                             </span>
-                            <span className="leading-tight text-center">{p.label}</span>
-                            {active && (
-                              <span
-                                style={{ background: p.theme }}
-                                className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full ring-2 ring-background"
-                              />
-                            )}
+                            <span className="text-center leading-[18px]">{p.label}</span>
                           </button>
                         );
                       })}
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-2">
-                      اختيار النوع يضبط الألوان والخط والرسالة بشكل افتراضي — تقدر تعدّل أي شيء بعدها.
-                    </p>
+                    <p className={HINT}>اختيار النوع يضبط الألوان والخط والرسالة بشكل افتراضي — تقدر تعدّل أي شيء بعدها.</p>
                   </div>
                 )}
                 {mode === "custom" && (
-                  <div className="rounded-xl border-2 border-dashed border-brand-gold/40 bg-gradient-to-br from-brand-gold/10 to-transparent p-4">
-                    <h4 className="font-bold text-sm flex items-center gap-1 mb-1">
-                      <ImageIcon className="w-4 h-4 text-brand-gold" /> تصميمك الخاص
-                    </h4>
-                    <p className="text-[12px] text-muted-foreground leading-relaxed">
-                      عبّي بيانات الدعوة الأساسية هنا (العنوان، التاريخ، الرسالة، الموقع، التواصل) — هذي البيانات تظهر في صفحة الدعوة تحت تصميمك.
-                      تصميم الكرت نفسه ومواقع أسماء المدعوين تضبطها من تبويب <span className="font-bold">«تصميمي»</span>.
-                    </p>
+                  <div className="flex items-start gap-3 rounded-xl bg-muted/50 p-4">
+                    <span className={`${ICON_TILE} flex-none`}><ImageIcon className="h-[17px] w-[17px]" /></span>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold leading-[22px]">تصميمك الخاص</h3>
+                      <p className="text-[13px] leading-5 text-muted-foreground">
+                        عبّي بيانات الدعوة الأساسية هنا (العنوان، التاريخ، الرسالة، الموقع، التواصل) — هذي البيانات تظهر في صفحة الدعوة تحت تصميمك.
+                        تصميم الكرت نفسه ومواقع أسماء المدعوين تضبطها من تبويب <span className="font-semibold text-foreground">«تصميمي»</span>.
+                      </p>
+                    </div>
                   </div>
                 )}
-                <div><Label>عنوان الدعوة *</Label><Input value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={form.category === "opening" ? "افتتاح فرع الرياض" : form.category === "forum" ? "ملتقى القيادات 2026" : "حفل زفاف فلان وفلانة"} /></div>
-                <div><Label>{form.formality === "business" ? "الجهة المنظمة" : "اسم المضيف"}</Label><Input value={form.host_name || ""} onChange={(e) => setForm({ ...form, host_name: e.target.value })} /></div>
-                <div><Label>تاريخ ووقت المناسبة *</Label><Input type="datetime-local" value={form.event_date || ""} onChange={(e) => setForm({ ...form, event_date: e.target.value })} /></div>
-                <div>
-                  <Label>{mode === "custom" ? "الرسالة الخاصة (تظهر تحت تصميمك)" : "رسالة الدعوة المخصصة"}</Label>
+                <Field label="عنوان الدعوة *"><Input value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={form.category === "opening" ? "افتتاح فرع الرياض" : form.category === "forum" ? "ملتقى القيادات 2026" : "حفل زفاف فلان وفلانة"} /></Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label={form.formality === "business" ? "الجهة المنظمة" : "اسم المضيف"}><Input value={form.host_name || ""} onChange={(e) => setForm({ ...form, host_name: e.target.value })} /></Field>
+                  <Field label="تاريخ ووقت المناسبة *"><Input dir="ltr" className="block" type="datetime-local" value={form.event_date || ""} onChange={(e) => setForm({ ...form, event_date: e.target.value })} /></Field>
+                </div>
+                <Field label={mode === "custom" ? "الرسالة الخاصة (تظهر تحت تصميمك)" : "رسالة الدعوة المخصصة"}>
                   <Textarea rows={4} value={form.custom_message || ""} onChange={(e) => setForm({ ...form, custom_message: e.target.value })} placeholder={mode === "custom" ? "اكتب هنا الرسالة اللي تبغى تظهر مع دعوتك" : ""} />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><Label>جوال التواصل</Label><Input dir="ltr" value={form.contact_phone || ""} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} placeholder="+9665..." /></div>
-                  <div><Label>واتساب</Label><Input dir="ltr" value={form.contact_whatsapp || ""} onChange={(e) => setForm({ ...form, contact_whatsapp: e.target.value })} placeholder="+9665..." /></div>
-                  <div><Label>البريد</Label><Input dir="ltr" value={form.contact_email || ""} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} /></div>
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="جوال التواصل"><Input dir="ltr" value={form.contact_phone || ""} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} placeholder="+9665..." /></Field>
+                  <Field label="واتساب"><Input dir="ltr" value={form.contact_whatsapp || ""} onChange={(e) => setForm({ ...form, contact_whatsapp: e.target.value })} placeholder="+9665..." /></Field>
+                  <Field label="البريد"><Input dir="ltr" value={form.contact_email || ""} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} /></Field>
                 </div>
               </TabsContent>
 
 
-              <TabsContent value="venue" className="space-y-3 mt-4">
-                <div><Label>اسم الموقع</Label><Input value={form.venue_name || ""} onChange={(e) => setForm({ ...form, venue_name: e.target.value })} placeholder="قاعة الماسة" /></div>
-                <div><Label>العنوان</Label><Input value={form.venue_address || ""} onChange={(e) => setForm({ ...form, venue_address: e.target.value })} /></div>
-                <div><Label>رابط الخريطة (Google Maps)</Label><Input dir="ltr" value={form.venue_map_url || ""} onChange={(e) => setForm({ ...form, venue_map_url: e.target.value })} /></div>
-                <div><Label>الزي المطلوب</Label><Input value={form.dress_code || ""} onChange={(e) => setForm({ ...form, dress_code: e.target.value })} placeholder="رسمي / تقليدي" /></div>
+              <TabsContent value="venue" className={`${TAB_BODY} space-y-4`}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="اسم الموقع"><Input value={form.venue_name || ""} onChange={(e) => setForm({ ...form, venue_name: e.target.value })} placeholder="قاعة الماسة" /></Field>
+                  <Field label="العنوان"><Input value={form.venue_address || ""} onChange={(e) => setForm({ ...form, venue_address: e.target.value })} /></Field>
+                </div>
+                <Field label="رابط الخريطة (Google Maps)"><Input dir="ltr" value={form.venue_map_url || ""} onChange={(e) => setForm({ ...form, venue_map_url: e.target.value })} /></Field>
+                <Field label="الزي المطلوب"><Input value={form.dress_code || ""} onChange={(e) => setForm({ ...form, dress_code: e.target.value })} placeholder="رسمي / تقليدي" /></Field>
               </TabsContent>
 
-              <TabsContent value="extras" className="space-y-3 mt-4">
-                <div className="rounded-xl border-2 border-dashed p-3 space-y-3 bg-gradient-to-br from-primary/5 to-transparent">
-                  <Label className="text-sm font-bold">نطاق الدعوة</Label>
-                  <div className="grid grid-cols-2 gap-2">
+              <TabsContent value="extras" className={`${TAB_BODY} space-y-5`}>
+                <section className="space-y-3">
+                  <h3 className={SECTION}>نطاق الدعوة</h3>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     {[
                       { key: "private", title: "خاصة", desc: "بقائمة مدعوين محددة — كل مدعو له رابط فريد" },
                       { key: "public",  title: "عامة",  desc: "رابط واحد يُشارك — أي شخص يقدر يأكد حضوره" },
@@ -955,21 +927,19 @@ const PrivateInvitations = () => {
                         <button
                           key={o.key}
                           type="button"
+                          aria-pressed={active}
                           onClick={() => setForm({ ...form, scope: o.key })}
-                          className={`text-right rounded-xl border-2 p-3 transition ${
-                            active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40 bg-card"
-                          }`}
+                          className={`${choiceCls(active)} rounded-xl p-3 text-start`}
                         >
-                          <div className="font-bold text-sm">{o.title}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{o.desc}</div>
+                          <span className="block text-sm font-bold leading-[22px]">{o.title}</span>
+                          <span className="block text-xs font-normal leading-[18px] text-muted-foreground">{o.desc}</span>
                         </button>
                       );
                     })}
                   </div>
 
                   {form.scope === "private" && (
-                    <div className="pt-1">
-                      <Label className="text-xs">الحد الأقصى لإجمالي الحاضرين (اختياري)</Label>
+                    <Field label="الحد الأقصى لإجمالي الحاضرين (اختياري)" hint="لا يُسمح بتأكيد دعوات جديدة بعد بلوغ هذا العدد (شامل المرافقين).">
                       <Input
                         type="number"
                         min={0}
@@ -979,15 +949,11 @@ const PrivateInvitations = () => {
                           setForm({ ...form, max_attendees: e.target.value === "" ? null : Number(e.target.value) })
                         }
                       />
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        لا يُسمح بتأكيد دعوات جديدة بعد بلوغ هذا العدد (شامل المرافقين).
-                      </p>
-                    </div>
+                    </Field>
                   )}
 
                   {form.scope === "public" && (
-                    <div className="pt-1">
-                      <Label className="text-xs">الحد الأقصى للحاضرين *</Label>
+                    <Field label="الحد الأقصى للحاضرين *" hint="مطلوب للدعوات العامة لمنع تجاوز سعة المكان.">
                       <Input
                         type="number"
                         min={1}
@@ -997,53 +963,63 @@ const PrivateInvitations = () => {
                           setForm({ ...form, max_attendees: e.target.value === "" ? null : Number(e.target.value) })
                         }
                       />
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        مطلوب للدعوات العامة لمنع تجاوز سعة المكان.
-                      </p>
-                    </div>
+                    </Field>
                   )}
-                </div>
+                </section>
 
-                <div className="flex items-center justify-between bg-muted/30 rounded-xl p-3">
-                  <div>
-                    <Label>السماح بالمرافقين</Label>
-                    <p className="text-xs text-muted-foreground">يقدر المدعو يحدد عدد المرافقين عند التأكيد</p>
+                <section className="space-y-3 border-t border-border pt-5">
+                  <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/50 p-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold leading-[22px]">السماح بالمرافقين</p>
+                      <p className={HINT}>يقدر المدعو يحدد عدد المرافقين عند التأكيد</p>
+                    </div>
+                    <Switch checked={!!form.allow_companions} onCheckedChange={(v) => setForm({ ...form, allow_companions: v })} />
                   </div>
-                  <Switch checked={!!form.allow_companions} onCheckedChange={(v) => setForm({ ...form, allow_companions: v })} />
-                </div>
-                {form.allow_companions && (
-                  <div><Label>الحد الأقصى للمرافقين</Label><Input type="number" min={0} value={form.max_companions || 0} onChange={(e) => setForm({ ...form, max_companions: Number(e.target.value) })} /></div>
-                )}
+                  {form.allow_companions && (
+                    <Field label="الحد الأقصى للمرافقين"><Input type="number" min={0} value={form.max_companions || 0} onChange={(e) => setForm({ ...form, max_companions: Number(e.target.value) })} /></Field>
+                  )}
+                </section>
+
                 {/* تذكير المستفيد قبل الموعد — يظهر له في صفحة دعوته */}
-                <div className="border-t pt-3 space-y-2">
-                  <Label className="flex items-center gap-1"><Bell className="w-4 h-4" /> تذكير المستفيد قبل الموعد</Label>
-                  <select
-                    value={form.reminder_hours_before ?? ""}
-                    onChange={(e) => setForm({ ...form, reminder_hours_before: e.target.value === "" ? null : Number(e.target.value) })}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">بدون تذكير</option>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
-                      <option key={h} value={h}>قبل الموعد بـ {h} {h === 1 ? "ساعة" : h === 2 ? "ساعتين" : h <= 10 ? "ساعات" : "ساعة"}</option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-muted-foreground">يظهر تنبيه تذكير واضح للمدعو عند فتح دعوته خلال هذه المدة قبل بداية المناسبة.</p>
-                </div>
+                <section className="space-y-3 border-t border-border pt-5">
+                  <h3 className={SECTION}>تذكير المستفيد قبل الموعد</h3>
+                  <div className="space-y-1.5">
+                    <Select
+                      value={form.reminder_hours_before == null ? "none" : String(form.reminder_hours_before)}
+                      onValueChange={(v) => setForm({ ...form, reminder_hours_before: v === "none" ? null : Number(v) })}
+                    >
+                      <SelectTrigger aria-label="تذكير المستفيد قبل الموعد"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون تذكير</SelectItem>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                          <SelectItem key={h} value={String(h)}>{reminderLabel(h)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className={HINT}>يظهر تنبيه تذكير واضح للمدعو عند فتح دعوته خلال هذه المدة قبل بداية المناسبة.</p>
+                  </div>
+                </section>
 
                 {/* مرفقات الدعوة — ملفات ومحتويات المناسبة في مكان منظم */}
-                <div className="border-t pt-3 space-y-2">
-                  <Label className="flex items-center gap-1"><ClipboardList className="w-4 h-4" /> مرفقات الدعوة</Label>
-                  <p className="text-[11px] text-muted-foreground">جدول الفقرات، خريطة الموقع، تعليمات الدخول... تظهر للمدعو في قسم منظم داخل دعوته.</p>
-                  {(form.attachments || []).map((a, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs">
-                      <span className="flex-1 truncate font-semibold">{a.name}</span>
-                      {a.size ? <span className="text-muted-foreground">{(a.size / 1024).toFixed(0)} KB</span> : null}
-                      <button type="button" className="text-destructive" onClick={() => setForm({ ...form, attachments: (form.attachments || []).filter((_, j) => j !== i) })}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                <section className="space-y-3 border-t border-border pt-5">
+                  <div>
+                    <h3 className={SECTION}>مرفقات الدعوة</h3>
+                    <p className={HINT}>جدول الفقرات، خريطة الموقع، تعليمات الدخول... تظهر للمدعو في قسم منظم داخل دعوته.</p>
+                  </div>
+                  {(form.attachments || []).length > 0 && (
+                    <div className="divide-y divide-border rounded-xl bg-muted/50">
+                      {(form.attachments || []).map((a, i) => (
+                        <div key={i} className="flex items-center gap-3 px-3 py-2">
+                          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{a.name}</span>
+                          {a.size ? <span className="text-xs text-muted-foreground"><bdi dir="ltr">{formatNumber(Math.round(a.size / 1024))} KB</bdi></span> : null}
+                          <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" aria-label="حذف المرفق" onClick={() => setForm({ ...form, attachments: (form.attachments || []).filter((_, j) => j !== i) })}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  <label className="block">
+                  )}
+                  <label className="inline-block cursor-pointer">
                     <input
                       type="file"
                       className="hidden"
@@ -1060,79 +1036,77 @@ const PrivateInvitations = () => {
                         toast.success("تمت إضافة المرفق");
                       }}
                     />
-                    <span className="inline-flex items-center gap-2 text-xs bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-full cursor-pointer">
-                      <Plus className="w-3.5 h-3.5" /> إضافة مرفق (PDF، صورة، مستند...)
-                    </span>
+                    <Button asChild variant="outline" size="sm">
+                      <span><Plus className="h-4 w-4" /> إضافة مرفق (PDF، صورة، مستند...)</span>
+                    </Button>
                   </label>
-                </div>
+                </section>
 
-                <div className="border-t pt-3">
-                  <Label className="flex items-center gap-1"><Gift className="w-4 h-4" /> قائمة الهدايا</Label>
-                </div>
-                {/* خيارات الهدايا المتاحة للمدعوين */}
-                <div>
-                  <Label className="text-xs">خيارات الهدايا المتاحة</Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1.5">
-                    {GIFT_TYPES.map((t) => {
-                      const types = form.gift_options?.types || [];
-                      const active = types.includes(t.key);
-                      return (
-                        <button
-                          key={t.key}
-                          type="button"
-                          onClick={() => setForm({
-                            ...form,
-                            gift_options: {
-                              ...(form.gift_options || {}),
-                              types: active ? types.filter((x) => x !== t.key) : [...types, t.key],
-                            },
-                          })}
-                          className={`rounded-xl border-2 py-2 text-xs font-semibold transition ${
-                            active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                          }`}
-                        >
-                          <span className="block">{t.emoji ? `${t.emoji} ` : ""}{t.label}</span>
-                          <span className="block text-[10px] font-normal text-muted-foreground mt-0.5">
-                            {t.amount ? `${t.amount} ريال` : "المستفيد يحدد النوع والقيمة"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                {(form.gift_options?.types || []).length > 0 && (
-                  <div>
-                    <Label className="text-xs">طرق الدفع المقبولة</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-1.5">
-                      {GIFT_PAY_METHODS.map((m) => {
-                        const methods = form.gift_options?.payment_methods || [];
-                        const active = methods.includes(m.key);
+                <section className="space-y-4 border-t border-border pt-5">
+                  <h3 className={SECTION}>قائمة الهدايا</h3>
+                  {/* خيارات الهدايا المتاحة للمدعوين */}
+                  <div className="space-y-2">
+                    <Label>خيارات الهدايا المتاحة</Label>
+                    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                      {GIFT_TYPES.map((t) => {
+                        const types = form.gift_options?.types || [];
+                        const active = types.includes(t.key);
                         return (
                           <button
-                            key={m.key}
+                            key={t.key}
                             type="button"
+                            aria-pressed={active}
                             onClick={() => setForm({
                               ...form,
                               gift_options: {
                                 ...(form.gift_options || {}),
-                                payment_methods: active ? methods.filter((x) => x !== m.key) : [...methods, m.key],
+                                types: active ? types.filter((x) => x !== t.key) : [...types, t.key],
                               },
                             })}
-                            className={`rounded-xl border-2 py-2 text-xs font-semibold transition ${
-                              active ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"
-                            }`}
+                            className={`${choiceCls(active)} rounded-xl p-3 text-center`}
                           >
-                            {m.label}
+                            <span className="block text-sm font-semibold leading-[22px]">{t.label}</span>
+                            <span className="block text-xs font-normal leading-[18px] text-muted-foreground">
+                              {t.amount ? `${formatNumber(t.amount)} ريال` : "المستفيد يحدد النوع والقيمة"}
+                            </span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                )}
-                <div><Label>ملاحظات الهدايا</Label><Textarea rows={2} value={form.gift_notes || ""} onChange={(e) => setForm({ ...form, gift_notes: e.target.value })} placeholder="تكفون يا أحبابنا، حضوركم هديتنا..." /></div>
+                  {(form.gift_options?.types || []).length > 0 && (
+                    <div className="space-y-2">
+                      <Label>طرق الدفع المقبولة</Label>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {GIFT_PAY_METHODS.map((m) => {
+                          const methods = form.gift_options?.payment_methods || [];
+                          const active = methods.includes(m.key);
+                          return (
+                            <button
+                              key={m.key}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => setForm({
+                                ...form,
+                                gift_options: {
+                                  ...(form.gift_options || {}),
+                                  payment_methods: active ? methods.filter((x) => x !== m.key) : [...methods, m.key],
+                                },
+                              })}
+                              className={`${choiceCls(active)} h-10 rounded-lg px-2 text-[13px] font-semibold`}
+                            >
+                              {m.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <Field label="ملاحظات الهدايا"><Textarea rows={2} value={form.gift_notes || ""} onChange={(e) => setForm({ ...form, gift_notes: e.target.value })} placeholder="تكفون يا أحبابنا، حضوركم هديتنا..." /></Field>
+                </section>
               </TabsContent>
 
-              <TabsContent value="design" className="mt-4">
+              <TabsContent value="design" className={TAB_BODY}>
                 <DesignStudio
                   mode="invitation"
                   value={{
@@ -1176,15 +1150,11 @@ const PrivateInvitations = () => {
                 />
               </TabsContent>
 
-              <TabsContent value="custom" className="mt-4 space-y-3">
-                <div className="flex items-center justify-between bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-primary/30 rounded-2xl p-3">
-                  <div>
-                    <Label className="text-sm font-bold flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4" /> استخدام تصميمي الخاص
-                    </Label>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      ارفع تصميم الدعوة الجاهز وحدد موضع اسم المدعو — يتم طباعته على كل دعوة تلقائياً.
-                    </p>
+              <TabsContent value="custom" className={`${TAB_BODY} space-y-4`}>
+                <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/50 p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-[22px]">استخدام تصميمي الخاص</p>
+                    <p className={HINT}>ارفع تصميم الدعوة الجاهز وحدد موضع اسم المدعو — يتم طباعته على كل دعوة تلقائياً.</p>
                   </div>
                   <Switch
                     checked={!!form.use_custom_template}
@@ -1202,7 +1172,7 @@ const PrivateInvitations = () => {
                 )}
 
                 {!form.use_custom_template && (
-                  <p className="text-xs text-center text-muted-foreground py-6">
+                  <p className="py-6 text-center text-sm text-muted-foreground">
                     فعّل الخيار أعلاه لرفع تصميم خاص بك بدلاً من القوالب الجاهزة.
                   </p>
                 )}
@@ -1210,235 +1180,286 @@ const PrivateInvitations = () => {
             </Tabs>
             )}
 
-            <DialogFooter className="mt-4 gap-2">
-              {mode && !editing && (
-                <Button variant="ghost" onClick={() => setMode(null)}>← رجوع</Button>
-              )}
+            {/* التذييل ثابت أسفل النافذة ليبقى زر الحفظ ظاهراً في كل التبويبات */}
+            <DialogFooter className={DIALOG_FOOT}>
+              {mode && <Button className="flex-1 sm:flex-none" onClick={save}>{editing ? "حفظ التعديلات" : "إنشاء الدعوة"}</Button>}
               <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-              {mode && <Button onClick={save}>{editing ? "حفظ التعديلات" : "إنشاء الدعوة"}</Button>}
+              {mode && !editing && (
+                <Button variant="ghost" onClick={() => setMode(null)}><ArrowRight className="h-4 w-4" /> رجوع</Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Guests Dialog */}
         <Dialog open={guestsOpen} onOpenChange={setGuestsOpen}>
-          <DialogContent dir="rtl" className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className={`${DIALOG_CLS} h-[min(820px,90dvh)] max-w-4xl`}>
+            <DialogHeader className={DIALOG_HEAD}>
               <DialogTitle>إدارة المدعوين — {activeInv?.title}</DialogTitle>
             </DialogHeader>
 
-            {/* عداد المؤكدين حسب التصنيف — أعلى الصفحة ليجهز المنظم لكل فئة */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-              {TIER_KEYS.map((k) => {
-                const confirmed = guests.filter(
-                  (g) => g.rsvp_status === "confirmed" && (g.guest_tier || "regular") === k
-                ).length;
-                return (
-                  <div key={k} className={`rounded-xl border p-3 text-center ${GUEST_TIERS[k].cls}`}>
-                    <div className="flex items-center justify-center gap-1 text-[11px] font-bold">
-                      {k === "vvip" && <Crown className="w-3.5 h-3.5" />}
-                      {GUEST_TIERS[k].label}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="space-y-4 px-6 pb-5">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {([
+                    ["المجموع", guests.length],
+                    ["مؤكدون", guests.filter((g) => g.rsvp_status === "confirmed").length],
+                    ["معتذرون", guests.filter((g) => g.rsvp_status === "declined").length],
+                    ["بانتظار الرد", guests.filter((g) => !["confirmed", "declined"].includes(g.rsvp_status)).length],
+                  ] as [string, number][]).map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2 sm:block sm:px-4 sm:py-3">
+                      <p className="text-xs leading-[18px] text-muted-foreground">{label}</p>
+                      <p className="text-base font-bold leading-6 sm:text-xl sm:leading-7">{formatNumber(value)}</p>
                     </div>
-                    <div className="text-2xl font-extrabold leading-tight mt-0.5">{confirmed}</div>
-                    <div className="text-[10px] opacity-80">{confirmed >= 2 && confirmed <= 10 ? "مؤكدين" : "مؤكد"}</div>
+                  ))}
+                </div>
+
+                {/* عداد المؤكدين حسب التصنيف — أعلى النافذة ليجهز المنظم لكل فئة */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] leading-5 text-muted-foreground">
+                  <span>المؤكدون حسب التصنيف</span>
+                  {TIER_KEYS.map((k) => {
+                    const confirmed = guests.filter(
+                      (g) => g.rsvp_status === "confirmed" && (g.guest_tier || "regular") === k
+                    ).length;
+                    return (
+                      <span key={k} className="inline-flex items-center gap-1.5">
+                        {k === "vvip" && <Crown className="h-3.5 w-3.5 text-accent" />}
+                        <bdi>{GUEST_TIERS[k].label}</bdi>
+                        <b className="font-bold text-foreground">{formatNumber(confirmed)}</b>
+                      </span>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-wrap gap-2.5">
+                  <Button className="w-full sm:w-auto" onClick={sendAllPending} disabled={bulkSending || guests.length === 0}>
+                    {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    إرسال للكل عبر واتساب
+                  </Button>
+                  <Button variant="outline" className="w-full sm:w-auto" onClick={openImport}>
+                    <Database className="h-4 w-4" /> استيراد من قاعدة بيانات
+                  </Button>
+                </div>
+
+                <div className="space-y-3 rounded-xl bg-muted/50 p-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1.2fr_1fr_1fr_auto] sm:items-end">
+                    <Field className="col-span-2 sm:col-span-1" label="اسم المدعو *"><Input value={newGuest.guest_name} onChange={(e) => setNewGuest({ ...newGuest, guest_name: e.target.value })} /></Field>
+                    <Field label="الجوال"><Input dir="ltr" placeholder="+9665..." value={newGuest.guest_phone} onChange={(e) => setNewGuest({ ...newGuest, guest_phone: e.target.value })} /></Field>
+                    <Field label="البريد (اختياري)"><Input dir="ltr" value={newGuest.guest_email} onChange={(e) => setNewGuest({ ...newGuest, guest_email: e.target.value })} /></Field>
+                    <Button variant="soft" className="col-span-2 sm:col-span-1" onClick={addGuest}><Plus className="h-4 w-4" /> إضافة</Button>
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="flex flex-wrap gap-2 mb-3">
-              <Button size="sm" variant="outline" onClick={openImport}>
-                <Database className="w-4 h-4 ml-1" /> استيراد من قاعدة بيانات
-              </Button>
-              <Button size="sm" onClick={sendAllPending} disabled={bulkSending || guests.length === 0}>
-                {bulkSending ? <Loader2 className="w-4 h-4 ml-1 animate-spin" /> : <Send className="w-4 h-4 ml-1" />}
-                إرسال للكل عبر واتساب
-              </Button>
-              <div className="flex items-center gap-1.5 flex-wrap self-center mr-auto">
-                <span className="text-[11px] font-semibold bg-muted text-muted-foreground rounded-full px-2.5 py-1">
-                  المجموع: {guests.length}
-                </span>
-                <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
-                  مؤكد: {guests.filter((g) => g.rsvp_status === "confirmed").length}
-                </span>
-                <span className="text-[11px] font-semibold bg-destructive/10 text-destructive rounded-full px-2.5 py-1">
-                  اعتذر: {guests.filter((g) => g.rsvp_status === "declined").length}
-                </span>
-                <span className="text-[11px] font-semibold bg-indigo-500/10 text-indigo-700 rounded-full px-2.5 py-1">
-                  لم يرد بعد: {guests.filter((g) => !["confirmed", "declined"].includes(g.rsvp_status)).length}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-muted/30 rounded-xl p-3 mb-3 space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <Input placeholder="اسم المدعو *" value={newGuest.guest_name} onChange={(e) => setNewGuest({ ...newGuest, guest_name: e.target.value })} />
-                <Input dir="ltr" placeholder="+9665..." value={newGuest.guest_phone} onChange={(e) => setNewGuest({ ...newGuest, guest_phone: e.target.value })} />
-                <Input dir="ltr" placeholder="البريد (اختياري)" value={newGuest.guest_email} onChange={(e) => setNewGuest({ ...newGuest, guest_email: e.target.value })} />
-                <Button onClick={addGuest}><Plus className="w-4 h-4 ml-1" /> إضافة</Button>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Crown className="w-3.5 h-3.5" /> تصنيف المدعو:
-                </span>
-                {TIER_KEYS.map((k) => {
-                  const active = newGuest.guest_tier === k;
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      onClick={() => setNewGuest({ ...newGuest, guest_tier: k })}
-                      className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
-                        active ? GUEST_TIERS[k].cls + " ring-1 ring-current" : "border-border text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {GUEST_TIERS[k].label}
-                    </button>
-                  );
-                })}
-                <span className="text-[10px] text-muted-foreground">— يراه المنظم فقط ولا يظهر للمدعو</span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {guests.length === 0 && <p className="text-center text-muted-foreground p-6">لا يوجد مدعوين بعد</p>}
-              {guests.map((g) => (
-                <div key={g.id} className="border rounded-xl p-3 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold">{g.guest_name}</span>
-                      <select
-                        value={g.guest_tier || "regular"}
-                        onChange={(e) => updateTier(g, e.target.value)}
-                        title="تصنيف المدعو — يحدده المنظم فقط"
-                        className={`text-[10px] font-bold rounded-full px-2 py-0.5 border cursor-pointer appearance-none text-center ${
-                          GUEST_TIERS[g.guest_tier || "regular"]?.cls || GUEST_TIERS.regular.cls
-                        }`}
-                      >
-                        {TIER_KEYS.map((k) => (
-                          <option key={k} value={k}>{GUEST_TIERS[k].label}</option>
-                        ))}
-                      </select>
-                      {trackingBadge(g)}
-                      {g.companions_count > 0 && <span className="text-xs text-muted-foreground">+{g.companions_count} مرافق</span>}
-                    </div>
-                    {g.guest_phone && <p className="text-xs text-muted-foreground" dir="ltr">{g.guest_phone}</p>}
-                  </div>
-                  <div className="flex gap-1 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={() => copy(inviteUrl(g.token))}>
-                      <Copy className="w-3 h-3 ml-1" /> رابط
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => setQrGuest(g)}>
-                      <QrCode className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => window.open(inviteUrl(g.token), "_blank")}>
-                      <ExternalLink className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" onClick={() => openShare(g)}>
-                      <Send className="w-3 h-3 ml-1" /> مشاركة
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => removeGuest(g.id)}>
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-medium">تصنيف المدعو</span>
+                    {TIER_KEYS.map((k) => {
+                      const active = newGuest.guest_tier === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setNewGuest({ ...newGuest, guest_tier: k })}
+                          className={`${choiceCls(active, "bg-card hover:bg-secondary")} h-8 rounded-lg px-3 text-xs font-semibold`}
+                        >
+                          {GUEST_TIERS[k].label}
+                        </button>
+                      );
+                    })}
+                    <span className={HINT}>يراه المنظم فقط ولا يظهر للمدعو</span>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {guests.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="لا يوجد مدعوون بعد"
+                  description="أضف مدعويك من النموذج أعلاه أو استورد قائمة جاهزة"
+                  action={<Button variant="outline" onClick={openImport}><Database className="h-4 w-4" /> استيراد من قاعدة بيانات</Button>}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">المدعو</TableHead>
+                      <TableHead className="hidden w-28 sm:table-cell">التصنيف</TableHead>
+                      <TableHead className="hidden sm:table-cell">الحالة</TableHead>
+                      <TableHead className="pe-6"><span className="sr-only">الإجراءات</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {guests.map((g) => {
+                      const track = guestTracking(g);
+                      const companions = companionsLabel(g.companions_count);
+                      const statusCell = (
+                        <div>
+                          <StatusBadge tone={track.tone}>{track.label}</StatusBadge>
+                          {track.at && <p className="mt-1 text-xs leading-[18px] text-muted-foreground">{formatStamp(track.at)}</p>}
+                        </div>
+                      );
+                      const tierCell = (
+                        <Select value={g.guest_tier || "regular"} onValueChange={(v) => updateTier(g, v)}>
+                          <SelectTrigger className="h-8 w-[5.5rem] text-xs font-semibold" title="تصنيف المدعو — يحدده المنظم فقط" aria-label="تصنيف المدعو"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {TIER_KEYS.map((k) => <SelectItem key={k} value={k}>{GUEST_TIERS[k].label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      );
+                      return (
+                        <Fragment key={g.id}>
+                        <TableRow className="border-0 sm:border-b">
+                          <TableCell className="ps-6">
+                            <p className="font-semibold leading-[22px]">{g.guest_name}</p>
+                            {(g.guest_phone || companions) && (
+                              <p className="flex flex-wrap gap-x-2 text-xs leading-[18px] text-muted-foreground">
+                                {g.guest_phone && <bdi dir="ltr">{g.guest_phone}</bdi>}
+                                {companions && <span>{companions}</span>}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">{tierCell}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{statusCell}</TableCell>
+                          <TableCell className="pe-6">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button size="sm" variant="soft" onClick={() => openShare(g)}>
+                                <Send className="h-[15px] w-[15px]" /> مشاركة
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="icon" variant="outline" className="h-9 w-9 flex-none" aria-label="المزيد"><MoreHorizontal className="h-[18px] w-[18px]" /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem onClick={() => copy(inviteUrl(g.token))}><Copy className="h-4 w-4" /> نسخ الرابط</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setQrGuest(g)}><QrCode className="h-4 w-4" /> رمز QR</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => window.open(inviteUrl(g.token), "_blank")}><ExternalLink className="h-4 w-4" /> فتح الدعوة</DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => removeGuest(g.id)}><Trash2 className="h-4 w-4" /> حذف</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow className="hover:bg-transparent sm:hidden">
+                          <TableCell colSpan={4} className="px-6 pb-3 pt-0">
+                            <div className="flex flex-wrap items-start gap-2">
+                              {tierCell}
+                              {statusCell}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        </Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
         {/* أيام الدعوة — مناسبة متعددة الأيام */}
         <Dialog open={!!daysInv} onOpenChange={(v) => !v && setDaysInv(null)}>
-          <DialogContent dir="rtl" className="max-w-xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <CalendarDays className="w-5 h-5 text-primary" /> أيام المناسبة — {daysInv?.title}
-              </DialogTitle>
+          <DialogContent dir="rtl" className={`${DIALOG_CLS} max-w-2xl`}>
+            <DialogHeader className={DIALOG_HEAD}>
+              <DialogTitle>أيام المناسبة — {daysInv?.title}</DialogTitle>
+              {invDaysSupported && <DialogDescription>للمناسبات الممتدة لعدة أيام — حضور كل يوم يُسجل مستقلاً وتشوفه في قائمة الحضور</DialogDescription>}
             </DialogHeader>
+            <div className={DIALOG_BODY}>
             {!invDaysSupported ? (
-              <p className="text-xs text-amber-700 bg-amber-500/10 border border-amber-400/30 rounded-lg p-3">
+              <p className={WARNING_NOTE}>
                 نفّذ ملف SQL الخاص بأيام الدعوات (invitation_days) لتفعيل هذه الميزة
               </p>
             ) : (
               <>
-                <p className="text-[11px] text-muted-foreground -mt-2">
-                  للمناسبات الممتدة لعدة أيام — حضور كل يوم يُسجل مستقلاً وتشوفه في قائمة الحضور
-                </p>
-
                 {/* بوابات المناسبة — قسم قابل للطي حتى لا تزدحم الواجهة */}
-                <details className="border rounded-xl overflow-hidden group">
-                  <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-bold flex items-center gap-2 bg-muted/30 hover:bg-muted/50">
-                    <DoorOpen className="w-4 h-4 text-primary" /> بوابات المناسبة
-                    <span className="text-[10px] font-normal text-muted-foreground">
-                      {invGates.length ? `${invGates.length} بوابة` : "اختياري — للمناسبات الكبيرة"}
+                <details className="group rounded-xl bg-muted/50">
+                  <summary className={`flex cursor-pointer select-none list-none items-center gap-3 rounded-xl p-4 [&::-webkit-details-marker]:hidden ${FOCUS}`}>
+                    <span className={`${ICON_TILE} flex-none`}><DoorOpen className="h-[17px] w-[17px]" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold leading-[22px]">بوابات المناسبة</span>
+                      <span className="block text-xs leading-[18px] text-muted-foreground">
+                        {invGates.length ? gateCount(invGates.length) : "اختياري — للمناسبات الكبيرة"}
+                      </span>
                     </span>
+                    <ChevronDown className="h-4 w-4 flex-none text-muted-foreground transition-transform group-open:rotate-180" />
                   </summary>
-                  <div className="p-3 space-y-2">
+                  <div className="space-y-3 px-4 pb-4">
                     {!invGatesSupported ? (
-                      <p className="text-[11px] text-amber-700 bg-amber-500/10 rounded-lg px-2 py-1.5">
+                      <p className={WARNING_NOTE}>
                         نفّذ ملف SQL الخاص ببوابات الدعوات (invitation_gates) لتفعيل هذا القسم
                       </p>
                     ) : (
                       <>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-2">
                           {invGates.length === 0 && (
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className={HINT}>
                               بدون بوابات تستخدم أزرار دخول/خروج البسيطة في شاشة المسح
                             </span>
                           )}
                           {invGates.map(g => (
-                            <span key={g.id} className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1 ${g.gate_type === "exit" ? "bg-amber-500/10 text-amber-700" : "bg-teal/10 text-teal-700"}`}>
+                            <StatusBadge key={g.id} tone={g.gate_type === "exit" ? "warning" : "success"}>
                               {g.name_ar} · {g.gate_type === "exit" ? "خروج" : "دخول"}
-                              <button type="button" onClick={() => removeInvGate(g.id)} className="hover:text-destructive"><X className="w-3 h-3" /></button>
-                            </span>
+                              <button type="button" aria-label={`حذف ${g.name_ar}`} onClick={() => removeInvGate(g.id)} className={`rounded-sm opacity-70 transition-opacity hover:opacity-100 ${FOCUS}`}><X className="h-3 w-3" /></button>
+                            </StatusBadge>
                           ))}
                         </div>
-                        <div className="flex gap-1.5 flex-wrap items-center">
-                          <Input
-                            value={newGate.name}
-                            onChange={e => setNewGate({ ...newGate, name: e.target.value })}
-                            placeholder="اسم البوابة (البوابة الرئيسية...)"
-                            className="h-8 w-44 text-xs"
-                          />
-                          <select
-                            value={newGate.type}
-                            onChange={e => setNewGate({ ...newGate, type: e.target.value })}
-                            className="h-8 rounded-lg border border-border bg-background px-2 text-xs"
-                          >
-                            <option value="entry">دخول</option>
-                            <option value="exit">خروج</option>
-                          </select>
-                          <Button size="sm" variant="outline" className="h-8 rounded-full text-xs" onClick={addInvGate} disabled={!newGate.name.trim()}>
-                            <Plus className="w-3 h-3" /> إضافة بوابة
+                        <div className="grid gap-3 sm:grid-cols-[1fr_7rem_auto] sm:items-end">
+                          <Field label="اسم البوابة">
+                            <Input
+                              value={newGate.name}
+                              onChange={e => setNewGate({ ...newGate, name: e.target.value })}
+                              placeholder="البوابة الرئيسية..."
+                            />
+                          </Field>
+                          <Field label="النوع">
+                            <Select value={newGate.type} onValueChange={(v) => setNewGate({ ...newGate, type: v })}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="entry">دخول</SelectItem>
+                                <SelectItem value="exit">خروج</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </Field>
+                          <Button variant="outline" onClick={addInvGate} disabled={!newGate.name.trim()}>
+                            <Plus className="h-4 w-4" /> إضافة بوابة
                           </Button>
                         </div>
                       </>
                     )}
                   </div>
                 </details>
-                {invDays.length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground py-6">لا أيام بعد — أضف اليوم الأول</p>
-                )}
-                <div className="space-y-2">
+                {invDays.length === 0 ? (
+                  <EmptyState
+                    icon={CalendarDays}
+                    title="لا أيام بعد"
+                    description="أضف اليوم الأول لتبدأ"
+                    action={<Button onClick={addInvDay}><Plus className="h-4 w-4" /> إضافة يوم</Button>}
+                  />
+                ) : (
+                  <>
+                <div className="space-y-3">
                   {invDays.map(d => (
-                    <div key={d.id} className="border rounded-xl p-3 space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="w-8 h-8 rounded-full bg-primary/10 text-primary font-extrabold flex items-center justify-center text-sm">{d.day_number}</span>
-                        <Input value={d.title || ""} onChange={e => updateInvDayLocal(d.id, { title: e.target.value })} className="h-8 w-36 font-bold text-sm" />
-                        <Input type="date" value={d.day_date} onChange={e => updateInvDayLocal(d.id, { day_date: e.target.value })} className="h-8 w-36 text-sm" />
-                        <Button size="sm" variant="outline" className="h-8 rounded-full text-xs" onClick={() => saveInvDay(d)}>
-                          <Save className="w-3 h-3" /> حفظ
+                    <div key={d.id} className="space-y-3 rounded-xl bg-muted/50 p-4">
+                      <div className="flex items-center gap-3">
+                        <span className={`${ICON_TILE} flex-none text-sm font-bold`}>{formatNumber(d.day_number)}</span>
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold leading-[22px]">{d.title || `اليوم ${formatNumber(d.day_number)}`}</p>
+                        <Button size="sm" variant="outline" onClick={() => saveInvDay(d)}>
+                          <Save className="h-4 w-4" /> حفظ
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-8 rounded-full text-destructive" onClick={() => removeInvDay(d)}>
-                          <Trash2 className="w-3 h-3" />
+                        <Button size="icon" variant="ghost" className="h-9 w-9 flex-none text-muted-foreground hover:text-destructive" aria-label="حذف اليوم" onClick={() => removeInvDay(d)}>
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Input
-                        value={d.notes || ""}
-                        onChange={e => updateInvDayLocal(d.id, { notes: e.target.value })}
-                        placeholder="التجهيزات اليومية (القاعة، الضيافة...)"
-                        className="h-8 text-xs"
-                      />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="عنوان اليوم"><Input value={d.title || ""} onChange={e => updateInvDayLocal(d.id, { title: e.target.value })} /></Field>
+                        <Field label="التاريخ"><Input dir="ltr" className="block" type="date" value={d.day_date} onChange={e => updateInvDayLocal(d.id, { day_date: e.target.value })} /></Field>
+                      </div>
+                      <Field label="التجهيزات اليومية">
+                        <Input
+                          value={d.notes || ""}
+                          onChange={e => updateInvDayLocal(d.id, { notes: e.target.value })}
+                          placeholder="القاعة، الضيافة..."
+                        />
+                      </Field>
                       {invGatesSupported && invGates.length > 0 && (() => {
                         const dayLinks = invGateLinks.filter(l => l.day_id === d.id);
                         const linked = dayLinks
@@ -1446,34 +1467,35 @@ const PrivateInvitations = () => {
                           .filter(x => x.gate) as { link: { id: string }; gate: { id: string; name_ar: string; gate_type: string } }[];
                         const addable = invGates.filter(g => !dayLinks.some(l => l.gate_id === g.id));
                         return (
-                          <details className="border rounded-lg overflow-hidden">
-                            <summary className="cursor-pointer select-none px-2.5 py-1.5 text-[11px] font-bold flex items-center gap-1.5 bg-muted/20 hover:bg-muted/40">
-                              <DoorOpen className="w-3 h-3 text-primary" /> بوابات هذا اليوم
-                              <span className="font-normal text-muted-foreground">({linked.length ? `${linked.length} مسندة` : "الكل يعمل"})</span>
+                          <details className="group rounded-lg bg-card">
+                            <summary className={`flex cursor-pointer select-none list-none items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] font-semibold leading-5 [&::-webkit-details-marker]:hidden ${FOCUS}`}>
+                              <DoorOpen className="h-4 w-4 flex-none text-primary" /> بوابات هذا اليوم
+                              <span className="font-normal text-muted-foreground">({linked.length ? `${formatNumber(linked.length)} مسندة` : "الكل يعمل"})</span>
+                              <ChevronDown className="ms-auto h-4 w-4 flex-none text-muted-foreground transition-transform group-open:rotate-180" />
                             </summary>
-                            <div className="p-2 space-y-1.5">
-                              <div className="flex flex-wrap gap-1">
+                            <div className="space-y-2.5 px-3 pb-3">
+                              <div className="flex flex-wrap gap-2">
                                 {linked.length === 0 && (
-                                  <span className="text-[10px] text-muted-foreground">لا بوابات مسندة — كل بوابات المناسبة تعمل في هذا اليوم</span>
+                                  <span className={HINT}>لا بوابات مسندة — كل بوابات المناسبة تعمل في هذا اليوم</span>
                                 )}
                                 {linked.map(({ link, gate }) => (
-                                  <span key={link.id} className="inline-flex items-center gap-1 text-[10px] font-bold bg-teal/10 text-teal-700 rounded-full px-2 py-0.5">
+                                  <StatusBadge key={link.id} tone="primary">
                                     {gate.name_ar} · {gate.gate_type === "exit" ? "خروج" : "دخول"}
-                                    <button type="button" onClick={() => unlinkInvGate(link.id)} className="hover:text-destructive"><X className="w-2.5 h-2.5" /></button>
-                                  </span>
+                                    <button type="button" aria-label={`إلغاء إسناد ${gate.name_ar}`} onClick={() => unlinkInvGate(link.id)} className={`rounded-sm opacity-70 transition-opacity hover:opacity-100 ${FOCUS}`}><X className="h-3 w-3" /></button>
+                                  </StatusBadge>
                                 ))}
                               </div>
                               {addable.length > 0 && (
-                                <div className="flex flex-wrap gap-1 items-center">
-                                  <span className="text-[10px] text-muted-foreground">اضغط للإسناد:</span>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={HINT}>اضغط للإسناد:</span>
                                   {addable.map(g => (
                                     <button
                                       key={g.id}
                                       type="button"
                                       onClick={() => linkInvGate(g.id, d.id)}
-                                      className="text-[10px] font-bold rounded-full px-2 py-0.5 border-2 border-dashed border-primary/40 text-primary hover:bg-primary/10 transition"
+                                      className={`inline-flex h-7 items-center gap-1 rounded-lg bg-muted/50 px-2.5 text-xs font-semibold text-primary transition-colors hover:bg-secondary ${FOCUS}`}
                                     >
-                                      + {g.name_ar} · {g.gate_type === "exit" ? "خروج" : "دخول"}
+                                      <Plus className="h-3 w-3" /> {g.name_ar} · {g.gate_type === "exit" ? "خروج" : "دخول"}
                                     </button>
                                   ))}
                                 </div>
@@ -1485,125 +1507,128 @@ const PrivateInvitations = () => {
                     </div>
                   ))}
                 </div>
-                <Button variant="outline" className="rounded-full w-full" onClick={addInvDay}>
-                  <Plus className="w-4 h-4" /> إضافة يوم
+                <Button variant="outline" className="w-full" onClick={addInvDay}>
+                  <Plus className="h-4 w-4" /> إضافة يوم
                 </Button>
+                  </>
+                )}
               </>
             )}
+            </div>
           </DialogContent>
         </Dialog>
 
         {/* قائمة حضور الدعوة */}
         <Dialog open={!!attInv} onOpenChange={(v) => !v && setAttInv(null)}>
-          <DialogContent dir="rtl" className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-primary" /> قائمة الحضور — {attInv?.title}
-              </DialogTitle>
+          <DialogContent dir="rtl" className={`${DIALOG_CLS} max-w-3xl`}>
+            <DialogHeader className={DIALOG_HEAD}>
+              <DialogTitle>قائمة الحضور — {attInv?.title}</DialogTitle>
+              <DialogDescription>تُعبأ تلقائياً عند مسح دعوة الضيف على البوابات: الدخول من بوابات الدخول والخروج من بوابات الخروج</DialogDescription>
             </DialogHeader>
-            <p className="text-[11px] text-muted-foreground -mt-2">
-              تُعبأ تلقائياً عند مسح دعوة الضيف على البوابات: الدخول من بوابات الدخول والخروج من بوابات الخروج
-            </p>
-            {attDays.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                <span className="text-[11px] text-muted-foreground font-semibold">عرض حسب اليوم:</span>
-                <button
-                  type="button"
-                  onClick={() => setAttDayFilter("all")}
-                  className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${attDayFilter === "all" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
-                >
-                  كامل المناسبة
-                </button>
-                {attDays.map(d => (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setAttDayFilter(d.id)}
-                    className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${attDayFilter === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
-                  >
-                    {d.title || `اليوم ${d.day_number}`}
-                  </button>
-                ))}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="space-y-4 px-6 pb-5">
+                {attDays.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[13px] leading-5 text-muted-foreground">عرض حسب اليوم</span>
+                    <button
+                      type="button"
+                      aria-pressed={attDayFilter === "all"}
+                      onClick={() => setAttDayFilter("all")}
+                      className={`${choiceCls(attDayFilter === "all")} h-9 rounded-lg px-3 text-[13px] font-semibold`}
+                    >
+                      كامل المناسبة
+                    </button>
+                    {attDays.map(d => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        aria-pressed={attDayFilter === d.id}
+                        onClick={() => setAttDayFilter(d.id)}
+                        className={`${choiceCls(attDayFilter === d.id)} h-9 rounded-lg px-3 text-[13px] font-semibold`}
+                      >
+                        {d.title || `اليوم ${d.day_number}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(() => {
+                  const times = attGuests.map(g => guestTimes(g));
+                  return (
+                    <div className="grid grid-cols-3 gap-3">
+                      {([
+                        ["دخلوا", times.filter(t => t.entry).length],
+                        ["بالداخل الآن", times.filter(t => t.entry && !t.exit).length],
+                        ["غادروا", times.filter(t => t.exit).length],
+                      ] as [string, number][]).map(([label, value]) => (
+                        <div key={label} className="rounded-xl bg-muted/50 px-4 py-3">
+                          <p className="text-xs leading-[18px] text-muted-foreground">{label}</p>
+                          <p className="text-xl font-bold leading-7">{formatNumber(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
-            )}
-            <div className="flex items-center gap-1.5 flex-wrap mb-2">
-              {(() => {
-                const times = attGuests.map(g => guestTimes(g));
-                return (
-                  <>
-                    <span className="text-[11px] font-semibold bg-green-500/10 text-green-700 rounded-full px-2.5 py-1">
-                      دخلوا: {times.filter(t => t.entry).length}
-                    </span>
-                    <span className="text-[11px] font-semibold bg-primary/10 text-primary rounded-full px-2.5 py-1">
-                      بالداخل الآن: {times.filter(t => t.entry && !t.exit).length}
-                    </span>
-                    <span className="text-[11px] font-semibold bg-amber-100 text-amber-800 rounded-full px-2.5 py-1">
-                      غادروا: {times.filter(t => t.exit).length}
-                    </span>
-                  </>
-                );
-              })()}
-            </div>
-            {attGuests.length === 0 ? (
-              <p className="text-center text-muted-foreground text-sm py-8">لا يوجد مدعوون بعد</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-xs">
-                    <tr>
-                      <th className="text-right p-2.5">المدعو</th>
-                      <th className="text-right p-2.5">التصنيف</th>
-                      <th className="text-right p-2.5">وقت الدخول</th>
-                      <th className="text-right p-2.5">وقت الخروج</th>
-                      <th className="text-right p-2.5">مدة البقاء</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
+              {attGuests.length === 0 ? (
+                <EmptyState
+                  icon={ClipboardList}
+                  title="لا يوجد مدعوون بعد"
+                  description="أضف المدعوين لتظهر هنا أوقات دخولهم وخروجهم"
+                  action={attInv ? <Button variant="outline" onClick={() => { openGuests(attInv); setAttInv(null); }}><UserPlus className="h-4 w-4" /> أضف المدعوين</Button> : undefined}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">المدعو</TableHead>
+                      <TableHead>التصنيف</TableHead>
+                      <TableHead>وقت الدخول</TableHead>
+                      <TableHead>وقت الخروج</TableHead>
+                      <TableHead className="pe-6">مدة البقاء</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {attGuests.map(g => {
-                      const tierMeta = GUEST_TIERS[g.guest_tier || "regular"] || GUEST_TIERS.regular;
+                      const tier = g.guest_tier && TIER_TONES[g.guest_tier] ? g.guest_tier : "regular";
                       const { entry, exit } = guestTimes(g);
                       const stay = computeStay(entry, exit);
                       return (
-                        <tr key={g.id} className="hover:bg-muted/20">
-                          <td className="p-2.5 font-bold">{g.guest_name}</td>
-                          <td className="p-2.5">
-                            <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 border ${tierMeta.cls}`}>{tierMeta.label}</span>
-                          </td>
-                          <td className="p-2.5 text-xs">
-                            {entry
-                              ? <span className="text-green-700 font-semibold">{new Date(entry).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
-                              : <span className="text-muted-foreground">لم يدخل بعد</span>}
-                          </td>
-                          <td className="p-2.5 text-xs">
+                        <TableRow key={g.id}>
+                          <TableCell className="whitespace-nowrap ps-6 font-semibold">{g.guest_name}</TableCell>
+                          <TableCell><StatusBadge tone={TIER_TONES[tier]}><bdi>{GUEST_TIERS[tier].label}</bdi></StatusBadge></TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {entry ? formatStamp(entry) : <span className="text-xs text-muted-foreground">لم يُسجَّل دخول بعد</span>}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
                             {exit
-                              ? <span className="text-amber-700 font-semibold">{new Date(exit).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}</span>
+                              ? formatStamp(exit)
                               : entry
-                              ? <span className="text-primary font-semibold">بالداخل</span>
+                              ? <StatusBadge tone="primary">بالداخل</StatusBadge>
                               : <span className="text-muted-foreground">—</span>}
-                          </td>
-                          <td className="p-2.5 text-xs font-bold">{stay ? formatDuration(stay) : "—"}</td>
-                        </tr>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap pe-6">{stay ? <span className="font-semibold">{formatDuration(stay)}</span> : <span className="text-muted-foreground">—</span>}</TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
 
         {/* QR Dialog */}
         <Dialog open={!!qrGuest} onOpenChange={(v) => !v && setQrGuest(null)}>
-          <DialogContent dir="rtl" className="max-w-sm">
-            <DialogHeader><DialogTitle>QR Code — {qrGuest?.guest_name}</DialogTitle></DialogHeader>
+          <DialogContent dir="rtl" className="w-[calc(100%-1.5rem)] max-w-sm rounded-2xl outline-none">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>QR Code — {qrGuest?.guest_name}</DialogTitle></DialogHeader>
             {qrGuest && (
-              <div className="flex flex-col items-center gap-3 py-4">
-                <div className="bg-white p-4 rounded-2xl">
+              <div className="flex flex-col items-center gap-4">
+                <div className="rounded-xl bg-white p-4">
                   <QRCodeSVG value={inviteUrl(qrGuest.token)} size={220} />
                 </div>
-                <p className="text-xs text-muted-foreground text-center break-all" dir="ltr">{inviteUrl(qrGuest.token)}</p>
-                <Button variant="outline" onClick={() => copy(inviteUrl(qrGuest.token))} className="w-full">
-                  <Copy className="w-4 h-4 ml-1" /> نسخ الرابط
+                <p className="w-full break-all rounded-xl bg-muted/50 p-3 text-center text-xs leading-[18px] text-muted-foreground"><bdi dir="ltr">{inviteUrl(qrGuest.token)}</bdi></p>
+                <Button variant="soft" onClick={() => copy(inviteUrl(qrGuest.token))} className="w-full">
+                  <Copy className="h-4 w-4" /> نسخ الرابط
                 </Button>
               </div>
             )}
@@ -1612,42 +1637,37 @@ const PrivateInvitations = () => {
 
         {/* Import from list */}
         <Dialog open={importOpen} onOpenChange={setImportOpen}>
-          <DialogContent dir="rtl" className="max-w-lg">
-            <DialogHeader><DialogTitle>استيراد من قاعدة بيانات</DialogTitle></DialogHeader>
+          <DialogContent dir="rtl" className={`${DIALOG_CLS} max-w-lg`}>
+            <DialogHeader className={DIALOG_HEAD}>
+              <DialogTitle>استيراد من قاعدة بيانات</DialogTitle>
+              {lists.length > 0 && <DialogDescription>سيتم تجاهل المدعوين الموجودين مسبقاً (بناءً على الجوال أو البريد).</DialogDescription>}
+            </DialogHeader>
             {lists.length === 0 ? (
-              <div className="text-center py-8">
-                <Database className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground mb-3">لا توجد قوائم بعد</p>
-                <Button asChild variant="outline" size="sm">
-                  <a href="/dashboard/guest-lists">إنشاء قائمة جديدة</a>
-                </Button>
-              </div>
+              <EmptyState
+                icon={Database}
+                title="لا توجد قوائم بعد"
+                action={<Button asChild variant="outline"><a href="/dashboard/guest-lists">إنشاء قائمة جديدة</a></Button>}
+              />
             ) : (
-              <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+              <div className={`${DIALOG_BODY} !space-y-2.5`}>
                 {lists.map((l) => (
                   <button
                     key={l.id}
                     type="button"
+                    aria-pressed={importingListId === l.id}
                     onClick={() => setImportingListId(l.id)}
-                    className={`w-full text-right border rounded-xl p-3 flex items-center justify-between gap-2 transition ${
-                      importingListId === l.id ? "border-primary bg-primary/5" : "hover:bg-muted/50"
-                    }`}
+                    className={`${choiceCls(importingListId === l.id)} flex w-full items-center gap-3 rounded-xl p-3 text-start`}
                   >
-                    <div className="flex items-center gap-2">
-                      <Database className="w-4 h-4 text-primary" />
-                      <span className="font-bold">{l.name}</span>
-                    </div>
-                    <Badge variant="secondary">{l.count} جهة</Badge>
+                    <span className={`${ICON_TILE} flex-none`}><Database className="h-[17px] w-[17px]" /></span>
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{l.name}</span>
+                    <span className="text-xs font-normal text-muted-foreground">{guestCount(l.count)}</span>
                   </button>
                 ))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              سيتم تجاهل الجهات الموجودة مسبقاً (بناءً على الجوال أو البريد).
-            </p>
-            <DialogFooter>
+            <DialogFooter className={DIALOG_FOOT}>
+              <Button className="flex-1 sm:flex-none" onClick={doImport} disabled={!importingListId}>استيراد</Button>
               <Button variant="outline" onClick={() => setImportOpen(false)}>إلغاء</Button>
-              <Button onClick={doImport} disabled={!importingListId}>استيراد</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1664,85 +1684,84 @@ const PrivateInvitations = () => {
 
         {/* حوار مشاركة الدعوة — رسالة تلقائية حسب الحالة أو رسالة مخصصة */}
         <Dialog open={!!shareGuest} onOpenChange={(o) => !o && setShareGuest(null)}>
-          <DialogContent dir="rtl" className="max-w-md">
-            <DialogHeader>
+          <DialogContent dir="rtl" className={`${DIALOG_CLS} max-w-lg`}>
+            <DialogHeader className={DIALOG_HEAD}>
               <DialogTitle>مشاركة الدعوة — {shareGuest?.guest_name}</DialogTitle>
             </DialogHeader>
             {shareGuest && activeInv && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
+              <>
+              <div className={DIALOG_BODY}>
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   <button
                     type="button"
+                    aria-pressed={shareMode === "auto"}
                     onClick={() => setShareMode("auto")}
-                    className={`rounded-xl border-2 p-3 text-right transition ${
-                      shareMode === "auto" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
-                    }`}
+                    className={`${choiceCls(shareMode === "auto")} rounded-xl p-3 text-start`}
                   >
-                    <p className="font-bold text-xs">رسالة تلقائية</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                    <span className="block text-sm font-bold leading-[22px]">رسالة تلقائية</span>
+                    <span className="block text-xs font-normal leading-[18px] text-muted-foreground">
                       تتولد حسب حالة الدعوة (جديدة، معاد جدولتها، ملغاة...) وحالة المدعو
-                    </p>
+                    </span>
                   </button>
                   <button
                     type="button"
+                    aria-pressed={shareMode === "custom"}
                     onClick={() => {
                       setShareMode("custom");
                       if (!shareCustom.trim()) setShareCustom(autoShareMessage(activeInv, shareGuest));
                     }}
-                    className={`rounded-xl border-2 p-3 text-right transition ${
-                      shareMode === "custom" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
-                    }`}
+                    className={`${choiceCls(shareMode === "custom")} rounded-xl p-3 text-start`}
                   >
-                    <p className="font-bold text-xs">رسالة مخصصة</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">
+                    <span className="block text-sm font-bold leading-[22px]">رسالة مخصصة</span>
+                    <span className="block text-xs font-normal leading-[18px] text-muted-foreground">
                       عدّل النص بنفسك قبل الإرسال — لو تركتها فارغة تُستخدم التلقائية
-                    </p>
+                    </span>
                   </button>
                 </div>
 
                 {shareMode === "auto" ? (
-                  <div className="rounded-xl bg-muted/40 border border-border/50 p-3 text-sm whitespace-pre-wrap leading-relaxed">
+                  <div className="whitespace-pre-wrap rounded-xl bg-muted/50 p-4 text-sm leading-6">
                     {autoShareMessage(activeInv, shareGuest)}
-                    <p className="text-[11px] text-muted-foreground mt-2 break-all border-t pt-2" dir="ltr">
-                      رابط الدعوة: {inviteUrl(shareGuest.token)}
+                    <p className="mt-3 border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+                      رابط الدعوة: <bdi dir="ltr" className="break-all">{inviteUrl(shareGuest.token)}</bdi>
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
+                  <Field hint="رابط الدعوة يُضاف تلقائياً في نهاية الرسالة.">
                     <Textarea
                       value={shareCustom}
                       onChange={(e) => setShareCustom(e.target.value)}
-                      rows={5}
+                      rows={6}
                       placeholder="اكتب رسالتك... لو تركتها فارغة تُرسل الرسالة التلقائية"
-                      className="text-sm"
                     />
-                    <p className="text-[11px] text-muted-foreground">رابط الدعوة يُضاف تلقائياً في نهاية الرسالة.</p>
-                  </div>
+                  </Field>
                 )}
-
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    onClick={() => {
-                      sendWhatsApp(shareGuest, finalShareMessage(shareGuest));
-                      setShareGuest(null);
-                    }}
-                    disabled={!shareGuest.guest_phone}
-                    title={shareGuest.guest_phone ? undefined : "لا يوجد رقم جوال لهذا المدعو"}
-                  >
-                    <Send className="w-4 h-4 ml-1" /> إرسال واتساب
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      copy(finalShareMessage(shareGuest));
-                      markInviteSent(shareGuest);
-                      setShareGuest(null);
-                    }}
-                  >
-                    <Copy className="w-4 h-4 ml-1" /> نسخ الرسالة والرابط
-                  </Button>
-                </div>
               </div>
+              <DialogFooter className={DIALOG_FOOT}>
+                <Button
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    sendWhatsApp(shareGuest, finalShareMessage(shareGuest));
+                    setShareGuest(null);
+                  }}
+                  disabled={!shareGuest.guest_phone}
+                  title={shareGuest.guest_phone ? undefined : "لا يوجد رقم جوال لهذا المدعو"}
+                >
+                  <Send className="h-4 w-4" /> إرسال واتساب
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    copy(finalShareMessage(shareGuest));
+                    markInviteSent(shareGuest);
+                    setShareGuest(null);
+                  }}
+                >
+                  <Copy className="h-4 w-4" /> نسخ الرسالة والرابط
+                </Button>
+              </DialogFooter>
+              </>
             )}
           </DialogContent>
         </Dialog>
@@ -1763,3 +1782,75 @@ const PrivateInvitations = () => {
 };
 
 export default PrivateInvitations;
+
+// مساعدات النوافذ أسفل الملف لأن نطاق هذا التعديل يبدأ من تعليق Create/Edit Dialog؛ الاستيرادات في ES مرفوعة فتعمل هنا كالمعتاد
+import { Fragment } from "react";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import { DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDateShort, formatNumber } from "@/lib/format";
+
+// نافذة بترويسة وتذييل ثابتين، والمحتوى وحده يتمرر
+const DIALOG_CLS = "flex max-h-[90dvh] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none";
+const DIALOG_HEAD = "px-6 pb-4 pe-12 pt-6 text-start";
+const DIALOG_BODY = "min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6";
+const TAB_BODY = "mt-0 min-h-0 flex-1 overflow-y-auto px-6 pb-6";
+const DIALOG_FOOT = "flex-row flex-wrap gap-2 border-t border-border px-6 py-4";
+const ICON_TILE = "grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary";
+// الأزرار المخصصة تأخذ حلقة تركيز الهوية بدل الحلقة الزرقاء الافتراضية، ومن الداخل حتى لا تقصها مناطق التمرير
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+const MODE_TILE = `rounded-xl bg-muted/50 p-5 text-start transition-colors hover:bg-muted ${FOCUS}`;
+const SECTION = "text-[15px] font-bold leading-6";
+const HINT = "text-xs leading-[18px] text-muted-foreground";
+const WARNING_NOTE = "rounded-xl bg-[#FDF3E3] p-3 text-[13px] leading-5 text-[#9A5F12]";
+
+const TIER_TONES: Record<string, StatusTone> = { vvip: "warning", vip: "primary", regular: "neutral" };
+
+// حالة الخيار المحدد موحدة في كل مربعات الاختيار
+const choiceCls = (active: boolean, idle = "bg-muted/50 hover:bg-muted") =>
+  `transition-colors ${FOCUS} ${active ? "bg-secondary font-semibold text-primary ring-1 ring-inset ring-primary" : idle}`;
+
+// تاريخ ووقت مختصران للجداول
+const formatStamp = (value: string) => `${formatDateShort(value)}، ${formatTime(value)}`;
+
+// حالة تتبع المدعو بصياغة محايدة: الرد أولاً، ثم الفتح، ثم الإرسال
+const guestTracking = (g: Guest & { opened_at?: string | null; invite_sent_at?: string | null }): { label: string; tone: StatusTone; at: string | null } => {
+  if (g.rsvp_status === "confirmed") return { label: "تم التأكيد", tone: "success", at: g.confirmed_at };
+  if (g.rsvp_status === "declined") return { label: "تم الاعتذار", tone: "danger", at: g.confirmed_at };
+  if (g.opened_at) return { label: "فُتحت الدعوة، بانتظار الرد", tone: "primary", at: g.opened_at };
+  if (g.invite_sent_at || g.rsvp_status === "invited") return { label: "أُرسلت الدعوة، بانتظار الرد", tone: "neutral", at: g.invite_sent_at ?? null };
+  return { label: "لم تُرسل بعد", tone: "neutral", at: null };
+};
+
+const reminderLabel = (h: number) =>
+  h === 1 ? "قبل الموعد بساعة" : h === 2 ? "قبل الموعد بساعتين" : `قبل الموعد بـ ${h} ${h <= 10 ? "ساعات" : "ساعة"}`;
+
+// الأعداد بصياغة عربية صحيحة: واحد، مثنى، جمع حتى 10، ثم تمييز مفرد
+const guestCount = (n: number) => {
+  if (n === 1) return "مدعو واحد";
+  if (n === 2) return "مدعوان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مدعوين" : tail >= 11 ? "مدعواً" : "مدعو"}`;
+};
+const companionsLabel = (n: number) => {
+  if (!(n > 0)) return "";
+  if (n === 1) return "مرافق واحد";
+  if (n === 2) return "مرافقان";
+  return `${formatNumber(n)} ${n <= 10 ? "مرافقين" : "مرافقاً"}`;
+};
+const gateCount = (n: number) => {
+  if (n === 1) return "بوابة واحدة";
+  if (n === 2) return "بوابتان";
+  return `${formatNumber(n)} ${n <= 10 ? "بوابات" : "بوابة"}`;
+};
+
+function Field({ label, hint, className = "", children }: { label?: React.ReactNode; hint?: React.ReactNode; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      {label && <Label>{label}</Label>}
+      {children}
+      {hint && <p className={HINT}>{hint}</p>}
+    </div>
+  );
+}

@@ -1,17 +1,32 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useImpersonation } from "@/contexts/ImpersonationContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
-import { Users, Search, Eye, Mail, Phone, Shield } from "lucide-react";
+import { Eye, Plus, Search, Users, X } from "lucide-react";
 
-const accountTypeLabels: Record<string, { label: string; cls: string }> = {
-  attendee: { label: "حاضر", cls: "bg-blue-100 text-blue-700" },
-  organizer: { label: "منظّم", cls: "bg-primary/10 text-primary" },
-  venue_owner: { label: "صاحب مكان", cls: "bg-teal/10 text-teal" },
+const accountTypeLabels: Record<string, { label: string; tone: StatusTone }> = {
+  attendee: { label: "حاضر", tone: "neutral" },
+  organizer: { label: "منظّم", tone: "primary" },
+  venue_owner: { label: "صاحب مكان", tone: "success" },
+};
+
+// تمييز العدد بصيغته الصحيحة: 3 مستخدمين، 11 مستخدماً، 200 مستخدم
+const usersLabel = (n: number) => {
+  if (n === 2) return "مستخدمين";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مستخدمين" : tail >= 11 ? "مستخدماً" : "مستخدم"}`;
 };
 
 interface UserRow {
@@ -90,121 +105,109 @@ const AllUsers = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
-      </AdminLayout>
-    );
-  }
+  const resetFilters = () => { setSearch(""); setTypeFilter("all"); };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">جميع المستخدمين</h1>
-            <p className="text-muted-foreground text-sm mt-1">{filtered.length} من أصل {users.length} مستخدم</p>
+        <PageHeader
+          title="جميع المستخدمين"
+          description={loading ? undefined : `${formatNumber(filtered.length)} من ${usersLabel(users.length)}`}
+        />
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Tabs value={typeFilter} onValueChange={setTypeFilter} className="max-w-full">
+            <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
+              {tabs.map((t) => (
+                <TabsTrigger key={t.key} value={t.key} className="gap-1.5">
+                  {t.label}
+                  <span className="text-xs font-normal text-muted-foreground">{formatNumber(t.count)}</span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          <div className="relative w-full sm:ms-auto sm:w-64">
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="بحث بالاسم أو البريد..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="ps-10"
+            />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value)}
-              className="border rounded-lg px-3 h-10 text-sm bg-background"
-            >
-              <option value="newest">الأحدث تسجيلاً</option>
-              <option value="oldest">الأقدم تسجيلاً</option>
-              <option value="name">حسب الاسم</option>
-            </select>
-            <div className="relative w-64">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="بحث بالاسم أو البريد..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pr-10"
-              />
-            </div>
-          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-10 w-auto min-w-[150px] gap-2 font-medium"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">الأحدث تسجيلاً</SelectItem>
+              <SelectItem value="oldest">الأقدم تسجيلاً</SelectItem>
+              <SelectItem value="name">حسب الاسم</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {tabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTypeFilter(t.key)}
-              className={`px-4 h-9 rounded-full text-sm font-medium transition-colors border ${
-                typeFilter === t.key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border hover:bg-muted"
-              }`}
-            >
-              {t.label}
-              <span className={`mr-2 text-xs ${typeFilter === t.key ? "opacity-90" : "opacity-60"}`}>({t.count})</span>
-            </button>
-          ))}
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center space-y-3">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">لا يوجد مستخدمين مطابقين للبحث</p>
+        {loading ? (
+          <div className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />
+        ) : filtered.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Users}
+              title="لا يوجد مستخدمون مطابقون للبحث"
+              action={
+                users.length === 0 ? (
+                  <Button asChild><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>
+                ) : (
+                  <Button variant="outline" onClick={resetFilters}><X className="h-4 w-4" /> إعادة تعيين</Button>
+                )
+              }
+            />
           </div>
         ) : (
-          <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-right p-3">الاسم</th>
-                    <th className="text-right p-3">البريد</th>
-                    <th className="text-right p-3">الهاتف</th>
-                    <th className="text-right p-3">النوع</th>
-                    <th className="text-right p-3">التسجيل</th>
-                    <th className="p-3">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {filtered.map(u => {
-                    const typeInfo = accountTypeLabels[u.account_type] || { label: u.account_type, cls: "bg-muted text-muted-foreground" };
-                    return (
-                      <tr key={u.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="p-3 font-medium">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                              {u.full_name?.charAt(0) || "؟"}
-                            </div>
-                            {u.full_name || "—"}
-                          </div>
-                        </td>
-                        <td className="p-3 text-muted-foreground" dir="ltr">{u.email || "—"}</td>
-                        <td className="p-3 text-muted-foreground" dir="ltr">{u.phone || "—"}</td>
-                        <td className="p-3">
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${typeInfo.cls}`}>
-                            {typeInfo.label}
+          <Panel flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">الاسم</TableHead>
+                  <TableHead>البريد</TableHead>
+                  <TableHead>الهاتف</TableHead>
+                  <TableHead>النوع</TableHead>
+                  <TableHead>التسجيل</TableHead>
+                  <TableHead className="pe-6"><span className="sr-only">إجراءات</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((u) => {
+                  const typeInfo = accountTypeLabels[u.account_type] || { label: u.account_type, tone: "neutral" as const };
+                  return (
+                    <TableRow key={u.id}>
+                      <TableCell className="ps-6">
+                        <div className="flex items-center gap-3">
+                          <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-secondary text-sm font-bold text-primary">
+                            {u.full_name?.charAt(0) || "؟"}
                           </span>
-                        </td>
-                        <td className="p-3 text-muted-foreground">{u.created_at ? new Date(u.created_at).toLocaleDateString("ar-SA") : "—"}</td>
-                        <td className="p-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleImpersonate(u)}
-                            className="gap-1.5 text-xs h-8"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            الدخول كهذا الحساب
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                          <span className="whitespace-nowrap font-semibold">{u.full_name || "—"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {u.email ? <bdi dir="ltr">{u.email}</bdi> : "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {u.phone ? <bdi dir="ltr">{u.phone}</bdi> : "—"}
+                      </TableCell>
+                      <TableCell><StatusBadge tone={typeInfo.tone}>{typeInfo.label}</StatusBadge></TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {u.created_at ? formatDate(u.created_at) : "—"}
+                      </TableCell>
+                      <TableCell className="pe-6 text-end">
+                        <Button size="sm" variant="outline" onClick={() => handleImpersonate(u)}>
+                          <Eye className="h-4 w-4" /> الدخول كهذا الحساب
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </AdminLayout>

@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
-import { Building2, Calendar, LogIn } from "lucide-react";
+import { Building2, Calendar, LogIn, Plus } from "lucide-react";
 
 interface OrgRow {
   id: string;
@@ -15,6 +21,15 @@ interface OrgRow {
   is_active: boolean;
   created_at: string;
 }
+
+const HINT = "يمكنك عرض فعاليات أي منظم أو الدخول كحسابه";
+
+// تمييز العدد بصيغته الصحيحة: 3 منظمين، 11 منظماً، 100 منظم
+const organizersLabel = (n: number) => {
+  if (n === 2) return "منظمان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "منظمين" : tail >= 11 ? "منظماً" : "منظم"}`;
+};
 
 const Organizers = () => {
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
@@ -66,76 +81,71 @@ const Organizers = () => {
     navigate("/dashboard");
   };
 
-  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div></AdminLayout>;
-
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground">حسابات المنظمين</h1>
-          <p className="text-muted-foreground text-sm mt-1">{orgs.length} منظّم — يمكنك عرض فعاليات أي منظم أو الدخول كحسابه</p>
-        </div>
+        <PageHeader
+          title="حسابات المنظمين"
+          description={orgs.length ? `${organizersLabel(orgs.length)}، ${HINT}` : HINT}
+        />
 
-        {orgs.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center space-y-3">
-            <Building2 className="w-12 h-12 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">لا يوجد منظمين مسجلين حتى الآن</p>
+        {loading ? (
+          <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
+        ) : orgs.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Building2}
+              title="لا يوجد منظمون مسجلون حتى الآن"
+              action={<Button asChild><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>}
+            />
           </div>
         ) : (
-          <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-right p-3">اسم المنظمة</th>
-                    <th className="text-right p-3">عدد الفعاليات</th>
-                    <th className="text-right p-3">الاشتراك</th>
-                    <th className="text-right p-3">الحالة</th>
-                    <th className="text-right p-3">تاريخ التسجيل</th>
-                    <th className="p-3">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {orgs.map(o => (
-                    <tr key={o.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3 font-medium">{o.name}</td>
-                      <td className="p-3">
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-muted font-medium">
-                          {eventCounts[o.id] || 0}
+          <Panel flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">اسم المنظمة</TableHead>
+                  <TableHead>عدد الفعاليات</TableHead>
+                  <TableHead>الاشتراك</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead>تاريخ التسجيل</TableHead>
+                  <TableHead className="pe-6"><span className="sr-only">إجراءات</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orgs.map((o) => (
+                  <TableRow key={o.id}>
+                    <TableCell className="ps-6">
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                          <Building2 className="h-[18px] w-[18px]" />
                         </span>
-                      </td>
-                      <td className="p-3">
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">{o.subscription_plan}</span>
-                      </td>
-                      <td className="p-3">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${o.is_active ? "bg-teal/10 text-teal" : "bg-destructive/10 text-destructive"}`}>
-                          {o.is_active ? "نشط" : "معطل"}
-                        </span>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{new Date(o.created_at).toLocaleDateString("ar-SA")}</td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1.5 justify-end">
-                          <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-                            <Link to={`/admin/organizers/${o.id}/events`}>
-                              <Calendar className="w-3.5 h-3.5" /> الفعاليات
-                            </Link>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs"
-                            onClick={() => handleImpersonate(o)}
-                          >
-                            <LogIn className="w-3.5 h-3.5" /> دخول
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                        <span className="whitespace-nowrap font-semibold sm:whitespace-normal">{o.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatNumber(eventCounts[o.id] || 0)}</TableCell>
+                    <TableCell><bdi dir="ltr">{o.subscription_plan}</bdi></TableCell>
+                    <TableCell>
+                      <StatusBadge tone={o.is_active ? "success" : "danger"}>{o.is_active ? "نشط" : "معطل"}</StatusBadge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(o.created_at)}</TableCell>
+                    <TableCell className="pe-6">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={`/admin/organizers/${o.id}/events`}>
+                            <Calendar className="h-4 w-4" /> الفعاليات
+                          </Link>
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleImpersonate(o)}>
+                          <LogIn className="h-4 w-4" /> دخول
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </AdminLayout>

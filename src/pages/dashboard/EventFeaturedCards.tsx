@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   ArrowRight, Plus, Trash2, Upload, Pencil, X, IdCard,
-  Image as ImageIcon, Palette, Sparkles,
+  Image as ImageIcon, Palette,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
 import CustomTemplateDesigner, { DEFAULT_OVERLAY, type NameOverlay } from "@/components/design/CustomTemplateDesigner";
@@ -220,66 +222,57 @@ const EventFeaturedCards = () => {
     name_overlay: null,
   };
 
+  const tagline = "تظهر للحاضرين بعد تسجيل الدخول للفعالية";
+  const modeTile = "flex flex-col rounded-xl bg-muted/50 p-5 text-start transition-colors hover:bg-secondary outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/dashboard/events">
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-          </Button>
-          <div className="flex-1">
-            <h1 className="font-bold text-2xl text-foreground flex items-center gap-2">
-              <IdCard className="w-6 h-6 text-primary" /> البطاقات الخاصة
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {eventTitle && <>فعالية: <span className="font-semibold text-foreground">{eventTitle}</span> · </>}
-              تظهر للحاضرين بعد تسجيل الدخول للفعالية
-            </p>
-          </div>
-          {!showForm && (
-            <Button className="rounded-full" onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4" /> إضافة بطاقة
-            </Button>
-          )}
+        <div className="space-y-2">
+          <Link to="/dashboard/events" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+            <ArrowRight className="h-4 w-4" /> العودة لفعالياتي
+          </Link>
+          <PageHeader
+            title="البطاقات الخاصة"
+            description={eventTitle ? `${eventTitle}، ${tagline}` : tagline}
+            actions={!showForm && (
+              <Button onClick={() => setShowForm(true)}>
+                <Plus className="h-4 w-4" /> إضافة بطاقة
+              </Button>
+            )}
+          />
         </div>
 
         {showForm && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border/60 rounded-2xl p-5 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-foreground">{editingId ? "تعديل البطاقة" : "بطاقة جديدة"}</h2>
-              <Button variant="ghost" size="icon" onClick={resetForm}>
-                <X className="w-4 h-4" />
+          <Panel
+            title={editingId ? "تعديل البطاقة" : "بطاقة جديدة"}
+            bodyClassName="space-y-4"
+            actions={
+              <Button variant="ghost" size="icon" className="h-9 w-9" onClick={resetForm} aria-label="إغلاق">
+                <X className="h-4 w-4" />
               </Button>
-            </div>
-
+            }
+          >
             {/* اختيار طريقة التصميم — نفس تجربة الدعوات الخاصة */}
             {!mode ? (
-              <div className="py-4">
-                <p className="text-center text-sm text-muted-foreground mb-6">
-                  كيف تريد تجهيز البطاقة؟
-                </p>
-                <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">كيف تريد تجهيز البطاقة؟</p>
+                <div className="grid gap-4 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={() => {
                       setForm((f) => ({ ...f, use_custom_template: false }));
                       setMode("nakfeek");
                     }}
-                    className="group relative rounded-2xl border-2 border-border hover:border-primary p-6 text-right transition-all hover:-translate-y-1 hover:shadow-elegant bg-gradient-to-br from-primary/5 via-card to-brand-gold/5"
+                    className={modeTile}
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-brand-mauve flex items-center justify-center text-primary-foreground mb-3">
-                      <Palette className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold font-cairo text-lg mb-1">خيارات نكفيك</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      اختر من قوالب جاهزة احترافية حسب الصفة (متحدث، راعي، ضيف شرف...) — ألوان وخطوط وإطارات مُعدّة مسبقاً مع تخصيص كامل.
-                    </p>
+                    <span className="mb-3 grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary">
+                      <Palette className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="mb-1 block text-[15px] font-bold leading-6">خيارات نكفيك</span>
+                    <span className="block text-[13px] leading-5 text-muted-foreground">
+                      اختر من قوالب جاهزة احترافية حسب الصفة (متحدث، راعي، ضيف شرف...)، ألوان وخطوط وإطارات مُعدّة مسبقاً مع تخصيص كامل.
+                    </span>
                   </button>
 
                   <button
@@ -288,34 +281,35 @@ const EventFeaturedCards = () => {
                       setForm((f) => ({ ...f, use_custom_template: true }));
                       setMode("custom");
                     }}
-                    className="group relative rounded-2xl border-2 border-border hover:border-brand-gold p-6 text-right transition-all hover:-translate-y-1 hover:shadow-elegant bg-gradient-to-br from-brand-gold/10 via-card to-brand-brick/5"
+                    className={modeTile}
                   >
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-gold to-brand-brick flex items-center justify-center text-white mb-3">
-                      <ImageIcon className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold font-cairo text-lg mb-1">تصميمي الخاص</h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="mb-3 grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary">
+                      <ImageIcon className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="mb-1 block text-[15px] font-bold leading-6">تصميمي الخاص</span>
+                    <span className="block text-[13px] leading-5 text-muted-foreground">
                       ارفع تصميم البطاقة الجاهز، وحدّد موضع الاسم ليُكتب تلقائياً على البطاقة.
-                    </p>
+                    </span>
                   </button>
                 </div>
               </div>
             ) : (
               <>
                 <Tabs defaultValue="basic" key={mode}>
-                  <TabsList className="grid grid-cols-2 w-full">
+                  <TabsList>
                     <TabsTrigger value="basic">الأساسيات</TabsTrigger>
                     {mode === "nakfeek" ? (
-                      <TabsTrigger value="design"><Palette className="w-3 h-3 ml-1" /> التصميم</TabsTrigger>
+                      <TabsTrigger value="design" className="gap-1.5"><Palette className="h-3.5 w-3.5" /> التصميم</TabsTrigger>
                     ) : (
-                      <TabsTrigger value="custom"><ImageIcon className="w-3 h-3 ml-1" /> تصميمي</TabsTrigger>
+                      <TabsTrigger value="custom" className="gap-1.5"><ImageIcon className="h-3.5 w-3.5" /> تصميمي</TabsTrigger>
                     )}
                   </TabsList>
 
-                  <TabsContent value="basic" className="space-y-4 mt-4">
+                  <TabsContent value="basic" className="mt-4 space-y-4">
                     <div className="space-y-1.5">
-                      <Label>الاسم *</Label>
+                      <Label htmlFor="card-name">الاسم *</Label>
                       <Input
+                        id="card-name"
                         value={form.name}
                         onChange={(e) => setForm({ ...form, name: e.target.value })}
                         placeholder="مثال: د. محمد العتيبي"
@@ -324,7 +318,7 @@ const EventFeaturedCards = () => {
 
                     <div className="space-y-1.5">
                       <Label>التصنيف / الصفة</Label>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
                         {ROLE_PRESETS.map((r) => {
                           const t = TEMPLATES.find((x) => x.key === r.template)!;
                           const active = form.role_label === r.label;
@@ -332,6 +326,7 @@ const EventFeaturedCards = () => {
                             <button
                               key={r.label}
                               type="button"
+                              aria-pressed={active}
                               onClick={() =>
                                 setForm((f) => ({
                                   ...f,
@@ -340,15 +335,11 @@ const EventFeaturedCards = () => {
                                   design: mode === "nakfeek" ? { ...f.design, ...designFromTemplate(r.template) } : f.design,
                                 }))
                               }
-                              style={active ? {
-                                borderColor: t.theme_color,
-                                background: `linear-gradient(135deg, ${t.theme_color}15, ${t.accent_color}20)`,
-                              } : undefined}
-                              className={`rounded-xl border-2 p-2.5 text-xs flex flex-col items-center gap-1.5 transition-all ${
-                                active ? "font-bold scale-[1.03]" : "border-border/60 hover:border-primary/40 bg-card"
+                              className={`flex flex-col items-center gap-1.5 rounded-xl p-2.5 text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                active ? "bg-secondary font-bold text-primary ring-2 ring-primary" : "bg-muted/50 hover:bg-secondary"
                               }`}
                             >
-                              <span className="flex h-4 w-8 rounded overflow-hidden border">
+                              <span className="flex h-4 w-8 overflow-hidden rounded">
                                 <span className="w-1/2" style={{ background: t.theme_color }} />
                                 <span className="w-1/2" style={{ background: t.accent_color }} />
                               </span>
@@ -358,15 +349,16 @@ const EventFeaturedCards = () => {
                         })}
                       </div>
                       {mode === "nakfeek" && (
-                        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <Sparkles className="w-3 h-3" /> اختيار الصفة يطبّق قالباً مقترحاً — تقدر تغيّره بالكامل من تبويب التصميم.
+                        <p className="text-xs text-muted-foreground">
+                          اختيار الصفة يطبّق قالباً مقترحاً، تقدر تغيّره بالكامل من تبويب التصميم.
                         </p>
                       )}
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label>الوصف</Label>
+                      <Label htmlFor="card-description">الوصف</Label>
                       <Textarea
+                        id="card-description"
                         value={form.description}
                         onChange={(e) => setForm({ ...form, description: e.target.value })}
                         placeholder="نبذة قصيرة، خبرات، أو موضوع المداخلة..."
@@ -376,25 +368,25 @@ const EventFeaturedCards = () => {
 
                     <div className="space-y-1.5">
                       <Label>الصورة الشخصية</Label>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         {form.image_url ? (
-                          <img src={form.image_url} alt="" className="w-20 h-20 rounded-xl object-cover border border-border" />
+                          <img src={form.image_url} alt="" className="h-20 w-20 rounded-xl object-cover" />
                         ) : (
-                          <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center">
-                            <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                          <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-muted/50">
+                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
                           </div>
                         )}
-                        <label className="cursor-pointer">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
-                          />
-                          <span className="inline-flex items-center gap-2 text-sm bg-secondary hover:bg-secondary/80 text-secondary-foreground px-3 py-2 rounded-full">
-                            <Upload className="w-4 h-4" /> {uploading ? "جارٍ الرفع..." : "رفع صورة"}
-                          </span>
-                        </label>
+                        <Button asChild variant="soft" size="sm">
+                          <label className="cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+                            />
+                            <Upload className="h-4 w-4" /> {uploading ? "جارٍ الرفع..." : "رفع صورة"}
+                          </label>
+                        </Button>
                         {form.image_url && (
                           <Button variant="ghost" size="sm" onClick={() => setForm({ ...form, image_url: "" })}>
                             إزالة
@@ -420,12 +412,10 @@ const EventFeaturedCards = () => {
 
                   {mode === "custom" && (
                     <TabsContent value="custom" className="mt-4 space-y-3">
-                      <div className="bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-primary/30 rounded-2xl p-3">
-                        <Label className="text-sm font-bold flex items-center gap-1.5">
-                          <ImageIcon className="w-4 h-4" /> تصميمي الخاص
-                        </Label>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          ارفع تصميم البطاقة الجاهز وحدّد موضع الاسم — يُطبع على البطاقة تلقائياً.
+                      <div className="rounded-xl bg-muted/50 p-4">
+                        <Label className="text-sm font-bold">تصميمي الخاص</Label>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          ارفع تصميم البطاقة الجاهز وحدّد موضع الاسم، يُطبع على البطاقة تلقائياً.
                         </p>
                       </div>
                       <CustomTemplateDesigner
@@ -439,68 +429,67 @@ const EventFeaturedCards = () => {
                   )}
                 </Tabs>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                   <div className="flex items-center gap-2">
                     <Switch
+                      id="card-active"
                       checked={form.is_active}
                       onCheckedChange={(v) => setForm({ ...form, is_active: v })}
                     />
-                    <Label className="text-sm">نشطة (تظهر للحاضرين)</Label>
+                    <Label htmlFor="card-active" className="text-sm">نشطة (تظهر للحاضرين)</Label>
                   </div>
-                  <div className="flex gap-2">
-                    {!editingId && (
-                      <Button variant="ghost" onClick={() => setMode(null)}>← رجوع</Button>
-                    )}
-                    <Button variant="outline" onClick={resetForm}>إلغاء</Button>
+                  <div className="flex flex-wrap gap-2.5">
                     <Button onClick={handleSubmit} disabled={saving || uploading}>
                       {saving ? "جارٍ الحفظ..." : editingId ? "تحديث" : "إضافة"}
                     </Button>
+                    <Button variant="outline" onClick={resetForm}>إلغاء</Button>
+                    {!editingId && (
+                      <Button variant="ghost" onClick={() => setMode(null)}><ArrowRight className="h-4 w-4" /> رجوع</Button>
+                    )}
                   </div>
                 </div>
               </>
             )}
-          </motion.div>
+          </Panel>
         )}
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {loading ? (
             [1, 2, 3].map((i) => (
-              <div key={i} className="h-48 rounded-2xl bg-card border border-border/50 animate-pulse" />
+              <div key={i} className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
             ))
           ) : cards.length === 0 ? (
-            <div className="col-span-full text-center py-16 bg-card rounded-2xl border border-border/50">
-              <IdCard className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-muted-foreground font-semibold">لا توجد بطاقات</p>
-              <p className="text-muted-foreground text-sm">أضف أول بطاقة (متحدث، راعي، ضيف شرف...)</p>
+            <div className="col-span-full rounded-2xl bg-card shadow-soft">
+              <EmptyState
+                icon={IdCard}
+                title="لا توجد بطاقات"
+                description="أضف أول بطاقة (متحدث، راعي، ضيف شرف...)"
+                action={!showForm ? <Button variant="soft" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> إضافة بطاقة</Button> : undefined}
+              />
             </div>
           ) : (
             cards.map((card) => (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`bg-card rounded-2xl border overflow-hidden hover:shadow-md transition-all ${
-                  card.is_active ? "border-border/60" : "border-dashed border-border/40 opacity-70"
-                }`}
-              >
-                <div className="p-3">
+              <article key={card.id} className="flex flex-col overflow-hidden rounded-2xl bg-card shadow-soft">
+                <div className={`flex-1 p-4 ${card.is_active ? "" : "opacity-60"}`}>
                   <FeaturedCardArt card={card} />
                 </div>
-                <div className="px-4 pb-3 flex items-center gap-1 border-t border-border/40 pt-2">
-                  <Switch checked={card.is_active} onCheckedChange={() => toggleActive(card)} />
-                  <Button variant="ghost" size="sm" className="text-xs flex-1" onClick={() => handleEdit(card)}>
-                    <Pencil className="w-3.5 h-3.5" /> تعديل
+                <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+                  <Switch checked={card.is_active} onCheckedChange={() => toggleActive(card)} aria-label="نشطة (تظهر للحاضرين)" />
+                  <span className="text-xs text-muted-foreground">{card.is_active ? "نشطة" : "متوقفة"}</span>
+                  <Button variant="soft" size="sm" className="ms-auto" onClick={() => handleEdit(card)}>
+                    <Pencil className="h-4 w-4" /> تعديل
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="text-xs text-destructive hover:text-destructive"
+                    size="icon"
+                    className="h-9 w-9 text-destructive hover:text-destructive"
                     onClick={() => handleDelete(card.id)}
+                    aria-label="حذف البطاقة"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              </motion.div>
+              </article>
             ))
           )}
         </div>

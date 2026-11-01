@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { classifyAttendee, ATTENDEE_CLASS_META } from "@/lib/attendeeClass";
+import { classifyAttendee, ATTENDEE_CLASS_META, type AttendeeClass } from "@/lib/attendeeClass";
+import { formatDate } from "@/lib/format";
 import AddToWalletButton from "@/components/AddToWalletButton";
 import {
-  IdCard, Copy, ExternalLink, Calendar, MapPin, CheckCircle2, Ticket as TicketIcon, UserSquare2, Sparkles,
+  Copy, ExternalLink, Calendar, MapPin, Ticket as TicketIcon, UserSquare2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +36,14 @@ interface EventCardRow {
   };
   ticket: { name_ar: string; name_en: string | null; type: string } | null;
 }
+
+const TIER_TONES: Record<AttendeeClass, StatusTone> = {
+  vvip: "warning",
+  vip: "primary",
+  speaker: "success",
+  organizer: "primary",
+  regular: "neutral",
+};
 
 const MyCards = () => {
   const { user, profile } = useAuth();
@@ -77,37 +89,29 @@ const MyCards = () => {
     classifyAttendee(r.ticket?.name_ar, r.ticket?.name_en, r.ticket?.type);
 
   return (
-    <div className="min-h-screen font-cairo">
+    <div className="flex min-h-screen flex-col bg-background font-cairo">
       <Navbar />
-      <section className="pt-24 pb-16 bg-background">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <div className="mb-8">
-            <h1 className="font-bold text-3xl text-foreground flex items-center gap-2">
-              <IdCard className="w-8 h-8 text-primary" /> بطاقاتي
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              بطاقة واحدة موحدة — رمز QR ورابط ثابتان في كل الفعاليات، ونسخة بهوية كل فعالية سجّلت فيها
-            </p>
-          </div>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">
+        <div className="space-y-6">
+          <PageHeader
+            title="بطاقاتي"
+            description="بطاقة واحدة موحدة — رمز QR ورابط ثابتان في كل الفعاليات، ونسخة بهوية كل فعالية سجّلت فيها"
+          />
 
           {loading ? (
-            <div className="animate-pulse bg-card rounded-3xl h-80 border border-border/50" />
+            <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
           ) : !code ? (
-            <div className="text-center py-14 bg-card border rounded-3xl">
-              <UserSquare2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">فعّل ملف التواصل الخاص بك لإنشاء بطاقتك الموحدة</p>
-              <Button className="rounded-full" asChild>
-                <Link to="/my/profile/networking">إنشاء بطاقتي</Link>
-              </Button>
+            <div className="rounded-2xl bg-card shadow-soft">
+              <EmptyState
+                icon={UserSquare2}
+                title="فعّل ملف التواصل الخاص بك لإنشاء بطاقتك الموحدة"
+                action={<Button asChild><Link to="/my/profile/networking">إنشاء بطاقتي</Link></Button>}
+              />
             </div>
           ) : (
             <>
               {/* البطاقة الموحدة */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-br from-primary to-brand-purple rounded-3xl p-6 text-primary-foreground shadow-xl"
-              >
+              <div className="bg-gradient-to-br from-primary to-brand-purple rounded-3xl p-6 text-primary-foreground shadow-xl">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-primary-foreground/20">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-14 h-14 rounded-full bg-primary-foreground/15 border-2 border-primary-foreground/30 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -135,10 +139,10 @@ const MyCards = () => {
                     </p>
                     <p className="text-[11px] font-mono bg-primary-foreground/10 rounded-lg px-3 py-1.5 break-all" dir="ltr">{cardUrl}</p>
                     <div className="flex gap-2 justify-center sm:justify-start">
-                      <Button size="sm" variant="secondary" className="rounded-full text-xs" onClick={() => copy(cardUrl!)}>
+                      <Button size="sm" variant="secondary" onClick={() => copy(cardUrl!)}>
                         <Copy className="w-3.5 h-3.5" /> نسخ الرابط
                       </Button>
-                      <Button size="sm" variant="secondary" className="rounded-full text-xs" asChild>
+                      <Button size="sm" variant="secondary" asChild>
                         <Link to={`/connect/${code}`} target="_blank">
                           <ExternalLink className="w-3.5 h-3.5" /> فتح البطاقة
                         </Link>
@@ -146,26 +150,21 @@ const MyCards = () => {
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </div>
 
               {/* بطاقات الفعاليات */}
-              <div className="mt-8">
-                <h2 className="font-bold text-xl text-foreground flex items-center gap-2 mb-1">
-                  <Sparkles className="w-5 h-5 text-brand-gold" /> بطاقات الفعاليات
-                </h2>
-                <p className="text-xs text-muted-foreground mb-4">
-                  نسخة من بطاقتك بهوية كل فعالية سجّلت فيها — نفس الـ QR، يتغير التصميم والتصنيف فقط
-                </p>
+              <Panel
+                title="بطاقات الفعاليات"
+                description="نسخة من بطاقتك بهوية كل فعالية سجّلت فيها — نفس الـ QR، يتغير التصميم والتصنيف فقط"
+              >
                 {rows.length === 0 ? (
-                  <div className="text-center py-10 bg-card border rounded-2xl">
-                    <TicketIcon className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-muted-foreground text-sm">سجّل في فعالية وستظهر بطاقتها هنا</p>
-                    <Button variant="outline" className="mt-3 rounded-full" asChild>
-                      <Link to="/events">تصفح الفعاليات</Link>
-                    </Button>
-                  </div>
+                  <EmptyState
+                    icon={TicketIcon}
+                    title="سجّل في فعالية وستظهر بطاقتها هنا"
+                    action={<Button asChild size="sm"><Link to="/events">تصفح الفعاليات</Link></Button>}
+                  />
                 ) : (
-                  <div className="grid sm:grid-cols-2 gap-3">
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {rows.map((r) => {
                       const tier = tierOf(r);
                       const meta = ATTENDEE_CLASS_META[tier];
@@ -174,31 +173,27 @@ const MyCards = () => {
                           key={r.id}
                           type="button"
                           onClick={() => setActiveCard(r)}
-                          className="text-start bg-card border rounded-2xl overflow-hidden hover:shadow-lg hover:border-primary/40 transition group"
+                          className="flex flex-col overflow-hidden rounded-xl bg-muted/50 text-start transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <div
-                            className="h-20 relative"
-                            style={{
-                              background: r.event.cover_image_url
-                                ? `url(${r.event.cover_image_url}) center/cover`
-                                : "linear-gradient(135deg, hsl(270 30% 42%), hsl(270 40% 25%))",
-                            }}
+                            className="flex h-[76px] w-full items-center justify-between bg-secondary px-4"
+                            style={r.event.cover_image_url ? { background: `url(${r.event.cover_image_url}) center/cover` } : undefined}
                           >
-                            <div className="absolute inset-0 bg-black/35 group-hover:bg-black/25 transition" />
-                            <span className={`absolute top-2 start-2 text-[10px] font-bold rounded-full px-2.5 py-0.5 border ${meta.cls} bg-white/90`}>
-                              {meta.label}
+                            <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/85 text-primary">
+                              <TicketIcon className="h-5 w-5" />
                             </span>
+                            <StatusBadge tone={TIER_TONES[tier]} className="bg-white"><bdi>{meta.label}</bdi></StatusBadge>
                           </div>
-                          <div className="p-3">
-                            <p className="font-bold text-sm truncate">{r.event.title_ar}</p>
-                            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground flex-wrap">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(r.event.start_date).toLocaleDateString("ar-SA", { dateStyle: "medium" })}
-                              </span>
+                          <div className="flex w-full flex-1 flex-col gap-2 p-4">
+                            <p className="truncate text-sm font-bold leading-[22px]">{r.event.title_ar}</p>
+                            <p className="flex items-center gap-2 text-xs leading-[18px] text-muted-foreground">
+                              <Calendar className="h-[14px] w-[14px] flex-none opacity-70" />
+                              {formatDate(r.event.start_date)}
+                            </p>
+                            <div>
                               {r.checked_in_at
-                                ? <span className="text-green-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> تم الحضور</span>
-                                : <span className="text-primary font-bold">مؤكد</span>}
+                                ? <StatusBadge tone="success">تم الحضور</StatusBadge>
+                                : <StatusBadge tone="primary">تم التأكيد</StatusBadge>}
                             </div>
                           </div>
                         </button>
@@ -206,15 +201,15 @@ const MyCards = () => {
                     })}
                   </div>
                 )}
-              </div>
+              </Panel>
             </>
           )}
         </div>
-      </section>
+      </main>
 
       {/* بطاقة الفعالية — نفس QR المستخدم بهوية الفعالية */}
       <Dialog open={!!activeCard} onOpenChange={(v) => !v && setActiveCard(null)}>
-        <DialogContent dir="rtl" className="max-w-sm p-0 overflow-hidden rounded-3xl font-cairo">
+        <DialogContent dir="rtl" className="max-w-sm overflow-hidden rounded-3xl p-0 font-cairo [&>button]:text-white [&>button]:opacity-90">
           {activeCard && (() => {
             const tier = tierOf(activeCard);
             const meta = ATTENDEE_CLASS_META[tier];
@@ -237,7 +232,7 @@ const MyCards = () => {
                     <div className="flex items-center gap-2 text-[11px] text-white/85 mt-1 flex-wrap">
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {new Date(activeCard.event.start_date).toLocaleDateString("ar-SA", { dateStyle: "medium" })}
+                        {formatDate(activeCard.event.start_date)}
                       </span>
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
@@ -261,7 +256,7 @@ const MyCards = () => {
                     <div className="min-w-0 flex-1">
                       <p className="font-bold truncate">{profile?.full_name || "—"}</p>
                       <p className="text-[11px] text-primary-foreground/75">
-                        {activeCard.ticket?.name_ar || "تذكرة"} · {activeCard.checked_in_at ? "تم الحضور ✓" : "مؤكد الحضور"}
+                        {activeCard.ticket?.name_ar || "تذكرة"} · {activeCard.checked_in_at ? "تم الحضور ✓" : "تم التأكيد"}
                       </p>
                     </div>
                   </div>

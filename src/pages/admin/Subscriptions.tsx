@@ -1,23 +1,60 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import {
-  Users, TrendingUp, Search, Edit2, Save, X, Plus,
-  Check, ToggleLeft, ToggleRight, Package, Trash2, Gift, Copy,
+  ArrowLeft, ArrowRight, Check, Copy, CreditCard, Gift, MoreHorizontal,
+  Package, Pencil, Plus, Search, Trash2, TrendingUp, Users, X,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate, formatMoney, formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+// تمييز العدد بصيغته الصحيحة: 3 أشهر، 12 شهراً، 100 شهر
+const countOf = (n: number, one: string, two: string, few: string, many: string) => {
+  if (n === 2) return two;
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? few : tail >= 11 ? many : one}`;
+};
+const monthsLabel = (n: number) => countOf(n, "شهر", "شهرين", "أشهر", "شهراً");
+const eventsLabel = (n: number) => countOf(n, "فعالية", "فعاليتان", "فعاليات", "فعالية");
+const subscribersLabel = (n: number) => countOf(n, "مشترك", "مشتركان", "مشتركين", "مشتركاً");
+const featuresLabel = (n: number) => (n === 1 ? "ميزة أخرى" : countOf(n, "ميزة أخرى", "ميزتان أخريان", "ميزات أخرى", "ميزة أخرى"));
+
+const subscriptionStatus: Record<string, { label: string; tone: StatusTone }> = {
+  active: { label: "فعال", tone: "success" },
+  past_due: { label: "متأخر", tone: "danger" },
+  cancelled: { label: "ملغي", tone: "neutral" },
+  expired: { label: "منتهي", tone: "neutral" },
+  trialing: { label: "تجريبي", tone: "primary" },
+};
+
+const Field = ({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) => (
+  <div className={cn("space-y-2", className)}>
+    <Label>{label}</Label>
+    {children}
+  </div>
+);
 
 interface PlanEdit {
   name_ar: string;
@@ -124,7 +161,7 @@ const Subscriptions = () => {
       } as any);
       if (error) throw error;
 
-      toast.success(`تم منح باقة «${plan.name_ar}» لـ«${org.name}» لمدة ${months} شهر`);
+      toast.success(`تم منح باقة «${plan.name_ar}» لـ«${org.name}» لمدة ${monthsLabel(months)}`);
       setGrantOpen(false);
       setGrantOrgId("");
       setGrantPlanId("");
@@ -262,54 +299,219 @@ const Subscriptions = () => {
   };
 
   const statusBadge = (status: string) => {
-    const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      active: { label: "فعال", variant: "default" },
-      past_due: { label: "متأخر", variant: "destructive" },
-      cancelled: { label: "ملغي", variant: "outline" },
-      expired: { label: "منتهي", variant: "secondary" },
-      trialing: { label: "تجريبي", variant: "secondary" },
-    };
-    const s = map[status] || { label: status, variant: "outline" as const };
-    return <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>;
+    const s = subscriptionStatus[status] || { label: status, tone: "neutral" as const };
+    return <StatusBadge tone={s.tone}>{s.label}</StatusBadge>;
   };
 
   const numOrNull = (v: string) => { const n = parseInt(v); return isNaN(n) ? null : n; };
 
-  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div></AdminLayout>;
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <PageHeader title="إدارة الاشتراكات" />
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-[126px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const isFormOpen = creating || !!editingPlan;
+  const visibleSubs = subscriptions.filter(s => !search || s.account_id?.includes(search));
+  // نحجز سطري الوصف في كل البطاقات حتى تبقى صفوفها متحاذية
+  const anyDescription = plans.some(p => p.description_ar);
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="font-bold text-2xl text-foreground">إدارة الاشتراكات</h1>
-          {!isFormOpen && (
-            <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={openGrant}>
-                <Gift className="w-4 h-4 ml-2" /> منح باقة لمنظّم
-              </Button>
-              <Button onClick={startCreate} className="bg-primary hover:bg-primary/90">
-                <Plus className="w-4 h-4 ml-2" /> إضافة خطة جديدة
-              </Button>
-            </div>
-          )}
+      <div className="space-y-6">
+        <PageHeader
+          title="إدارة الاشتراكات"
+          actions={
+            <>
+              <Button variant="outline" onClick={openGrant}><Gift className="h-4 w-4" /> منح باقة لمنظّم</Button>
+              <Button onClick={startCreate}><Plus className="h-4 w-4" /> إضافة خطة جديدة</Button>
+            </>
+          }
+        />
+
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard label="إجمالي الخطط" value={formatNumber(plans.length)} icon={Package} />
+          <StatCard label="خطط مفعلة" value={formatNumber(plans.filter(p => p.is_active).length)} icon={Check} />
+          <StatCard label="اشتراكات فعالة" value={formatNumber(activeSubs.length)} icon={Users} />
+          <StatCard label="إجمالي الإيرادات" value={formatNumber(Math.round(totalRevenue))} unit="ر.س" icon={TrendingUp} />
         </div>
+
+        <Tabs defaultValue="plans">
+          <TabsList>
+            <TabsTrigger value="plans">الخطط المتاحة</TabsTrigger>
+            <TabsTrigger value="active">الاشتراكات الفعالة</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="plans" className="mt-6">
+            {plans.length === 0 ? (
+              <div className="rounded-2xl bg-card shadow-soft">
+                <EmptyState
+                  icon={Package}
+                  title="لا توجد خطط بعد"
+                  action={<Button onClick={startCreate}><Plus className="h-4 w-4" /> إضافة خطة جديدة</Button>}
+                />
+              </div>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {plans.map((plan, idx) => {
+                  const features = Array.isArray(plan.features) ? plan.features : [];
+                  const subsCount = subscriptions.filter(s => s.plan_id === plan.id && s.status === "active").length;
+                  const price = plan.price ?? plan.price_per_event ?? 0;
+                  const canDuplicate = plan.allow_duplicate_event ?? true;
+                  const limit = (value: number | null | undefined) => (value == null ? "غير محدود" : formatNumber(value));
+                  const specs: [string, string][] = [
+                    ["الفعاليات", limit(plan.max_events)],
+                    ["المدة", monthsLabel(plan.validity_months || 1)],
+                    ["حضور / فعالية", limit(plan.max_attendees_per_event)],
+                    ["إجمالي الحضور", limit(plan.max_total_attendees)],
+                  ];
+
+                  return (
+                    <article key={plan.id} className={`flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 shadow-soft ${plan.is_active ? "" : "opacity-70"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-base font-bold leading-6">{plan.name_ar}</h3>
+                          {anyDescription && <p className="mt-0.5 line-clamp-2 min-h-10 text-[13px] leading-5 text-muted-foreground">{plan.description_ar}</p>}
+                        </div>
+                        <Switch checked={!!plan.is_active} onCheckedChange={() => togglePlanActive(plan.id, plan.is_active)} aria-label={`تفعيل ${plan.name_ar}`} />
+                      </div>
+
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="flex items-baseline gap-1">
+                          <span className="text-[32px] font-bold leading-10">{price === 0 ? "مجاناً" : formatNumber(Number(price))}</span>
+                          {price > 0 && <span className="text-sm font-semibold text-muted-foreground">ر.س</span>}
+                        </p>
+                        <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" /> {subscribersLabel(subsCount)}
+                        </span>
+                      </div>
+
+                      <dl className="space-y-2 rounded-xl bg-muted/50 p-4 text-[13px] leading-5">
+                        {specs.map(([label, value]) => (
+                          <div key={label} className="flex items-center justify-between gap-3">
+                            <dt className="text-muted-foreground">{label}</dt>
+                            <dd className="font-semibold">{value}</dd>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between gap-3">
+                          <dt className="text-muted-foreground">نسخ الفعالية</dt>
+                          <dd><StatusBadge tone={canDuplicate ? "success" : "danger"}>{canDuplicate ? "مسموح" : "غير مسموح"}</StatusBadge></dd>
+                        </div>
+                      </dl>
+
+                      {features.length > 0 && (
+                        <div className="space-y-1.5">
+                          {features.slice(0, 3).map((f: string, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-[13px] leading-5 text-muted-foreground">
+                              <Check className="h-3.5 w-3.5 flex-none text-primary" />
+                              <span className="line-clamp-1">{f}</span>
+                            </div>
+                          ))}
+                          {features.length > 3 && <p className="text-xs text-muted-foreground">و{featuresLabel(features.length - 3)}</p>}
+                        </div>
+                      )}
+
+                      <div className="mt-auto flex items-center gap-2 pt-1">
+                        <Button size="sm" variant="soft" className="flex-1" onClick={() => startEdit(plan)}>
+                          <Pencil className="h-[15px] w-[15px]" /> تعديل
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="outline" className="h-9 w-9 flex-none" aria-label="المزيد"><MoreHorizontal className="h-[18px] w-[18px]" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem disabled={idx === 0} onClick={() => moveOrder(plan, -1)}><ArrowRight className="h-4 w-4" /> تقديم في الترتيب</DropdownMenuItem>
+                            <DropdownMenuItem disabled={idx === plans.length - 1} onClick={() => moveOrder(plan, 1)}><ArrowLeft className="h-4 w-4" /> تأخير في الترتيب</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => deletePlan(plan.id)}><Trash2 className="h-4 w-4" /> حذف</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="active" className="mt-6 space-y-6">
+            <div className="flex flex-wrap gap-2.5">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="ps-10" />
+              </div>
+            </div>
+
+            {visibleSubs.length === 0 ? (
+              <div className="rounded-2xl bg-card shadow-soft">
+                <EmptyState
+                  icon={CreditCard}
+                  title={subscriptions.length === 0 ? "لا توجد اشتراكات بعد" : "لا توجد اشتراكات مطابقة للبحث"}
+                  action={
+                    subscriptions.length === 0 ? (
+                      <Button onClick={openGrant}><Gift className="h-4 w-4" /> منح باقة لمنظّم</Button>
+                    ) : (
+                      <Button variant="outline" onClick={() => setSearch("")}><X className="h-4 w-4" /> إعادة تعيين</Button>
+                    )
+                  }
+                />
+              </div>
+            ) : (
+              <Panel flush>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">الحساب</TableHead>
+                      <TableHead>الخطة</TableHead>
+                      <TableHead>المبلغ</TableHead>
+                      <TableHead>تاريخ البدء</TableHead>
+                      <TableHead>تاريخ الانتهاء</TableHead>
+                      <TableHead className="pe-6">الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleSubs.map((sub) => {
+                      const plan = plans.find(p => p.id === sub.plan_id);
+                      return (
+                        <TableRow key={sub.id}>
+                          <TableCell className="whitespace-nowrap ps-6 text-muted-foreground">
+                            <bdi dir="ltr" className="font-mono text-xs">{sub.account_id?.slice(0, 8)}...</bdi>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap font-semibold">{plan?.name_ar || "-"}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatMoney(Number(sub.amount))}</TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sub.current_period_start)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sub.current_period_end)}</TableCell>
+                          <TableCell className="pe-6">{statusBadge(sub.status)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Panel>
+            )}
+          </TabsContent>
+        </Tabs>
 
         {/* نافذة منح باقة */}
         <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
-          <DialogContent dir="rtl" className="max-w-md rounded-2xl">
+          <DialogContent dir="rtl" className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Gift className="w-5 h-5 text-primary" />
-                منح باقة لمنظّم
-              </DialogTitle>
+              <DialogTitle>منح باقة لمنظّم</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-semibold">المنظّم</label>
+            <div className="space-y-4">
+              <Field label="المنظّم">
                 <Select value={grantOrgId} onValueChange={setGrantOrgId}>
-                  <SelectTrigger className="rounded-xl">
+                  <SelectTrigger>
                     <SelectValue placeholder="اختر المنظّم" />
                   </SelectTrigger>
                   <SelectContent>
@@ -318,9 +520,8 @@ const Subscriptions = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-semibold">الباقة</label>
+              </Field>
+              <Field label="الباقة">
                 <Select
                   value={grantPlanId}
                   onValueChange={(v) => {
@@ -329,309 +530,141 @@ const Subscriptions = () => {
                     if (p?.validity_months) setGrantMonths(p.validity_months);
                   }}
                 >
-                  <SelectTrigger className="rounded-xl">
+                  <SelectTrigger>
                     <SelectValue placeholder="اختر الباقة" />
                   </SelectTrigger>
                   <SelectContent>
                     {plans.filter(p => p.is_active).map(p => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name_ar} — {p.max_events ? `${p.max_events} فعاليات` : "فعاليات غير محدودة"}
+                        {p.name_ar}، {p.max_events ? eventsLabel(p.max_events) : "فعاليات غير محدودة"}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground font-semibold">المدة (بالأشهر)</label>
+              </Field>
+              <Field label="المدة (بالأشهر)">
                 <Input
                   type="number"
                   min={1}
                   max={36}
                   value={grantMonths}
                   onChange={(e) => setGrantMonths(Math.max(1, Number(e.target.value)))}
-                  className="rounded-xl"
                 />
-              </div>
-              <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-xl p-3">
+              </Field>
+              <p className="rounded-xl bg-muted/50 p-3 text-xs leading-[18px] text-muted-foreground">
                 ستُمنح الباقة مجاناً (منحة إدارية لا تُحتسب في الإيرادات)، وسيُلغى أي اشتراك نشط سابق لهذا المنظّم.
               </p>
             </div>
-            <DialogFooter className="gap-2">
-              <Button className="rounded-full flex-1" onClick={handleGrant} disabled={granting}>
+            <DialogFooter className="flex-col sm:flex-row">
+              <Button onClick={handleGrant} disabled={granting}>
                 {granting ? "جارٍ المنح..." : "منح الباقة"}
               </Button>
-              <Button variant="ghost" className="rounded-full" onClick={() => setGrantOpen(false)}>
-                إلغاء
-              </Button>
+              <Button variant="outline" onClick={() => setGrantOpen(false)}>إلغاء</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "إجمالي الخطط", value: plans.length, icon: Package, color: "text-primary", bg: "bg-primary/10", suffix: "خطة" },
-            { label: "خطط مفعلة", value: plans.filter(p => p.is_active).length, icon: Check, color: "text-green-600", bg: "bg-green-100", suffix: "خطة" },
-            { label: "اشتراكات فعالة", value: activeSubs.length, icon: Users, color: "text-teal", bg: "bg-teal/10", suffix: "مشترك" },
-            { label: "إجمالي الإيرادات", value: Math.round(totalRevenue), icon: TrendingUp, color: "text-amber-600", bg: "bg-amber-100", suffix: "ر.س" },
-          ].map(kpi => (
-            <div key={kpi.label} className="bg-card rounded-2xl border border-border/50 p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg ${kpi.bg} flex items-center justify-center`}>
-                  <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
-                </div>
-                <span className="text-xs text-muted-foreground">{kpi.label}</span>
-              </div>
-              <span className="text-2xl font-bold text-foreground">{kpi.value.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">{kpi.suffix}</span></span>
-            </div>
-          ))}
-        </div>
+        {/* نافذة إنشاء الخطة وتعديلها */}
+        <Dialog open={isFormOpen} onOpenChange={(next) => { if (!next) cancelEdit(); }}>
+          <DialogContent dir="rtl" className="max-h-[90vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{creating ? "إنشاء خطة جديدة" : "تعديل الخطة"}</DialogTitle>
+            </DialogHeader>
 
-        {/* Create/Edit Form */}
-        {isFormOpen && (
-          <div className="bg-card rounded-2xl border-2 border-primary/50 p-5 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-bold text-foreground">{creating ? "إنشاء خطة جديدة" : "تعديل الخطة"}</h3>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={savePlan}><Save className="w-3 h-3 ml-1" /> {creating ? "إنشاء" : "حفظ"}</Button>
-                <Button size="sm" variant="ghost" onClick={cancelEdit}><X className="w-3 h-3" /></Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-1 block">اسم الخطة (عربي) *</label>
-                  <Input value={editData.name_ar} onChange={e => setEditData(d => ({ ...d, name_ar: e.target.value }))} className="h-9 text-sm" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-1 block">اسم الخطة (إنجليزي)</label>
-                  <Input value={editData.name_en} onChange={e => setEditData(d => ({ ...d, name_en: e.target.value }))} className="h-9 text-sm" dir="ltr" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-1 block">الوصف</label>
-                  <Textarea value={editData.description_ar} onChange={e => setEditData(d => ({ ...d, description_ar: e.target.value }))} className="text-sm min-h-[60px]" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">لون الشارة</label>
-                    <Input value={editData.badge_color} onChange={e => setEditData(d => ({ ...d, badge_color: e.target.value }))} className="h-9 text-sm" dir="ltr" placeholder="#7c3aed" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">ترتيب العرض</label>
-                    <Input type="number" value={editData.display_order} onChange={e => setEditData(d => ({ ...d, display_order: parseInt(e.target.value) || 0 }))} className="h-9 text-sm" />
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="اسم الخطة (عربي) *">
+                  <Input value={editData.name_ar} onChange={e => setEditData(d => ({ ...d, name_ar: e.target.value }))} />
+                </Field>
+                <Field label="اسم الخطة (إنجليزي)">
+                  <Input value={editData.name_en} onChange={e => setEditData(d => ({ ...d, name_en: e.target.value }))} dir="ltr" />
+                </Field>
               </div>
 
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">السعر (ر.س)</label>
-                    <Input type="number" value={editData.price} onChange={e => setEditData(d => ({ ...d, price: Number(e.target.value) }))} className="h-9 text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">عدد الفعاليات</label>
-                    <Input type="number" value={editData.max_events ?? ""} onChange={e => setEditData(d => ({ ...d, max_events: numOrNull(e.target.value) }))} className="h-9 text-sm" placeholder="غير محدود" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">المدة (أشهر)</label>
-                    <Input type="number" min={1} value={editData.validity_months} onChange={e => setEditData(d => ({ ...d, validity_months: parseInt(e.target.value) || 1 }))} className="h-9 text-sm" />
+              <Field label="الوصف">
+                <Textarea rows={2} value={editData.description_ar} onChange={e => setEditData(d => ({ ...d, description_ar: e.target.value }))} />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <Field label="السعر (ر.س)">
+                  <Input type="number" value={editData.price} onChange={e => setEditData(d => ({ ...d, price: Number(e.target.value) }))} />
+                </Field>
+                <Field label="عدد الفعاليات">
+                  <Input type="number" value={editData.max_events ?? ""} onChange={e => setEditData(d => ({ ...d, max_events: numOrNull(e.target.value) }))} placeholder="غير محدود" />
+                </Field>
+                <Field label="المدة (أشهر)">
+                  <Input type="number" min={1} value={editData.validity_months} onChange={e => setEditData(d => ({ ...d, validity_months: parseInt(e.target.value) || 1 }))} />
+                </Field>
+                <Field label="حضور / فعالية">
+                  <Input type="number" value={editData.max_attendees_per_event ?? ""} onChange={e => setEditData(d => ({ ...d, max_attendees_per_event: numOrNull(e.target.value) }))} placeholder="غير محدود" />
+                </Field>
+                <Field label="إجمالي الحضور">
+                  <Input type="number" value={editData.max_total_attendees ?? ""} onChange={e => setEditData(d => ({ ...d, max_total_attendees: numOrNull(e.target.value) }))} placeholder="غير محدود" />
+                </Field>
+                <Field label="واتساب">
+                  <Input type="number" value={editData.whatsapp_quota ?? ""} onChange={e => setEditData(d => ({ ...d, whatsapp_quota: numOrNull(e.target.value) }))} placeholder="0" />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="لون الشارة">
+                  <Input value={editData.badge_color} onChange={e => setEditData(d => ({ ...d, badge_color: e.target.value }))} dir="ltr" placeholder="#7c3aed" />
+                </Field>
+                <Field label="ترتيب العرض">
+                  <Input type="number" value={editData.display_order} onChange={e => setEditData(d => ({ ...d, display_order: parseInt(e.target.value) || 0 }))} />
+                </Field>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                    <Copy className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-[22px]">نسخ الفعالية</p>
+                    <p className="text-xs leading-[18px] text-muted-foreground">السماح للمنظّم بنسخ فعالياته في هذه الباقة</p>
                   </div>
                 </div>
+                <Switch
+                  checked={editData.allow_duplicate_event}
+                  onCheckedChange={(v) => setEditData(d => ({ ...d, allow_duplicate_event: v }))}
+                  aria-label="نسخ الفعالية"
+                />
+              </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">حضور / فعالية</label>
-                    <Input type="number" value={editData.max_attendees_per_event ?? ""} onChange={e => setEditData(d => ({ ...d, max_attendees_per_event: numOrNull(e.target.value) }))} className="h-9 text-sm" placeholder="∞" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">إجمالي الحضور</label>
-                    <Input type="number" value={editData.max_total_attendees ?? ""} onChange={e => setEditData(d => ({ ...d, max_total_attendees: numOrNull(e.target.value) }))} className="h-9 text-sm" placeholder="∞" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold mb-1 block">واتساب</label>
-                    <Input type="number" value={editData.whatsapp_quota ?? ""} onChange={e => setEditData(d => ({ ...d, whatsapp_quota: numOrNull(e.target.value) }))} className="h-9 text-sm" placeholder="0" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between bg-muted/40 rounded-xl px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <Copy className="w-4 h-4 text-primary" />
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">نسخ الفعالية</p>
-                      <p className="text-[11px] text-muted-foreground">السماح للمنظّم بنسخ فعالياته في هذه الباقة</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={editData.allow_duplicate_event}
-                    onCheckedChange={(v) => setEditData(d => ({ ...d, allow_duplicate_event: v }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted-foreground font-semibold mb-1 block">المميزات</label>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              <Field label="المميزات">
+                {editData.features.length > 0 && (
+                  <div className="space-y-1.5">
                     {editData.features.map((f, i) => (
-                      <div key={i} className="flex items-center gap-1.5 bg-muted/40 rounded-lg px-2 py-1">
-                        <Check className="w-3 h-3 text-teal shrink-0" />
-                        <span className="text-xs flex-1">{f}</span>
-                        <button onClick={() => removeFeature(i)} className="text-destructive hover:text-destructive/80">
-                          <X className="w-3 h-3" />
+                      <div key={i} className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-1.5">
+                        <Check className="h-3.5 w-3.5 flex-none text-primary" />
+                        <span className="flex-1 text-[13px] leading-5">{f}</span>
+                        <button type="button" aria-label="حذف الميزة" onClick={() => removeFeature(i)} className="text-destructive hover:text-destructive/80">
+                          <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2 mt-2">
-                    <Input value={newFeature} onChange={e => setNewFeature(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addFeature())}
-                      placeholder="أضف ميزة جديدة..." className="h-8 text-xs flex-1" />
-                    <Button size="sm" variant="outline" className="h-8 text-xs" onClick={addFeature}><Plus className="w-3 h-3" /></Button>
-                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={newFeature}
+                    onChange={e => setNewFeature(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), addFeature())}
+                    placeholder="أضف ميزة جديدة..."
+                    className="flex-1"
+                  />
+                  <Button size="icon" variant="outline" aria-label="إضافة ميزة" className="flex-none" onClick={addFeature}><Plus className="h-4 w-4" /></Button>
                 </div>
-              </div>
+              </Field>
             </div>
-          </div>
-        )}
 
-        <Tabs defaultValue="plans" dir="rtl">
-          <TabsList>
-            <TabsTrigger value="plans">الخطط المتاحة</TabsTrigger>
-            <TabsTrigger value="active">الاشتراكات الفعالة</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="plans" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan, idx) => {
-                const features = Array.isArray(plan.features) ? plan.features : [];
-                const subsCount = subscriptions.filter(s => s.plan_id === plan.id && s.status === "active").length;
-                const price = plan.price ?? plan.price_per_event ?? 0;
-
-                return (
-                  <div key={plan.id} className={`bg-card rounded-2xl border-2 p-5 space-y-4 transition-all ${
-                    plan.is_active ? "border-border/50" : "border-destructive/30 opacity-70"
-                  }`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-foreground">{plan.name_ar}</h3>
-                        {plan.description_ar && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{plan.description_ar}</p>}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <button onClick={() => togglePlanActive(plan.id, plan.is_active)} className="text-muted-foreground hover:text-foreground">
-                          {plan.is_active ? <ToggleRight className="w-6 h-6 text-green-500" /> : <ToggleLeft className="w-6 h-6" />}
-                        </button>
-                        <div className="flex gap-1">
-                          <button onClick={() => moveOrder(plan, -1)} disabled={idx === 0} className="text-xs px-1.5 py-0.5 rounded bg-muted/50 hover:bg-muted disabled:opacity-30">→</button>
-                          <button onClick={() => moveOrder(plan, 1)} disabled={idx === plans.length - 1} className="text-xs px-1.5 py-0.5 rounded bg-muted/50 hover:bg-muted disabled:opacity-30">←</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-foreground">{price === 0 ? "مجاناً" : `${Number(price).toLocaleString()}`}</span>
-                      {price > 0 && <span className="text-xs text-muted-foreground">ر.س</span>}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="bg-muted/30 rounded-lg p-2">
-                        <span className="text-muted-foreground">الفعاليات</span>
-                        <p className="font-bold text-foreground">{plan.max_events ?? "∞"}</p>
-                      </div>
-                      <div className="bg-muted/30 rounded-lg p-2">
-                        <span className="text-muted-foreground">المدة</span>
-                        <p className="font-bold text-foreground">{plan.validity_months || 1} شهر</p>
-                      </div>
-                      <div className="bg-muted/30 rounded-lg p-2">
-                        <span className="text-muted-foreground">حضور/فعالية</span>
-                        <p className="font-bold text-foreground">{plan.max_attendees_per_event ?? "∞"}</p>
-                      </div>
-                      <div className="bg-muted/30 rounded-lg p-2">
-                        <span className="text-muted-foreground">إجمالي الحضور</span>
-                        <p className="font-bold text-foreground">{plan.max_total_attendees ?? "∞"}</p>
-                      </div>
-                      <div className="bg-muted/30 rounded-lg p-2">
-                        <span className="text-muted-foreground">نسخ الفعالية</span>
-                        <p className={`font-bold ${(plan.allow_duplicate_event ?? true) ? "text-teal" : "text-destructive"}`}>
-                          {(plan.allow_duplicate_event ?? true) ? "مسموح" : "غير مسموح"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      {features.slice(0, 3).map((f: string, i: number) => (
-                        <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Check className="w-3 h-3 text-teal shrink-0" />
-                          <span className="line-clamp-1">{f}</span>
-                        </div>
-                      ))}
-                      {features.length > 3 && <p className="text-[10px] text-muted-foreground">+{features.length - 3} ميزة أخرى</p>}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-border/30">
-                      <span className="text-xs text-muted-foreground">
-                        <Users className="w-3 h-3 inline ml-1" />{subsCount}
-                      </span>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => startEdit(plan)}>
-                          <Edit2 className="w-3 h-3 ml-1" />تعديل
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 text-[10px] text-destructive hover:text-destructive" onClick={() => deletePlan(plan.id)}>
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {plans.length === 0 && (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  لا توجد خطط بعد. اضغط "إضافة خطة جديدة" للبدء.
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="active" className="space-y-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="pr-9" />
-            </div>
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border/50 bg-muted/30">
-                      <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الحساب</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الخطة</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground font-semibold">المبلغ</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground font-semibold">تاريخ البدء</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground font-semibold">تاريخ الانتهاء</th>
-                      <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الحالة</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscriptions.filter(s => !search || s.account_id?.includes(search)).map(sub => {
-                      const plan = plans.find(p => p.id === sub.plan_id);
-                      return (
-                        <tr key={sub.id} className="border-b border-border/30 hover:bg-muted/20">
-                          <td className="p-3 text-xs font-mono text-muted-foreground">{sub.account_id?.slice(0, 8)}...</td>
-                          <td className="p-3 text-xs font-semibold text-foreground">{plan?.name_ar || "-"}</td>
-                          <td className="p-3 text-xs font-bold text-foreground">{Number(sub.amount).toLocaleString()} ر.س</td>
-                          <td className="p-3 text-xs text-muted-foreground">{new Date(sub.current_period_start).toLocaleDateString("ar-SA")}</td>
-                          <td className="p-3 text-xs text-muted-foreground">{new Date(sub.current_period_end).toLocaleDateString("ar-SA")}</td>
-                          <td className="p-3">{statusBadge(sub.status)}</td>
-                        </tr>
-                      );
-                    })}
-                    {subscriptions.length === 0 && (
-                      <tr><td colSpan={6} className="p-12 text-center text-muted-foreground">لا توجد اشتراكات بعد</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+            <DialogFooter className="flex-col sm:flex-row">
+              <Button onClick={savePlan}>{creating ? "إنشاء" : "حفظ"}</Button>
+              <Button variant="outline" onClick={cancelEdit}>إلغاء</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

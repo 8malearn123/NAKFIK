@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate, formatMoney } from "@/lib/format";
 import { toast } from "sonner";
+import { LifeBuoy } from "lucide-react";
 
 interface Req {
   id: string; title: string; description: string;
@@ -19,13 +24,18 @@ const statuses = ["new", "in_review", "assigned", "closed", "cancelled"];
 const labels: Record<string, string> = {
   new: "جديد", in_review: "قيد المراجعة", assigned: "تم الإحالة", closed: "مغلق", cancelled: "ملغي",
 };
+const tones: Record<string, StatusTone> = {
+  new: "warning", in_review: "primary", assigned: "success", closed: "neutral", cancelled: "danger",
+};
 
 const AdminServiceRequests = () => {
   const [items, setItems] = useState<Req[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = async () => {
     const { data } = await supabase.from("service_requests").select("*").order("created_at", { ascending: false });
     setItems((data as any) || []);
+    setLoading(false);
   };
 
   useEffect(() => { document.title = "طلبات سوق الخدمات | الأدمن"; load(); }, []);
@@ -40,35 +50,60 @@ const AdminServiceRequests = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <h1 className="font-display text-2xl text-primary">طلبات سوق الخدمات</h1>
-        <div className="grid gap-3">
-          {items.length === 0 && <p className="text-center text-muted-foreground p-8">لا يوجد طلبات</p>}
-          {items.map((r) => (
-            <div key={r.id} className="bg-card border rounded-2xl p-4 space-y-2">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <h3 className="font-bold">{r.title}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(r.created_at).toLocaleDateString("ar-SA")}
-                    {r.city && ` • ${r.city}`}
-                    {r.budget && ` • ميزانية: ${r.budget} ر.س`}
-                  </p>
-                </div>
-                <Badge variant="secondary">{labels[r.status]}</Badge>
-              </div>
-              <p className="text-sm whitespace-pre-line">{r.description}</p>
-              {r.contact_phone && <p className="text-xs">جوال: <span dir="ltr">{r.contact_phone}</span></p>}
-              <div className="flex items-center gap-2 pt-2">
-                <Select value={r.status} onValueChange={(v) => update(r.id, v)}>
-                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {statuses.map(s => <SelectItem key={s} value={s}>{labels[s]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          ))}
-        </div>
+        <PageHeader title="طلبات سوق الخدمات" />
+
+        {loading ? (
+          <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
+        ) : items.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState icon={LifeBuoy} title="لا توجد طلبات" />
+          </div>
+        ) : (
+          <Panel flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">الطلب</TableHead>
+                  <TableHead>التاريخ</TableHead>
+                  <TableHead>المدينة</TableHead>
+                  <TableHead>الميزانية</TableHead>
+                  <TableHead>الجوال</TableHead>
+                  <TableHead className="pe-6">الحالة</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="ps-6">
+                      <div className="w-60 sm:w-auto">
+                        <p className="font-semibold leading-[22px]">{r.title}</p>
+                        <p className="whitespace-pre-line text-xs leading-[18px] text-muted-foreground">{r.description}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(r.created_at)}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.city || "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.budget ? formatMoney(r.budget) : "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {r.contact_phone ? <bdi dir="ltr">{r.contact_phone}</bdi> : "—"}
+                    </TableCell>
+                    <TableCell className="pe-6">
+                      <Select value={r.status} onValueChange={(v) => update(r.id, v)}>
+                        <SelectTrigger aria-label="الحالة" className="-ms-1.5 h-9 w-auto gap-1.5 border-0 bg-transparent px-1.5 hover:bg-muted">
+                          <SelectValue>
+                            <StatusBadge tone={tones[r.status] || "neutral"}>{labels[r.status] || r.status}</StatusBadge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statuses.map(s => <SelectItem key={s} value={s}>{labels[s]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Panel>
+        )}
       </div>
     </AdminLayout>
   );

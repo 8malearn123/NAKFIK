@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Users, Plus, Trash2, Shield, Phone, Mail, User, X } from "lucide-react";
+import { Users, Plus, Trash2, X } from "lucide-react";
 
 const roleLabels: Record<string, string> = {
   admin: "مدير",
@@ -126,11 +133,16 @@ const Team = () => {
     toast.success("تم حذف العضو");
   };
 
+  const header = (actions?: React.ReactNode) => (
+    <PageHeader title="إدارة الفريق" description="إضافة وإدارة أعضاء فريقك وصلاحياتهم" actions={actions} />
+  );
+
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <div className="space-y-6">
+          {header()}
+          <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
         </div>
       </DashboardLayout>
     );
@@ -138,145 +150,142 @@ const Team = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">إدارة الفريق</h1>
-            <p className="text-muted-foreground text-sm mt-1">إضافة وإدارة أعضاء فريقك وصلاحياتهم</p>
-          </div>
-          <Button onClick={() => setShowAdd(!showAdd)} className="gap-2 rounded-full">
-            {showAdd ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+      <div className="space-y-6">
+        {header(
+          <Button onClick={() => setShowAdd(!showAdd)} variant={showAdd ? "outline" : "default"}>
+            {showAdd ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {showAdd ? "إلغاء" : "إضافة عضو"}
-          </Button>
-        </div>
+          </Button>,
+        )}
 
         {showAdd && (
-          <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-5">
-            <p className="font-semibold">إضافة عضو جديد</p>
-
-            <div className="grid sm:grid-cols-2 gap-4">
+          <Panel title="إضافة عضو جديد" bodyClassName="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">الاسم الكامل *</Label>
-                <div className="relative">
-                  <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="مثال: أحمد محمد" className="pr-9" />
-                </div>
+                <Label htmlFor="member-name">الاسم الكامل *</Label>
+                <Input id="member-name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="مثال: أحمد محمد" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">رقم الجوال *</Label>
-                <div className="relative">
-                  <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+9665XXXXXXXX" dir="ltr" className="pr-9" />
-                </div>
+                <Label htmlFor="member-phone">رقم الجوال *</Label>
+                <Input id="member-phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+9665XXXXXXXX" dir="ltr" className="text-end" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">البريد الإلكتروني (اختياري)</Label>
-                <div className="relative">
-                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" dir="ltr" className="pr-9" />
-                </div>
+                <Label htmlFor="member-email">البريد الإلكتروني (اختياري)</Label>
+                <Input id="member-email" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" dir="ltr" className="text-end" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">الدور الأساسي</Label>
-                <select
-                  value={role}
-                  onChange={e => onRoleChange(e.target.value as keyof typeof ROLE_PRESETS)}
-                  className="w-full border rounded-md px-3 py-2 text-sm bg-background h-10"
-                >
-                  {Object.entries(roleLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
+                <Label>الدور الأساسي</Label>
+                <Select value={role} onValueChange={v => onRoleChange(v as keyof typeof ROLE_PRESETS)}>
+                  <SelectTrigger aria-label="الدور الأساسي"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(roleLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="space-y-3 pt-2 border-t border-border/50">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">الصلاحيات المخصصة</Label>
-                <button
-                  type="button"
-                  onClick={() => setPermissions(ROLE_PRESETS[role] || [])}
-                  className="text-xs text-primary hover:underline"
-                >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">الصلاحيات المخصصة</p>
+                <Button type="button" variant="ghost" size="sm" className="text-primary" onClick={() => setPermissions(ROLE_PRESETS[role] || [])}>
                   استعادة افتراضي الدور
-                </button>
+                </Button>
               </div>
-              <div className="grid sm:grid-cols-2 gap-2">
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 {PERMISSIONS.map(p => (
                   <label
                     key={p.key}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      permissions.includes(p.key) ? "border-primary/40 bg-primary/5" : "border-border/50 hover:bg-muted/30"
-                    }`}
+                    className={cn(
+                      "flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-colors",
+                      permissions.includes(p.key) ? "bg-secondary" : "bg-muted/50 hover:bg-muted",
+                    )}
                   >
-                    <Checkbox
-                      checked={permissions.includes(p.key)}
-                      onCheckedChange={() => togglePerm(p.key)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{p.label}</p>
-                      <p className="text-xs text-muted-foreground">{p.desc}</p>
-                    </div>
+                    <Checkbox checked={permissions.includes(p.key)} onCheckedChange={() => togglePerm(p.key)} className="mt-0.5" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold leading-5">{p.label}</span>
+                      <span className="block text-xs leading-[18px] text-muted-foreground">{p.desc}</span>
+                    </span>
                   </label>
                 ))}
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { resetForm(); setShowAdd(false); }}>إلغاء</Button>
-              <Button onClick={handleAdd} disabled={saving} className="gap-2">
-                <Plus className="w-4 h-4" />
+            <div className="flex flex-wrap gap-2.5">
+              <Button onClick={handleAdd} disabled={saving}>
+                <Plus className="h-4 w-4" />
                 {saving ? "جاري الإضافة..." : "إضافة العضو"}
               </Button>
+              <Button variant="outline" onClick={() => { resetForm(); setShowAdd(false); }}>إلغاء</Button>
             </div>
-          </div>
+          </Panel>
         )}
 
         {members.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center space-y-3">
-            <Users className="w-12 h-12 text-muted-foreground mx-auto" />
-            <h3 className="font-semibold text-lg">لا يوجد أعضاء في الفريق</h3>
-            <p className="text-muted-foreground text-sm">أضف أعضاء لمساعدتك في إدارة الفعاليات</p>
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Users}
+              title="لا يوجد أعضاء في الفريق"
+              description="أضف أعضاء لمساعدتك في إدارة الفعاليات"
+              action={!showAdd ? <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /> إضافة عضو</Button> : undefined}
+            />
           </div>
         ) : (
-          <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-            <div className="divide-y divide-border/50">
-              {members.map(m => (
-                <div key={m.id} className="flex items-start justify-between p-4 hover:bg-muted/30 transition-colors gap-3">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                      {(m.full_name || m.email || "?").charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{m.full_name || "بدون اسم"}</p>
-                      <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
-                        {m.phone && <span className="flex items-center gap-1" dir="ltr"><Phone className="w-3 h-3" />{m.phone}</span>}
-                        {m.email && <span className="flex items-center gap-1" dir="ltr"><Mail className="w-3 h-3" />{m.email}</span>}
-                        <span className="flex items-center gap-1"><Shield className="w-3 h-3" />{roleLabels[m.role] || m.role}</span>
-                        {m.invite_status === "pending" && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400">دعوة معلّقة</span>
-                        )}
+          <Panel title="أعضاء الفريق" flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">العضو</TableHead>
+                  <TableHead>رقم الجوال</TableHead>
+                  <TableHead>الدور</TableHead>
+                  <TableHead>الصلاحيات</TableHead>
+                  <TableHead className="pe-6"><span className="sr-only">إجراءات</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {members.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell className="ps-6">
+                      <div className="flex items-center gap-3">
+                        <span className="grid h-9 w-9 flex-none place-items-center rounded-full bg-secondary text-sm font-bold text-primary">
+                          {(m.full_name || m.email || "?").charAt(0).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="whitespace-nowrap font-semibold leading-[22px]">{m.full_name || "بدون اسم"}</p>
+                          {m.email && <p className="text-xs leading-[18px] text-muted-foreground"><bdi dir="ltr">{m.email}</bdi></p>}
+                        </div>
                       </div>
-                      {m.permissions && m.permissions.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{m.phone ? <bdi dir="ltr">{m.phone}</bdi> : "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="whitespace-nowrap">{roleLabels[m.role] || m.role}</span>
+                        {m.invite_status === "pending" && <StatusBadge tone="warning">دعوة معلّقة</StatusBadge>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {m.permissions && m.permissions.length > 0 ? (
+                        <div className="flex min-w-[200px] flex-wrap gap-1">
                           {m.permissions.map(pk => {
                             const p = PERMISSIONS.find(x => x.key === pk);
                             return (
-                              <span key={pk} className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              <span key={pk} className="whitespace-nowrap rounded-md bg-muted px-2 py-0.5 text-xs leading-[18px] text-muted-foreground">
                                 {p?.label || pk}
                               </span>
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeMember(m.id)} className="text-destructive hover:text-destructive shrink-0">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="pe-6 text-end">
+                      <Button variant="ghost" size="icon" onClick={() => removeMember(m.id)} className="h-9 w-9 text-destructive hover:text-destructive" aria-label="حذف العضو">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </DashboardLayout>

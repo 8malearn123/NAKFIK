@@ -1,24 +1,27 @@
 // صفحة بديلة للميزات المعطّلة مؤقتاً (مثل الشهادات) — الكود الأصلي محفوظ ويُعاد ربطه عند التفعيل
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Award, ArrowRight } from "lucide-react";
 
 const FeatureComingSoon = ({ title = "الشهادات" }: { title?: string }) => (
   <DashboardLayout>
-    <div className="max-w-xl mx-auto text-center py-20">
-      <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-        <Award className="w-10 h-10 text-primary" />
+    <div className="space-y-6">
+      <PageHeader title={title} />
+      <div className="rounded-2xl bg-card shadow-soft">
+        <EmptyState
+          icon={Award}
+          title="هذه الميزة غير متاحة حالياً"
+          description="نعمل على تجهيزها وستتوفر قريباً."
+          action={
+            <Button asChild variant="outline">
+              <Link to="/dashboard"><ArrowRight className="h-4 w-4" /> العودة للوحة التحكم</Link>
+            </Button>
+          }
+        />
       </div>
-      <h1 className="font-bold text-2xl text-foreground mb-2">{title}</h1>
-      <p className="text-muted-foreground leading-relaxed mb-8">
-        هذه الميزة غير متاحة حالياً — نعمل على تجهيزها وستتوفر قريباً.
-      </p>
-      <Button asChild variant="outline" className="rounded-full">
-        <Link to="/dashboard">
-          <ArrowRight className="w-4 h-4 ml-1" /> العودة للوحة التحكم
-        </Link>
-      </Button>
     </div>
   </DashboardLayout>
 );

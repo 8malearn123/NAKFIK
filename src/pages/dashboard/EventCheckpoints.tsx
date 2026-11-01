@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, GripVertical, DoorOpen, DoorClosed, Layers, MapPin, Save, Activity } from "lucide-react";
+import { ArrowRight, Plus, Trash2, DoorOpen, DoorClosed, Layers, MapPin, Save, Activity } from "lucide-react";
 
 interface Checkpoint {
   id: string;
@@ -104,7 +111,7 @@ const EventCheckpoints = () => {
         } as any).eq("id", it.id);
         if (error) throw error;
       }
-      toast.success("تم حفظ كل البوابات ✅");
+      toast.success("تم حفظ كل البوابات");
       load();
     } catch (e: any) {
       toast.error(e.message || "خطأ في الحفظ");
@@ -113,124 +120,148 @@ const EventCheckpoints = () => {
     }
   };
 
+  const header = (actions?: React.ReactNode) => (
+    <div className="space-y-2">
+      <Link to="/dashboard/events" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+        <ArrowRight className="h-4 w-4" /> العودة لفعالياتي
+      </Link>
+      <PageHeader
+        title="نقاط الدخول والتتبع"
+        description={event?.title_ar ? `${event.title_ar}، حدّد البوابات والقاعات قبل الفعالية` : "حدّد البوابات والقاعات قبل الفعالية"}
+        actions={actions}
+      />
+    </div>
+  );
+
   if (loading) return (
     <DashboardLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <div className="space-y-6">
+        {header()}
+        <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
       </div>
     </DashboardLayout>
   );
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-start justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">نقاط الدخول والتتبع</h1>
-            <p className="text-sm text-muted-foreground mt-1">{event?.title_ar} — حدّد البوابات والقاعات قبل الفعالية</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-full" asChild>
+      <div className="space-y-6">
+        {header(
+          <>
+            <Button variant="outline" asChild>
               <Link to={`/dashboard/events/${eventId}/heatmap`}>
-                <Activity className="w-4 h-4" /> الخارطة الحرارية
+                <Activity className="h-4 w-4" /> الخارطة الحرارية
               </Link>
             </Button>
-            <Button variant="outline" className="rounded-full" onClick={addRow}>
-              <Plus className="w-4 h-4" /> إضافة بوابة
+            <Button variant="outline" onClick={addRow}>
+              <Plus className="h-4 w-4" /> إضافة بوابة
             </Button>
-            <Button className="rounded-full" onClick={saveAll} disabled={saving || items.length === 0}>
-              <Save className="w-4 h-4" /> {saving ? "جارٍ الحفظ..." : "حفظ الكل"}
+            <Button onClick={saveAll} disabled={saving || items.length === 0}>
+              <Save className="h-4 w-4" /> {saving ? "جارٍ الحفظ..." : "حفظ الكل"}
             </Button>
-          </div>
-        </div>
-
-        {items.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-            <DoorOpen className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <h3 className="font-bold text-foreground mb-1">لا توجد بوابات بعد</h3>
-            <p className="text-sm text-muted-foreground mb-4">أضف نقاط الدخول والخروج والقاعات لهذه الفعالية</p>
-            <Button className="rounded-full" onClick={addRow}><Plus className="w-4 h-4" /> أضف أول بوابة</Button>
-          </div>
-        ) : (
-          <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="p-3 w-8"></th>
-                    <th className="text-right p-3 font-semibold text-foreground">اللون</th>
-                    <th className="text-right p-3 font-semibold text-foreground">الاسم</th>
-                    <th className="text-right p-3 font-semibold text-foreground">النوع</th>
-                    <th className="text-right p-3 font-semibold text-foreground">السعة</th>
-                    <th className="text-right p-3 font-semibold text-foreground">الموظف المعيَّن</th>
-                    <th className="text-right p-3 font-semibold text-foreground">مفعّلة</th>
-                    <th className="p-3 w-12"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {items.map((it, i) => (
-                    <tr key={it.id} className="hover:bg-muted/20">
-                      <td className="p-3 text-muted-foreground"><GripVertical className="w-4 h-4" /></td>
-                      <td className="p-3">
-                        <div className="flex gap-1 flex-wrap max-w-[150px]">
-                          {COLORS.map(c => (
-                            <button key={c} type="button" onClick={() => update(i, { color: c })}
-                              className={`w-5 h-5 rounded-full border-2 transition-all ${it.color === c ? "border-foreground scale-110" : "border-transparent"}`}
-                              style={{ background: `#${c}` }} />
-                          ))}
-                        </div>
-                      </td>
-                      <td className="p-3 min-w-[180px]">
-                        <Input value={it.name_ar} onChange={e => update(i, { name_ar: e.target.value })} placeholder="مثال: البوابة الشمالية" className="h-9" />
-                      </td>
-                      <td className="p-3">
-                        <select value={it.checkpoint_type} onChange={e => update(i, { checkpoint_type: e.target.value })}
-                          className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                          {TYPE_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-                        </select>
-                      </td>
-                      <td className="p-3 w-24">
-                        <Input type="number" min={0} value={it.capacity} onChange={e => update(i, { capacity: parseInt(e.target.value) || 0 })} className="h-9 w-20" />
-                      </td>
-                      <td className="p-3 min-w-[130px]">
-                        {it.assigned_user_id ? (
-                          <span className="text-[11px] font-bold rounded-full px-2.5 py-1 bg-primary/10 text-primary inline-block">
-                            {staffNames[it.assigned_user_id] || "موظف معيَّن"}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground bg-muted rounded-full px-2.5 py-1 inline-block" title="تعيين الموظفين من صلاحيات إدارة نكفيك فقط">
-                            لم يُعيَّن — من الإدارة
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <button type="button" onClick={() => update(i, { is_active: !it.is_active })}
-                          className={`w-11 h-6 rounded-full transition-colors relative ${it.is_active ? "bg-brand-teal" : "bg-muted"}`}>
-                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${it.is_active ? "right-0.5" : "right-[22px]"}`} />
-                        </button>
-                      </td>
-                      <td className="p-3">
-                        <Button variant="ghost" size="icon" onClick={() => remove(i)} className="text-destructive">
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </>,
         )}
 
-        <div className="bg-muted/30 rounded-xl p-4 text-xs text-muted-foreground">
-          <p className="font-semibold text-foreground mb-1">ℹ️ كيف تعمل البوابات؟</p>
-          <ul className="list-disc list-inside space-y-1 mr-2">
+        {items.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={DoorOpen}
+              title="لا توجد بوابات بعد"
+              description="أضف نقاط الدخول والخروج والقاعات لهذه الفعالية"
+              action={<Button onClick={addRow}><Plus className="h-4 w-4" /> أضف أول بوابة</Button>}
+            />
+          </div>
+        ) : (
+          <Panel flush title="البوابات">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">اللون</TableHead>
+                  <TableHead>الاسم</TableHead>
+                  <TableHead>النوع</TableHead>
+                  <TableHead>السعة</TableHead>
+                  <TableHead>الموظف المعيَّن</TableHead>
+                  <TableHead>مفعّلة</TableHead>
+                  <TableHead className="pe-6"><span className="sr-only">حذف</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((it, i) => (
+                  <TableRow key={it.id}>
+                    <TableCell className="ps-6">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button type="button" aria-label="لون البوابة" className="grid h-9 w-9 place-items-center rounded-lg border border-input bg-card transition-colors hover:bg-secondary outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <i className="h-4 w-4 rounded-full" style={{ background: `#${it.color}` }} />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-auto p-2">
+                          <div className="grid grid-cols-4 gap-1">
+                            {COLORS.map(c => (
+                              <button
+                                key={c}
+                                type="button"
+                                aria-label={`اللون ${c}`}
+                                aria-pressed={it.color === c}
+                                onClick={() => update(i, { color: c })}
+                                className="grid h-9 w-9 place-items-center rounded-lg transition-colors hover:bg-secondary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                <i className={`h-5 w-5 rounded-full ${it.color === c ? "ring-2 ring-foreground ring-offset-2 ring-offset-popover" : ""}`} style={{ background: `#${c}` }} />
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    <TableCell>
+                      <Input value={it.name_ar} onChange={e => update(i, { name_ar: e.target.value })} placeholder="مثال: البوابة الشمالية" className="h-9 w-40 sm:w-56" />
+                    </TableCell>
+                    <TableCell>
+                      <Select value={it.checkpoint_type} onValueChange={v => update(i, { checkpoint_type: v })}>
+                        <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {TYPE_OPTIONS.map(o => (
+                            <SelectItem key={o.v} value={o.v}>
+                              <span className="flex items-center gap-2"><o.icon className="h-4 w-4 text-muted-foreground" />{o.l}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input type="number" min={0} value={it.capacity} onChange={e => update(i, { capacity: parseInt(e.target.value) || 0 })} className="h-9 w-24" aria-label="السعة" />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {it.assigned_user_id ? (
+                        <span className="font-semibold">{staffNames[it.assigned_user_id] || "موظف معيَّن"}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground" title="تعيين الموظفين من صلاحيات إدارة نكفيك فقط">
+                          لم يُعيَّن، من الإدارة
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Switch checked={it.is_active} onCheckedChange={() => update(i, { is_active: !it.is_active })} aria-label="مفعّلة" />
+                    </TableCell>
+                    <TableCell className="pe-6 text-end">
+                      <Button variant="ghost" size="icon" onClick={() => remove(i)} className="h-9 w-9 text-destructive hover:text-destructive" aria-label="حذف البوابة">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Panel>
+        )}
+
+        <Panel title="كيف تعمل البوابات؟">
+          <ul className="list-disc space-y-1.5 ps-5 text-sm text-muted-foreground">
             <li>دورك كمنظم: إنشاء البوابات وتحديد عددها وأسمائها فقط</li>
             <li>كل موظف يتم تعيينه على بوابة محددة مسبقًا، وجميع عمليات المسح تُسجل تلقائيًا على تلك البوابة</li>
             <li>تعيين الموظفين على البوابات من صلاحيات إدارة نكفيك تيكت أو المسؤول المخوَّل فقط</li>
             <li>السعة تُستخدم لحساب نسبة الضغط في الخارطة الحرارية</li>
           </ul>
-        </div>
+        </Panel>
       </div>
     </DashboardLayout>
   );

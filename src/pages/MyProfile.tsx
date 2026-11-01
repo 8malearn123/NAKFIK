@@ -10,11 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge from "@/components/app/StatusBadge";
 import Navbar from "@/components/landing/Navbar";
+import Footer from "@/components/landing/Footer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import MyTickets from "@/pages/MyTickets";
 import MyConnections from "@/pages/MyConnections";
@@ -22,11 +29,11 @@ import AttendeeCard from "@/components/networking/AttendeeCard";
 import EntryPassCard, { type EntryPass } from "@/components/networking/EntryPassCard";
 import { Switch } from "@/components/ui/switch";
 import AvatarCropDialog from "@/components/networking/AvatarCropDialog";
+import { formatNumber, formatPercent, formatTime } from "@/lib/format";
 import { toast } from "sonner";
 import {
-  Loader2, Upload, User as UserIcon, Briefcase, Mail, Phone, Linkedin, Instagram,
-  CheckCircle, AlertCircle, Save, Ticket, Users2, Sparkles, Share2, Download,
-  QrCode, Globe, X as XIcon, Eye, Lock, Award, Calendar, Copy, Heart,
+  Loader2, Upload, CheckCircle, AlertCircle, Save, Ticket, Users2, Share2, Download,
+  QrCode, X as XIcon, Award, Calendar, Copy, Heart, MoreHorizontal,
 } from "lucide-react";
 
 const makeProfileSchema = (t: (key: string) => string) => z.object({
@@ -336,353 +343,364 @@ const MyProfile = () => {
     toast.success(t("pgProfile.toasts.linkCopied"));
   };
 
+  const sep = lang === "ar" ? "، " : ", ";
+  const tabBody = networkingEnabled ? "mt-6 space-y-6" : "mt-0 space-y-6";
+
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    <div className="flex min-h-screen flex-col bg-background font-cairo" dir={dir}>
+      <Navbar />
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">
+        <div className="space-y-6">
+          <PageHeader title={t("pgProfile.header.pageTitle")} />
+          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />
+            <div className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />
+          </div>
+        </div>
+      </main>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-muted/20 font-cairo" dir={dir}>
+    <div className="flex min-h-screen flex-col bg-background font-cairo" dir={dir}>
       <Navbar />
 
-      {/* Hero */}
-      <section className="relative gradient-hero pt-24 pb-32">
-        <div className="absolute inset-0 nakfeek-pattern opacity-10" />
-        <div className="container mx-auto px-4 relative">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
-            <div className="relative">
-              <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-primary-foreground/15 backdrop-blur border-4 border-primary-foreground/30 overflow-hidden flex items-center justify-center shadow-xl">
-                {form.avatar_url ? (
-                  <img src={form.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-3xl font-bold text-primary-foreground">{form.full_name?.[0] || t("pgProfile.header.initialFallback")}</span>
-                )}
-              </div>
-              <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="absolute -bottom-2 -end-2 w-9 h-9 rounded-full bg-brand-gold text-primary-foreground flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
-                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarPick} className="hidden" />
-            </div>
-            <div className="flex-1 min-w-0 text-primary-foreground">
-              <h1 className="font-display text-2xl md:text-3xl">{form.full_name || t("pgProfile.header.pageTitle")}</h1>
-              {(form.job_title || form.company) && (
-                <p className="text-primary-foreground/85 text-sm mt-1">
-                  {form.job_title}{form.job_title && form.company ? " • " : ""}<span className="text-brand-gold font-semibold">{form.company}</span>
-                </p>
-              )}
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {isComplete ? (
-                  <Badge className="bg-brand-teal/90 hover:bg-brand-teal text-white gap-1"><CheckCircle className="w-3 h-3" /> {t("pgProfile.header.complete")}</Badge>
-                ) : (
-                  <Badge className="bg-brand-brick/90 hover:bg-brand-brick text-white gap-1"><AlertCircle className="w-3 h-3" /> {t("pgProfile.header.incomplete")}</Badge>
-                )}
-                {connectCode && networkingEnabled && (
-                  <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={copyLink}>
-                    <Copy className="w-3 h-3" /> {t("pgProfile.header.copyCardLink")}
-                  </Button>
-                )}
-                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("tickets")}>
-                  <Ticket className="w-3 h-3" /> {t("pgProfile.header.myTickets")}
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">
+        <div className="space-y-6">
+          <PageHeader
+            title={t("pgProfile.header.pageTitle")}
+            description={networkingEnabled && completion.pct < 100 ? t("pgProfile.completion.hint") : undefined}
+            actions={
+              <>
+                <Button variant="outline" onClick={() => setPanel("tickets")}>
+                  <Ticket className="h-4 w-4" /> {t("pgProfile.header.myTickets")}
                 </Button>
                 {networkingEnabled && (
-                  <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" onClick={() => setPanel("connections")}>
-                    <Users2 className="w-3 h-3" /> {t("pgProfile.header.myConnections")}
+                  <Button variant="outline" onClick={() => setPanel("connections")}>
+                    <Users2 className="h-4 w-4" /> {t("pgProfile.header.myConnections")}
                   </Button>
                 )}
-                <Button size="sm" variant="secondary" className="rounded-full h-7 gap-1.5 text-xs" asChild>
-                  <Link to="/favorites"><Heart className="w-3 h-3" /> {t("pgProfile.header.favorites")}</Link>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon" variant="outline" aria-label={lang === "ar" ? "المزيد" : "More"}>
+                      <MoreHorizontal className="h-[18px] w-[18px]" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    {connectCode && networkingEnabled && (
+                      <DropdownMenuItem onClick={copyLink}>
+                        <Copy className="h-4 w-4" /> {t("pgProfile.header.copyCardLink")}
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem asChild>
+                      <Link to="/favorites"><Heart className="h-4 w-4" /> {t("pgProfile.header.favorites")}</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            }
+          />
+
+          {requiredMode && !profile?.profile_completed && (
+            <div className="flex items-start gap-3 rounded-2xl bg-[#FDF3E3] p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#9A5F12]" />
+              <div className="flex-1 text-sm">
+                <p className="mb-0.5 font-bold">{t("pgProfile.required.title")}</p>
+                <p className="text-muted-foreground">{t("pgProfile.required.desc")}</p>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="container mx-auto px-4 max-w-6xl -mt-20 relative pb-12">
-        {/* Stats */}
-        <div className={`grid grid-cols-2 gap-3 mb-6 ${networkingEnabled ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
-          {[
-            { icon: Ticket, label: t("pgProfile.stats.totalTickets"), value: stats.registrations, color: "text-primary", bg: "bg-primary/10" },
-            { icon: Calendar, label: t("pgProfile.stats.upcomingEvents"), value: stats.upcoming, color: "text-brand-teal", bg: "bg-brand-teal/10" },
-            ...(networkingEnabled ? [{ icon: Users2, label: t("pgProfile.stats.connections"), value: stats.connections, color: "text-brand-brick", bg: "bg-brand-brick/10" }] : []),
-            { icon: Award, label: t("pgProfile.stats.myPoints"), value: stats.points, color: "text-brand-gold", bg: "bg-brand-gold/10" },
-          ].map((s, i) => (
-            <div key={i} className="bg-card rounded-2xl border border-border/50 p-4 flex items-center gap-3">
-              <div className={`w-11 h-11 rounded-xl ${s.bg} ${s.color} flex items-center justify-center flex-shrink-0`}>
-                <s.icon className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">{s.label}</p>
-                <p className="font-bold text-foreground text-xl">{s.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* مفتاح بطاقة التواصل */}
-        <div className="bg-card border border-border/50 rounded-2xl p-4 mb-6 flex items-center gap-4">
-          <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${networkingEnabled ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground"}`}>
-            {networkingEnabled ? <QrCode className="w-5 h-5" /> : <Ticket className="w-5 h-5" />}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm text-foreground">{t("pgProfile.cardMode.title")}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{networkingEnabled ? t("pgProfile.cardMode.onDesc") : t("pgProfile.cardMode.offDesc")}</p>
-          </div>
-          <Switch checked={networkingEnabled} onCheckedChange={toggleNetworking} aria-label={t("pgProfile.cardMode.title")} />
-        </div>
-
-        {/* Completion bar */}
-        {networkingEnabled && (
-        <div className="bg-card border border-border/50 rounded-2xl p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-brand-gold" />
-              <span className="font-bold text-sm">{t("pgProfile.completion.title")}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">{completion.filled} {t("pgProfile.completion.of")} {completion.total} {t("pgProfile.completion.fields")} • {completion.pct}%</span>
-          </div>
-          <Progress value={completion.pct} className="h-2" />
-          {completion.pct < 100 && (
-            <p className="text-[11px] text-muted-foreground mt-2">{t("pgProfile.completion.hint")}</p>
           )}
-        </div>
-        )}
 
-        {requiredMode && !profile?.profile_completed && (
-          <div className="bg-brand-gold/10 border-2 border-brand-gold/40 rounded-2xl p-4 mb-6 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-brand-gold flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-bold text-foreground">{t("pgProfile.required.title")}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">{t("pgProfile.required.desc")}</p>
-            </div>
+          <div className={`grid grid-cols-2 gap-6 ${networkingEnabled ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+            {[
+              { icon: Ticket, label: t("pgProfile.stats.totalTickets"), value: stats.registrations },
+              { icon: Calendar, label: t("pgProfile.stats.upcomingEvents"), value: stats.upcoming },
+              ...(networkingEnabled ? [{ icon: Users2, label: t("pgProfile.stats.connections"), value: stats.connections }] : []),
+              { icon: Award, label: t("pgProfile.stats.myPoints"), value: stats.points },
+            ].map((s) => (
+              <StatCard key={s.label} className="px-3 sm:px-6" label={s.label} value={formatNumber(s.value)} icon={s.icon} />
+            ))}
           </div>
-        )}
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Main editor with tabs */}
-          <div className="lg:col-span-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              {networkingEnabled && (
-              <TabsList className="w-full grid grid-cols-4 mb-4 h-auto p-1">
-                <TabsTrigger value="overview" className="text-xs"><Eye className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.overview")}</TabsTrigger>
-                <TabsTrigger value="personal" className="text-xs"><UserIcon className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.personal")}</TabsTrigger>
-                <TabsTrigger value="professional" className="text-xs"><Briefcase className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.professional")}</TabsTrigger>
-                <TabsTrigger value="networking" className="text-xs"><Sparkles className="w-3.5 h-3.5 me-1" /> {t("pgProfile.tabs.networking")}</TabsTrigger>
-              </TabsList>
-              )}
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+            {/* Main editor with tabs: يعلو ظل البطاقة حتى لا يمتد فوق البطاقات البيضاء */}
+            <div className="relative z-10 min-w-0 space-y-6">
+              <Panel flush bodyClassName="divide-y divide-border">
+                <div className="flex items-center gap-4 px-6 py-5">
+                  <div className="relative flex-none">
+                    <div className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-secondary text-primary">
+                      {form.avatar_url ? (
+                        <img src={form.avatar_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-2xl font-bold">{form.full_name?.[0] || t("pgProfile.header.initialFallback")}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      aria-label={lang === "ar" ? "تغيير الصورة" : "Change photo"}
+                      className="absolute -bottom-1 -end-1 grid h-7 w-7 place-items-center rounded-lg border bg-card text-primary transition-colors hover:bg-secondary"
+                    >
+                      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    </button>
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarPick} className="hidden" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold leading-6">{form.full_name || t("pgProfile.header.pageTitle")}</p>
+                    {(form.job_title || form.company) && (
+                      <p className="truncate text-[13px] leading-5 text-muted-foreground">{[form.job_title, form.company].filter(Boolean).join(sep)}</p>
+                    )}
+                  </div>
+                  <StatusBadge tone={isComplete ? "success" : "warning"}>
+                    {isComplete ? t("pgProfile.header.complete") : t("pgProfile.header.incomplete")}
+                  </StatusBadge>
+                </div>
 
-              {/* Overview */}
-              <TabsContent value="overview" className="space-y-4">
-                <section className="bg-card rounded-2xl border border-border/50 p-5 space-y-4">
-                  <h2 className="font-bold flex items-center gap-2"><QrCode className="w-4 h-4" /> {t("pgProfile.overview.digitalCard")}</h2>
-                  {connectCode ? (
-                    <div className="flex items-center gap-4">
-                      <div className="bg-white rounded-xl p-2 shadow-sm">
-                        <QRCodeSVG value={connectUrl} size={100} fgColor="#492C5A" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">{t("pgProfile.overview.publicCardLink")}</p>
-                        <code className="text-[11px] text-foreground break-all block mt-1" dir="ltr">{connectUrl}</code>
-                        <div className="flex flex-wrap gap-2 mt-3">
-                          <Button size="sm" variant="outline" className="rounded-full h-8" onClick={copyLink}><Copy className="w-3.5 h-3.5" /> {t("pgProfile.overview.copy")}</Button>
-                          <Button size="sm" variant="outline" className="rounded-full h-8" onClick={downloadCard} disabled={downloading}>
-                            {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} {t("pgProfile.overview.downloadPng")}
-                          </Button>
-                          <Button size="sm" variant="outline" className="rounded-full h-8" asChild>
-                            <Link to={`/connect/${connectCode}`} target="_blank"><Share2 className="w-3.5 h-3.5" /> {t("pgProfile.overview.openFull")}</Link>
-                          </Button>
+                {networkingEnabled && (
+                  <div className="px-6 py-5">
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold">{t("pgProfile.completion.title")}</span>
+                      <span className="text-xs text-muted-foreground">{formatNumber(completion.filled)} {t("pgProfile.completion.of")} {formatNumber(completion.total)}{sep}{formatPercent(completion.pct)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${completion.pct}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* مفتاح بطاقة التواصل */}
+                <div className="flex items-center gap-3 px-6 py-5">
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                    {networkingEnabled ? <QrCode className="h-[18px] w-[18px]" /> : <Ticket className="h-[18px] w-[18px]" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-[22px]">{t("pgProfile.cardMode.title")}</p>
+                    <p className="text-xs leading-[18px] text-muted-foreground">{networkingEnabled ? t("pgProfile.cardMode.onDesc") : t("pgProfile.cardMode.offDesc")}</p>
+                  </div>
+                  <Switch checked={networkingEnabled} onCheckedChange={toggleNetworking} aria-label={t("pgProfile.cardMode.title")} />
+                </div>
+              </Panel>
+
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                {networkingEnabled && (
+                  <TabsList>
+                    <TabsTrigger value="overview">{t("pgProfile.tabs.overview")}</TabsTrigger>
+                    <TabsTrigger value="personal">{t("pgProfile.tabs.personal")}</TabsTrigger>
+                    <TabsTrigger value="professional">{t("pgProfile.tabs.professional")}</TabsTrigger>
+                    <TabsTrigger value="networking">{t("pgProfile.tabs.networking")}</TabsTrigger>
+                  </TabsList>
+                )}
+
+                {/* Overview */}
+                <TabsContent value="overview" className={tabBody}>
+                  <Panel title={t("pgProfile.overview.digitalCard")}>
+                    {connectCode ? (
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                        <div className="w-fit flex-none rounded-xl border bg-white p-2">
+                          <QRCodeSVG value={connectUrl} size={100} fgColor="#492C5A" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-muted-foreground">{t("pgProfile.overview.publicCardLink")}</p>
+                          <bdi dir="ltr" className="mt-1 block break-all text-[13px] font-medium leading-5">{connectUrl}</bdi>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" onClick={copyLink}><Copy className="h-[15px] w-[15px]" /> {t("pgProfile.overview.copy")}</Button>
+                            <Button size="sm" variant="outline" onClick={downloadCard} disabled={downloading}>
+                              {downloading ? <Loader2 className="h-[15px] w-[15px] animate-spin" /> : <Download className="h-[15px] w-[15px]" />} {t("pgProfile.overview.downloadPng")}
+                            </Button>
+                            <Button size="sm" variant="outline" asChild>
+                              <Link to={`/connect/${connectCode}`} target="_blank"><Share2 className="h-[15px] w-[15px]" /> {t("pgProfile.overview.openFull")}</Link>
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{t("pgProfile.overview.saveToCreate")}</p>
-                  )}
-                </section>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">{t("pgProfile.overview.saveToCreate")}</p>
+                    )}
+                  </Panel>
 
-                <section className="bg-card rounded-2xl border border-border/50 p-5">
-                  <h2 className="font-bold flex items-center gap-2 mb-3"><Lock className="w-4 h-4" /> {t("pgProfile.overview.cardPrivacy")}</h2>
-                  <Select value={privacyLevel} onValueChange={setPrivacyLevel}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="event_only">{t("pgProfile.overview.privacyEventOnly")}</SelectItem>
-                      <SelectItem value="nakfeek_users">{t("pgProfile.overview.privacyNakfeekUsers")}</SelectItem>
-                      <SelectItem value="public">{t("pgProfile.overview.privacyPublic")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground mt-2">{t("pgProfile.overview.privacyHint")}</p>
-                </section>
-              </TabsContent>
+                  <Panel title={t("pgProfile.overview.cardPrivacy")} bodyClassName="space-y-2">
+                    <Select value={privacyLevel} onValueChange={setPrivacyLevel}>
+                      <SelectTrigger aria-label={t("pgProfile.overview.cardPrivacy")}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="event_only">{t("pgProfile.overview.privacyEventOnly")}</SelectItem>
+                        <SelectItem value="nakfeek_users">{t("pgProfile.overview.privacyNakfeekUsers")}</SelectItem>
+                        <SelectItem value="public">{t("pgProfile.overview.privacyPublic")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{t("pgProfile.overview.privacyHint")}</p>
+                  </Panel>
+                </TabsContent>
 
-              {/* Personal */}
-              <TabsContent value="personal" className="space-y-4">
-                <section className="bg-card rounded-2xl border border-border/50 p-5 space-y-4">
-                  <h2 className="font-bold flex items-center gap-2"><UserIcon className="w-4 h-4" /> {t("pgProfile.personal.basicInfo")} <span className="text-xs text-destructive font-normal">{t("pgProfile.personal.requiredMark")}</span></h2>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label>{t("pgProfile.personal.fullName")}</Label>
-                      <Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder={t("pgProfile.personal.fullNamePlaceholder")} />
+                {/* Personal */}
+                <TabsContent value="personal" className={tabBody}>
+                  <Panel title={`${t("pgProfile.personal.basicInfo")} ${t("pgProfile.personal.requiredMark")}`} bodyClassName="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>{t("pgProfile.personal.fullName")}</Label>
+                        <Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder={t("pgProfile.personal.fullNamePlaceholder")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>{t("pgProfile.personal.phone")}</Label>
+                        <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+966500000000" dir="ltr" />
+                      </div>
                     </div>
-                    <div>
-                      <Label>{t("pgProfile.personal.phone")}</Label>
-                      <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+966500000000" dir="ltr" />
+                    <div className="space-y-1.5">
+                      <Label>{t("pgProfile.personal.email")}</Label>
+                      <Input value={profile?.email || ""} disabled dir="ltr" className="bg-muted/50" />
+                      <p className="text-xs text-muted-foreground">{t("pgProfile.personal.emailHint")}</p>
                     </div>
-                  </div>
-                  <div>
-                    <Label>{t("pgProfile.personal.email")}</Label>
-                    <Input value={profile?.email || ""} disabled dir="ltr" className="bg-muted/40" />
-                    <p className="text-[11px] text-muted-foreground mt-1">{t("pgProfile.personal.emailHint")}</p>
-                  </div>
-                </section>
-              </TabsContent>
+                  </Panel>
+                </TabsContent>
 
-              {/* Professional */}
-              <TabsContent value="professional" className="space-y-4">
-                <section className="bg-card rounded-2xl border border-border/50 p-5 space-y-4">
-                  <h2 className="font-bold flex items-center gap-2"><Briefcase className="w-4 h-4" /> {t("pgProfile.professional.title")}</h2>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label>{t("pgProfile.professional.jobTitle")}</Label>
-                      <Input value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} placeholder={t("pgProfile.professional.jobTitlePlaceholder")} />
+                {/* Professional */}
+                <TabsContent value="professional" className={tabBody}>
+                  <Panel title={t("pgProfile.professional.title")} bodyClassName="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label>{t("pgProfile.professional.jobTitle")}</Label>
+                        <Input value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} placeholder={t("pgProfile.professional.jobTitlePlaceholder")} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>{t("pgProfile.professional.company")}</Label>
+                        <Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder={t("pgProfile.professional.companyPlaceholder")} />
+                      </div>
                     </div>
-                    <div>
-                      <Label>{t("pgProfile.professional.company")}</Label>
-                      <Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder={t("pgProfile.professional.companyPlaceholder")} />
+                    <div className="space-y-1.5">
+                      <Label>{t("pgProfile.professional.bio")} ({formatNumber(form.bio.length)} {t("pgProfile.completion.of")} 200)</Label>
+                      <Textarea value={form.bio} maxLength={200} rows={3} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder={t("pgProfile.professional.bioPlaceholder")} />
                     </div>
-                  </div>
-                  <div>
-                    <Label>{t("pgProfile.professional.bio")} ({form.bio.length}/200)</Label>
-                    <Textarea value={form.bio} maxLength={200} rows={3} onChange={e => setForm({ ...form, bio: e.target.value })} placeholder={t("pgProfile.professional.bioPlaceholder")} />
-                  </div>
-                </section>
+                  </Panel>
 
-                <section className="bg-card rounded-2xl border border-border/50 p-5 space-y-4">
-                  <h2 className="font-bold">{t("pgProfile.professional.expertise")}</h2>
-                  <Input
-                    value={expInput}
-                    onChange={e => setExpInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag("exp", expInput); } }}
-                    onBlur={() => addTag("exp", expInput)}
-                    placeholder={t("pgProfile.professional.expertisePlaceholder")}
-                  />
-                  {expertise.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {expertise.map(t => (
-                        <Badge key={t} variant="secondary" className="gap-1 ps-2">
-                          {t}
-                          <button onClick={() => setExpertise(expertise.filter(x => x !== t))} className="hover:text-destructive"><XIcon className="w-3 h-3" /></button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  <Panel title={t("pgProfile.professional.expertise")} bodyClassName="space-y-3">
+                    <Input
+                      value={expInput}
+                      onChange={e => setExpInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag("exp", expInput); } }}
+                      onBlur={() => addTag("exp", expInput)}
+                      placeholder={t("pgProfile.professional.expertisePlaceholder")}
+                      aria-label={t("pgProfile.professional.expertise")}
+                    />
+                    {expertise.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {expertise.map(t => (
+                          <Badge key={t} variant="secondary" className="gap-1 ps-2">
+                            {t}
+                            <button type="button" onClick={() => setExpertise(expertise.filter(x => x !== t))} className="hover:text-destructive" aria-label={t}><XIcon className="h-3 w-3" /></button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
 
-                  <h2 className="font-bold pt-2">{t("pgProfile.professional.lookingFor")}</h2>
-                  <Input
-                    value={lfInput}
-                    onChange={e => setLfInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag("lf", lfInput); } }}
-                    onBlur={() => addTag("lf", lfInput)}
-                    placeholder={t("pgProfile.professional.lookingForPlaceholder")}
-                  />
-                  {lookingFor.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {lookingFor.map(t => (
-                        <Badge key={t} className="gap-1 ps-2 bg-brand-gold/20 text-foreground hover:bg-brand-gold/30">
-                          {t}
-                          <button onClick={() => setLookingFor(lookingFor.filter(x => x !== t))} className="hover:text-destructive"><XIcon className="w-3 h-3" /></button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </TabsContent>
+                  <Panel title={t("pgProfile.professional.lookingFor")} bodyClassName="space-y-3">
+                    <Input
+                      value={lfInput}
+                      onChange={e => setLfInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag("lf", lfInput); } }}
+                      onBlur={() => addTag("lf", lfInput)}
+                      placeholder={t("pgProfile.professional.lookingForPlaceholder")}
+                      aria-label={t("pgProfile.professional.lookingFor")}
+                    />
+                    {lookingFor.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {lookingFor.map(t => (
+                          <Badge key={t} variant="secondary" className="gap-1 ps-2">
+                            {t}
+                            <button type="button" onClick={() => setLookingFor(lookingFor.filter(x => x !== t))} className="hover:text-destructive" aria-label={t}><XIcon className="h-3 w-3" /></button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </Panel>
+                </TabsContent>
 
-              {/* Networking / Social */}
-              <TabsContent value="networking" className="space-y-4">
-                <section className="bg-card rounded-2xl border border-border/50 p-5 space-y-4">
-                  <h2 className="font-bold">{t("pgProfile.social.title")}</h2>
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="flex items-center gap-1.5"><Linkedin className="w-3.5 h-3.5" /> LinkedIn</Label>
+                {/* Networking / Social */}
+                <TabsContent value="networking" className={tabBody}>
+                  <Panel title={t("pgProfile.social.title")} bodyClassName="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label>LinkedIn</Label>
                       <Input value={form.linkedin_url} onChange={e => setForm({ ...form, linkedin_url: e.target.value })} placeholder="https://linkedin.com/in/..." dir="ltr" />
                     </div>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
                         <Label>{t("pgProfile.social.twitter")}</Label>
                         <Input value={form.x_handle} onChange={e => setForm({ ...form, x_handle: e.target.value })} placeholder="username" dir="ltr" />
                       </div>
-                      <div>
-                        <Label className="flex items-center gap-1.5"><Instagram className="w-3.5 h-3.5" /> {t("pgProfile.social.instagram")}</Label>
+                      <div className="space-y-1.5">
+                        <Label>{t("pgProfile.social.instagram")}</Label>
                         <Input value={form.instagram_handle} onChange={e => setForm({ ...form, instagram_handle: e.target.value })} placeholder="username" dir="ltr" />
                       </div>
                     </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">{t("pgProfile.social.hint")}</p>
-                </section>
-              </TabsContent>
+                    <p className="text-xs text-muted-foreground">{t("pgProfile.social.hint")}</p>
+                  </Panel>
+                </TabsContent>
 
-              {/* Customize */}
-              {/* Customize tab removed: badge design is set per-event by the organizer */}
-            </Tabs>
+                {/* Customize */}
+                {/* Customize tab removed: badge design is set per-event by the organizer */}
+              </Tabs>
 
-            {/* Save bar */}
-            {savedAt && (
-              <div className="mt-4 bg-brand-teal/10 border-2 border-brand-teal/40 rounded-2xl p-3 flex items-start gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <CheckCircle className="w-5 h-5 text-brand-teal flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-bold text-sm">{t("pgProfile.save.savedTitle")}</p>
-                  <p className="text-[11px] text-muted-foreground">{t("pgProfile.save.lastSaved")} {savedAt.toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}</p>
-                </div>
+              {/* Save bar */}
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {savedAt && (
+                  <p className="me-auto flex items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
+                    <CheckCircle className="h-4 w-4 flex-none text-[#0E7A4F]" />
+                    {t("pgProfile.save.lastSaved")} {formatTime(savedAt)}
+                  </p>
+                )}
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("pgProfile.save.saving")}</> : <><Save className="h-4 w-4" /> {t("pgProfile.save.saveAll")}</>}
+                </Button>
               </div>
-            )}
-
-            <div className="sticky bottom-4 z-10 mt-4 bg-card/95 backdrop-blur border border-border/50 rounded-2xl p-3 shadow-lg flex items-center gap-3">
-              <Button onClick={handleSave} disabled={saving} size="lg" className="rounded-full px-8 flex-1">
-                {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> {t("pgProfile.save.saving")}</> : <><Save className="w-4 h-4" /> {t("pgProfile.save.saveAll")}</>}
-              </Button>
             </div>
+
+            {/* Live preview */}
+            <aside className="flex min-w-0 flex-col items-center gap-4 lg:sticky lg:top-24">
+              {!networkingEnabled ? (
+                <>
+                  <h2 className="self-start text-[15px] font-bold leading-6">{t("pgProfile.entryPass.previewTitle")}</h2>
+                  <EntryPassCard fullName={form.full_name || t("pgProfile.aside.yourNameHere")} pass={nextPass} onShowAll={() => setPanel("tickets")} />
+                </>
+              ) : (
+                <>
+                  <h2 className="self-start text-[15px] font-bold leading-6">{t("pgProfile.aside.previewTitle")}</h2>
+                  <AttendeeCard
+                    ref={cardRef}
+                    data={{
+                      full_name: form.full_name || t("pgProfile.aside.yourNameHere"),
+                      avatar_url: form.avatar_url,
+                      job_title: form.job_title,
+                      company: form.company,
+                      tier_label: "GUEST",
+                      tags: [...expertise, ...lookingFor].slice(0, 5),
+                      qr_value: connectUrl || null,
+                      qr_label: t("pgProfile.aside.scanToConnect"),
+                      logo_url: null,
+                      ring_color: "#CC8E3D",
+                      bg_from: "#2b1342",
+                      bg_to: "#7a2855",
+                    }}
+                  />
+
+                  <div className="relative z-10 w-full space-y-3 rounded-2xl bg-card p-4 shadow-soft">
+                    <StatusBadge tone={isComplete ? "success" : "warning"} className="h-auto min-h-6 whitespace-normal py-0.5">
+                      {isComplete ? t("pgProfile.aside.completeStatus") : t("pgProfile.aside.incompleteStatus")}
+                    </StatusBadge>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      <strong className="font-semibold text-foreground">{t("pgProfile.aside.noteLabel")}</strong> {t("pgProfile.aside.noteText")}
+                    </p>
+                  </div>
+                </>
+              )}
+            </aside>
           </div>
-
-          {/* Live preview */}
-          <aside className="lg:sticky lg:top-24 self-start space-y-3 flex flex-col items-center">
-            {!networkingEnabled ? (
-              <>
-                <p className="text-xs text-muted-foreground font-semibold self-start">{t("pgProfile.entryPass.previewTitle")}</p>
-                <EntryPassCard fullName={form.full_name || t("pgProfile.aside.yourNameHere")} pass={nextPass} onShowAll={() => setPanel("tickets")} />
-              </>
-            ) : (<>
-            <p className="text-xs text-muted-foreground font-semibold self-start">{t("pgProfile.aside.previewTitle")}</p>
-            <AttendeeCard
-              ref={cardRef}
-              data={{
-                full_name: form.full_name || t("pgProfile.aside.yourNameHere"),
-                avatar_url: form.avatar_url,
-                job_title: form.job_title,
-                company: form.company,
-                tier_label: "GUEST",
-                tags: [...expertise, ...lookingFor].slice(0, 5),
-                qr_value: connectUrl || null,
-                qr_label: t("pgProfile.aside.scanToConnect"),
-                logo_url: null,
-                ring_color: "#CC8E3D",
-                bg_from: "#2b1342",
-                bg_to: "#7a2855",
-              }}
-            />
-
-            <div className="w-full rounded-xl p-3 bg-muted/50 border border-border/50 text-[11px] text-muted-foreground leading-relaxed">
-              <strong className="text-foreground">{t("pgProfile.aside.noteLabel")}</strong> {t("pgProfile.aside.noteText")}
-            </div>
-
-            <div className={`w-full rounded-xl p-3 text-sm flex items-start gap-2 ${isComplete ? "bg-brand-teal/10 text-brand-teal" : "bg-brand-brick/10 text-brand-brick"}`}>
-              {isComplete ? <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
-              <span className="text-xs">{isComplete ? t("pgProfile.aside.completeStatus") : t("pgProfile.aside.incompleteStatus")}</span>
-            </div>
-            </>)}
-          </aside>
-
         </div>
-      </div>
+      </main>
+
+      <Footer />
 
       <AvatarCropDialog
         open={!!cropSrc}
@@ -692,18 +710,19 @@ const MyProfile = () => {
       />
 
       <Dialog open={panel !== null} onOpenChange={(o) => !o && setPanel(null)}>
-        <DialogContent className="max-w-4xl w-[calc(100vw-2rem)] max-h-[88vh] overflow-y-auto rounded-3xl p-5 sm:p-7" dir={dir}>
+        <DialogContent className="max-h-[88vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto" dir={dir}>
           <DialogHeader className={panel === "connections" ? "sr-only" : "text-start"}>
-            <DialogTitle className="font-cairo text-2xl flex items-center gap-2">
-              {panel === "tickets" ? <Ticket className="w-5 h-5 text-accent" /> : <Users2 className="w-5 h-5 text-accent" />}
+            <DialogTitle>
               {panel === "tickets" ? t("pgProfile.header.myTickets") : t("pgProfile.header.myConnections")}
             </DialogTitle>
             <DialogDescription className="sr-only">
               {panel === "tickets" ? t("pgProfile.header.myTickets") : t("pgProfile.header.myConnections")}
             </DialogDescription>
           </DialogHeader>
-          {panel === "tickets" && <MyTickets embedded />}
-          {panel === "connections" && <MyConnections embedded />}
+          <div className="min-w-0">
+            {panel === "tickets" && <MyTickets embedded />}
+            {panel === "connections" && <MyConnections embedded />}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

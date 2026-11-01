@@ -1,13 +1,20 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "@/hooks/use-toast";
 import {
   Megaphone,
@@ -21,7 +28,7 @@ import {
   AlertCircle,
   Users,
   Calendar,
-  Eye,
+  MoreHorizontal,
 } from "lucide-react";
 
 interface Announcement {
@@ -128,7 +135,7 @@ const Announcements = () => {
 
   const updateStatus = async (id: string, status: string) => {
     await supabase.from("announcements").update({ status }).eq("id", id);
-    toast({ title: status === "published" ? "تم النشر" : "تم الأرشفة" });
+    toast({ title: status === "published" ? "تم النشر" : "تمت الأرشفة" });
     fetchAnnouncements();
   };
 
@@ -138,18 +145,14 @@ const Announcements = () => {
     fetchAnnouncements();
   };
 
-  const typeIcon = (t: string) => {
-    if (t === "urgent") return <AlertCircle className="w-4 h-4 text-destructive" />;
-    if (t === "warning") return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-    return <Info className="w-4 h-4 text-primary" />;
-  };
+  const typeIcon = (t: string) => (t === "urgent" ? AlertCircle : t === "warning" ? AlertTriangle : Info);
+  const typeTone = (t: string): StatusTone => (t === "urgent" ? "danger" : t === "warning" ? "warning" : "neutral");
 
   const typeLabel = (t: string) => t === "urgent" ? "عاجل" : t === "warning" ? "تنبيه" : "معلومة";
   const statusLabel = (s: string) => s === "published" ? "منشور" : s === "archived" ? "مؤرشف" : "مسودة";
-  const audienceLabel = (a: string) => a === "organizers" ? "المنظمين" : a === "attendees" ? "الحضور" : "الجميع";
+  const audienceLabel = (a: string) => a === "organizers" ? "المنظمون" : a === "attendees" ? "الحضور" : "الجميع";
 
-  const statusColor = (s: string): "default" | "secondary" | "destructive" | "outline" =>
-    s === "published" ? "default" : s === "archived" ? "secondary" : "outline";
+  const statusTone = (s: string): StatusTone => (s === "published" ? "success" : "neutral");
 
   const filtered = filter === "all" ? announcements : announcements.filter((a) => a.status === filter);
 
@@ -163,117 +166,113 @@ const Announcements = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">الإعلانات</h1>
-            <p className="text-muted-foreground text-sm mt-1">إدارة الإعلانات والتنبيهات العامة للمنصة</p>
-          </div>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="w-4 h-4" /> إعلان جديد
-          </Button>
-        </div>
+        <PageHeader
+          title="الإعلانات"
+          description="إدارة الإعلانات والتنبيهات العامة للمنصة"
+          actions={<Button onClick={openCreate}><Plus className="h-4 w-4" /> إعلان جديد</Button>}
+        />
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {([
-            { key: "all", label: "الكل", icon: Megaphone, color: "text-foreground" },
-            { key: "draft", label: "مسودات", icon: Edit2, color: "text-muted-foreground" },
-            { key: "published", label: "منشورة", icon: Eye, color: "text-primary" },
-            { key: "archived", label: "مؤرشفة", icon: Archive, color: "text-muted-foreground" },
-          ] as const).map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setFilter(s.key)}
-              className={`bg-card rounded-xl border p-4 text-right transition-all ${filter === s.key ? "border-primary ring-1 ring-primary/30" : "border-border/50 hover:border-border"}`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <s.icon className={`w-5 h-5 ${s.color}`} />
-                <span className="text-2xl font-bold">{counts[s.key]}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">{s.label}</span>
-            </button>
-          ))}
-        </div>
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+          <TabsList className="max-w-full justify-start overflow-x-auto">
+            {([
+              { key: "all", label: "الكل" },
+              { key: "draft", label: "مسودات" },
+              { key: "published", label: "منشورة" },
+              { key: "archived", label: "مؤرشفة" },
+            ] as const).map((s) => (
+              <TabsTrigger key={s.key} value={s.key} className="gap-1.5">
+                {s.label}
+                <span className="text-xs font-normal text-muted-foreground">{formatNumber(counts[s.key])}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
-        {/* List */}
         {loading ? (
-          <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
+          <div className="h-64 animate-pulse rounded-2xl bg-card shadow-soft" />
         ) : filtered.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center space-y-3">
-            <Megaphone className="w-12 h-12 text-muted-foreground mx-auto" />
-            <h3 className="font-semibold text-lg">لا توجد إعلانات</h3>
-            <p className="text-muted-foreground text-sm">أنشئ إعلاناً جديداً للبدء</p>
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Megaphone}
+              title="لا توجد إعلانات"
+              description="أنشئ إعلاناً جديداً للبدء"
+              action={<Button variant="soft" size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> إعلان جديد</Button>}
+            />
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map((a) => (
-              <div key={a.id} className="bg-card rounded-xl border border-border/50 p-4 hover:border-border transition-all">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      {typeIcon(a.type)}
-                      <h3 className="font-semibold text-sm truncate">{a.title}</h3>
-                      <Badge variant={statusColor(a.status)} className="text-[10px]">{statusLabel(a.status)}</Badge>
-                      <Badge variant="outline" className="text-[10px] gap-1">
-                        <Users className="w-3 h-3" /> {audienceLabel(a.target_audience)}
-                      </Badge>
+          <Panel>
+            <div className="divide-y divide-border">
+              {filtered.map((a) => {
+                const TypeIcon = typeIcon(a.type);
+                return (
+                  <article key={a.id} className="flex flex-wrap items-start gap-3 py-4 first:pt-0 last:pb-0 sm:flex-nowrap">
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                      <TypeIcon className="h-[18px] w-[18px]" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h3 className="min-w-0 text-sm font-semibold leading-[22px]">{a.title}</h3>
+                        <StatusBadge tone={statusTone(a.status)}>{statusLabel(a.status)}</StatusBadge>
+                        <StatusBadge tone={typeTone(a.type)}>{typeLabel(a.type)}</StatusBadge>
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{a.content}</p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs leading-[18px] text-muted-foreground">
+                        <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5 flex-none opacity-70" /> {audienceLabel(a.target_audience)}</span>
+                        <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 flex-none opacity-70" /> {formatDate(a.created_at)}</span>
+                        {a.expires_at && <span>ينتهي: {formatDate(a.expires_at)}</span>}
+                      </div>
                     </div>
-                    <p className="text-muted-foreground text-xs line-clamp-2 mt-1">{a.content}</p>
-                    <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {new Date(a.created_at).toLocaleDateString("ar-SA")}
-                      </span>
-                      {a.expires_at && (
-                        <span>ينتهي: {new Date(a.expires_at).toLocaleDateString("ar-SA")}</span>
+                    <div className="flex w-full flex-none items-center gap-2 sm:w-auto">
+                      {a.status === "draft" && (
+                        <Button size="sm" variant="soft" className="flex-1 sm:flex-none" onClick={() => updateStatus(a.id, "published")}><Send className="h-4 w-4" /> نشر</Button>
                       )}
+                      {a.status === "published" && (
+                        <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => updateStatus(a.id, "archived")}><Archive className="h-4 w-4" /> أرشفة</Button>
+                      )}
+                      {a.status === "archived" && (
+                        <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => openEdit(a)}><Edit2 className="h-4 w-4" /> تعديل</Button>
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="outline" className="h-9 w-9 flex-none" aria-label="المزيد"><MoreHorizontal className="h-[18px] w-[18px]" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          {a.status !== "archived" && (
+                            <>
+                              <DropdownMenuItem onClick={() => openEdit(a)}><Edit2 className="h-4 w-4" /> تعديل</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDelete(a.id)}><Trash2 className="h-4 w-4" /> حذف</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {a.status === "draft" && (
-                      <Button size="sm" variant="ghost" onClick={() => updateStatus(a.id, "published")} title="نشر">
-                        <Send className="w-4 h-4 text-primary" />
-                      </Button>
-                    )}
-                    {a.status === "published" && (
-                      <Button size="sm" variant="ghost" onClick={() => updateStatus(a.id, "archived")} title="أرشفة">
-                        <Archive className="w-4 h-4" />
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(a)} title="تعديل">
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(a.id)} title="حذف">
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                  </article>
+                );
+              })}
+            </div>
+          </Panel>
         )}
 
-        {/* Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent dir="rtl" className="max-h-[92vh] max-w-lg overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? "تعديل الإعلان" : "إعلان جديد"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <div>
-                <label className="text-sm font-medium mb-1 block">العنوان</label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الإعلان" />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ann-title">العنوان</Label>
+                <Input id="ann-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="عنوان الإعلان" />
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">المحتوى</label>
-                <Textarea value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="نص الإعلان..." rows={4} />
+              <div className="space-y-2">
+                <Label htmlFor="ann-content">المحتوى</Label>
+                <Textarea id="ann-content" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="نص الإعلان..." rows={4} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">النوع</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>النوع</Label>
                   <Select value={form.type} onValueChange={(v: any) => setForm({ ...form, type: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label="النوع"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="info">معلومة</SelectItem>
                       <SelectItem value="warning">تنبيه</SelectItem>
@@ -281,32 +280,33 @@ const Announcements = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">الجمهور المستهدف</label>
+                <div className="space-y-2">
+                  <Label>الجمهور المستهدف</Label>
                   <Select value={form.target_audience} onValueChange={(v: any) => setForm({ ...form, target_audience: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label="الجمهور المستهدف"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">الجميع</SelectItem>
-                      <SelectItem value="organizers">المنظمين</SelectItem>
+                      <SelectItem value="organizers">المنظمون</SelectItem>
                       <SelectItem value="attendees">الحضور</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">يبدأ في</label>
-                  <Input type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1 block">ينتهي في (اختياري)</label>
-                  <Input type="datetime-local" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="ann-start">يبدأ في</Label>
+                <Input id="ann-start" type="datetime-local" dir="ltr" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} />
               </div>
-              <Button onClick={handleSave} disabled={saving} className="w-full">
+              <div className="space-y-2">
+                <Label htmlFor="ann-end">ينتهي في (اختياري)</Label>
+                <Input id="ann-end" type="datetime-local" dir="ltr" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleSave} disabled={saving}>
                 {saving ? "جاري الحفظ..." : editingId ? "تحديث" : "إنشاء"}
               </Button>
-            </div>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

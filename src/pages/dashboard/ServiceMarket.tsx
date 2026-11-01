@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -18,7 +21,8 @@ import {
 } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Plus, ShoppingBag, Calendar, Sparkles, CheckCircle2 } from "lucide-react";
+import { Calendar, CheckCircle2, ClipboardList, Plus, ShoppingBag } from "lucide-react";
+import { formatDate, formatNumber } from "@/lib/format";
 
 const requestSchema = z.object({
   title: z.string().trim().min(3, "العنوان قصير").max(120),
@@ -40,8 +44,12 @@ const bookingSchema = z.object({
   notes: z.string().max(1000).optional().or(z.literal("")),
 });
 
-const labels: Record<string, string> = {
-  new: "جديد", in_review: "قيد المراجعة", assigned: "تم الإحالة", closed: "مغلق", cancelled: "ملغي",
+const labels: Record<string, { label: string; tone: StatusTone }> = {
+  new: { label: "جديد", tone: "primary" },
+  in_review: { label: "قيد المراجعة", tone: "warning" },
+  assigned: { label: "تم الإحالة", tone: "success" },
+  closed: { label: "مغلق", tone: "neutral" },
+  cancelled: { label: "ملغي", tone: "neutral" },
 };
 
 const ServiceMarket = () => {
@@ -49,6 +57,7 @@ const ServiceMarket = () => {
   const [services, setServices] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [activeService, setActiveService] = useState<any>(null);
@@ -73,6 +82,7 @@ const ServiceMarket = () => {
     setServices(svc.data || []);
     setCategories(cats.data || []);
     setRequests(reqs.data || []);
+    setLoading(false);
   };
 
   useEffect(() => { document.title = "سوق الخدمات | نكفيك"; load(); }, []);
@@ -139,105 +149,109 @@ const ServiceMarket = () => {
     load();
   };
 
+  const newRequest = <Button onClick={() => setRequestOpen(true)}><Plus className="w-4 h-4" /> طلب خدمة جديدة</Button>;
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl text-primary flex items-center gap-2">
-            <ShoppingBag className="w-6 h-6" /> سوق الخدمات
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">احجز خدمات نكفيك مباشرة، أو أرسل طلب خدمة مخصص</p>
-        </div>
+        <PageHeader
+          title="سوق الخدمات"
+          description="احجز خدمات نكفيك مباشرة، أو أرسل طلب خدمة مخصص"
+          actions={newRequest}
+        />
 
         <Tabs defaultValue="services">
           <TabsList>
-            <TabsTrigger value="services"><Sparkles className="w-4 h-4 ml-1" /> خدمات نكفيك</TabsTrigger>
-            <TabsTrigger value="custom">طلب خدمة مخصص</TabsTrigger>
+            <TabsTrigger value="services" className="gap-1.5">
+              خدمات نكفيك
+              {!loading && <span className="text-xs font-normal text-muted-foreground">{formatNumber(services.length)}</span>}
+            </TabsTrigger>
+            <TabsTrigger value="custom" className="gap-1.5">
+              طلب خدمة مخصص
+              {!loading && <span className="text-xs font-normal text-muted-foreground">{formatNumber(requests.length)}</span>}
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="services" className="space-y-4">
-            {services.length === 0 ? (
-              <p className="text-center text-muted-foreground p-8 bg-card border rounded-2xl">
-                لا توجد خدمات معروضة حالياً
-              </p>
+          <TabsContent value="services" className="mt-6">
+            {loading ? (
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((i) => <div key={i} className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+              </div>
+            ) : services.length === 0 ? (
+              <div className="rounded-2xl bg-card shadow-soft">
+                <EmptyState icon={ShoppingBag} title="لا توجد خدمات معروضة حالياً" action={newRequest} />
+              </div>
             ) : (
-              <div dir="rtl" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div dir="rtl" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {services.map((s) => (
-                  <div key={s.id} className="bg-card border rounded-2xl overflow-hidden flex flex-col hover:shadow-lg transition">
-                    <div className="relative h-40 bg-gradient-to-br from-primary/20 to-accent/20">
-                      {s.image_url ? (
-                        <img src={s.image_url} alt={s.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ShoppingBag className="w-12 h-12 text-primary/40" />
-                        </div>
-                      )}
-                      {s.is_featured && (
-                        <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground">
-                          <Sparkles className="w-3 h-3 ml-1" /> مميزة
-                        </Badge>
-                      )}
+                  <article key={s.id} className="flex flex-col overflow-hidden rounded-2xl bg-card shadow-soft">
+                    <div className="relative flex h-[76px] items-center justify-between bg-secondary px-5">
+                      {s.image_url && <img src={s.image_url} alt={s.name} className="absolute inset-0 h-full w-full object-cover" />}
+                      <span className="relative grid h-10 w-10 place-items-center rounded-xl bg-white/85 text-primary">
+                        <ShoppingBag className="h-5 w-5" />
+                      </span>
+                      {s.is_featured && <StatusBadge tone="primary" className="relative bg-white">مميزة</StatusBadge>}
                     </div>
-                    <div className="p-4 flex-1 flex flex-col gap-2">
+                    <div className="flex flex-1 flex-col gap-3 px-5 pb-5 pt-4">
                       <div>
-                        <h3 className="font-bold">{s.name}</h3>
-                        {s.category && <p className="text-xs text-muted-foreground">{s.category}</p>}
+                        <h3 className="truncate text-base font-bold leading-6">{s.name}</h3>
+                        {s.category && <p className="text-xs leading-[18px] text-muted-foreground">{s.category}</p>}
                       </div>
-                      {s.description && <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>}
+                      {s.description && <p className="line-clamp-2 text-[13px] leading-5 text-muted-foreground">{s.description}</p>}
                       {Array.isArray(s.features) && s.features.length > 0 && (
-                        <ul className="text-xs space-y-1 mt-1">
+                        <ul className="space-y-1 text-[13px] leading-5 text-muted-foreground">
                           {s.features.slice(0, 3).map((f: string, i: number) => (
-                            <li key={i} className="flex items-center gap-1 text-muted-foreground">
-                              <CheckCircle2 className="w-3 h-3 text-primary flex-shrink-0" />
+                            <li key={i} className="flex items-center gap-2">
+                              <CheckCircle2 className="h-[15px] w-[15px] flex-none text-primary" />
                               <span className="truncate">{f}</span>
                             </li>
                           ))}
                         </ul>
                       )}
-                      <div className="flex items-center justify-between mt-auto pt-3">
+                      <div className="mt-auto flex items-center justify-between gap-3 pt-1">
                         {s.starting_price ? (
-                          <div>
-                            <p className="text-[10px] text-muted-foreground">{s.price_unit || "يبدأ من"}</p>
-                            <p className="font-bold text-primary">{s.starting_price} <span className="text-xs">ر.س</span></p>
+                          <div className="min-w-0">
+                            {/* وحدة السعر عبارة وصفية مثل «يبدأ من»، والعملة تظهر مع المبلغ */}
+                            <p className="text-xs leading-[18px] text-muted-foreground">{s.price_unit && s.price_unit !== "ر.س" ? s.price_unit : "يبدأ من"}</p>
+                            <p className="text-base font-bold leading-6">{formatNumber(s.starting_price)} <span className="text-xs font-semibold text-muted-foreground">ر.س</span></p>
                           </div>
                         ) : <span />}
-                        <Button size="sm" onClick={() => openBooking(s)}>
-                          <Calendar className="w-4 h-4 ml-1" /> احجز الآن
+                        <Button size="sm" variant="soft" onClick={() => openBooking(s)}>
+                          <Calendar className="w-4 h-4" /> احجز الآن
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 ))}
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="custom" className="space-y-4">
-            <div className="flex justify-end">
-              <Button onClick={() => setRequestOpen(true)}>
-                <Plus className="w-4 h-4 ml-1" /> طلب خدمة جديدة
-              </Button>
-            </div>
-            <h2 className="font-bold">طلباتي</h2>
-            <div className="grid gap-3">
-              {requests.length === 0 && <p className="text-center text-muted-foreground p-8 bg-card border rounded-2xl">لا توجد طلبات بعد</p>}
-              {requests.map((r) => (
-                <div key={r.id} className="bg-card border rounded-2xl p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div>
-                      <h3 className="font-bold">{r.title}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {r.service_provider_categories?.name_ar}
-                        {r.city && ` • ${r.city}`}
-                        {r.event_date && ` • ${new Date(r.event_date).toLocaleDateString("ar-SA")}`}
-                      </p>
-                    </div>
-                    <Badge>{labels[r.status]}</Badge>
-                  </div>
-                  <p className="text-sm">{r.description}</p>
+          <TabsContent value="custom" className="mt-6">
+            <Panel title="طلباتي">
+              {requests.length === 0 ? (
+                <EmptyState icon={ClipboardList} title="لا توجد طلبات بعد" action={newRequest} />
+              ) : (
+                <div className="divide-y divide-border">
+                  {requests.map((r) => {
+                    const status = labels[r.status];
+                    return (
+                      <div key={r.id} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                        <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary"><ClipboardList className="h-[17px] w-[17px]" /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold leading-[22px]">{r.title}</p>
+                          <p className="text-xs leading-[18px] text-muted-foreground">
+                            {[r.service_provider_categories?.name_ar, r.city, r.event_date && formatDate(r.event_date)].filter(Boolean).join("، ")}
+                          </p>
+                          <p className="mt-1.5 text-[13px] leading-5 text-muted-foreground">{r.description}</p>
+                        </div>
+                        {status && <StatusBadge tone={status.tone}>{status.label}</StatusBadge>}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+              )}
+            </Panel>
           </TabsContent>
         </Tabs>
 
@@ -247,16 +261,16 @@ const ServiceMarket = () => {
             <DialogHeader>
               <DialogTitle>حجز: {activeService?.name}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              <div><Label>الاسم *</Label><Input value={bookingForm.customer_name} onChange={(e) => setBookingForm({ ...bookingForm, customer_name: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label>الجوال *</Label><Input dir="ltr" placeholder="+9665xxxxxxxx" value={bookingForm.customer_phone} onChange={(e) => setBookingForm({ ...bookingForm, customer_phone: e.target.value })} /></div>
-                <div><Label>البريد</Label><Input dir="ltr" type="email" value={bookingForm.customer_email} onChange={(e) => setBookingForm({ ...bookingForm, customer_email: e.target.value })} /></div>
-                <div><Label>تاريخ الفعالية</Label><Input type="date" value={bookingForm.event_date} onChange={(e) => setBookingForm({ ...bookingForm, event_date: e.target.value })} /></div>
-                <div><Label>المدينة</Label><Input value={bookingForm.city} onChange={(e) => setBookingForm({ ...bookingForm, city: e.target.value })} /></div>
-                <div><Label>عدد الحضور المتوقع</Label><Input type="number" value={bookingForm.attendees_count} onChange={(e) => setBookingForm({ ...bookingForm, attendees_count: e.target.value })} /></div>
+            <div className="space-y-4">
+              <div className="space-y-2"><Label>الاسم *</Label><Input value={bookingForm.customer_name} onChange={(e) => setBookingForm({ ...bookingForm, customer_name: e.target.value })} /></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>الجوال *</Label><Input dir="ltr" placeholder="+9665xxxxxxxx" value={bookingForm.customer_phone} onChange={(e) => setBookingForm({ ...bookingForm, customer_phone: e.target.value })} /></div>
+                <div className="space-y-2"><Label>البريد</Label><Input dir="ltr" type="email" value={bookingForm.customer_email} onChange={(e) => setBookingForm({ ...bookingForm, customer_email: e.target.value })} /></div>
+                <div className="space-y-2"><Label>تاريخ الفعالية</Label><Input type="date" value={bookingForm.event_date} onChange={(e) => setBookingForm({ ...bookingForm, event_date: e.target.value })} /></div>
+                <div className="space-y-2"><Label>المدينة</Label><Input value={bookingForm.city} onChange={(e) => setBookingForm({ ...bookingForm, city: e.target.value })} /></div>
+                <div className="space-y-2"><Label>عدد الحضور المتوقع</Label><Input type="number" value={bookingForm.attendees_count} onChange={(e) => setBookingForm({ ...bookingForm, attendees_count: e.target.value })} /></div>
               </div>
-              <div><Label>تفاصيل إضافية</Label><Textarea rows={3} value={bookingForm.notes} onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })} /></div>
+              <div className="space-y-2"><Label>تفاصيل إضافية</Label><Textarea rows={3} value={bookingForm.notes} onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })} /></div>
               <Button onClick={submitBooking} className="w-full">إرسال طلب الحجز</Button>
             </div>
           </DialogContent>
@@ -266,8 +280,8 @@ const ServiceMarket = () => {
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
           <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>طلب خدمة مخصص</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div>
+            <div className="space-y-4">
+              <div className="space-y-2">
                 <Label>الفئة *</Label>
                 <Select value={requestForm.category_id} onValueChange={(v) => setRequestForm({ ...requestForm, category_id: v })}>
                   <SelectTrigger><SelectValue placeholder="اختر الفئة" /></SelectTrigger>
@@ -276,13 +290,13 @@ const ServiceMarket = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label>عنوان الطلب *</Label><Input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} /></div>
-              <div><Label>الوصف *</Label><Textarea rows={4} value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label>تاريخ الفعالية</Label><Input type="date" value={requestForm.event_date} onChange={(e) => setRequestForm({ ...requestForm, event_date: e.target.value })} /></div>
-                <div><Label>المدينة</Label><Input value={requestForm.city} onChange={(e) => setRequestForm({ ...requestForm, city: e.target.value })} /></div>
-                <div><Label>الميزانية (ر.س)</Label><Input type="number" value={requestForm.budget} onChange={(e) => setRequestForm({ ...requestForm, budget: e.target.value })} /></div>
-                <div><Label>جوال التواصل</Label><Input dir="ltr" placeholder="+9665xxxxxxxx" value={requestForm.contact_phone} onChange={(e) => setRequestForm({ ...requestForm, contact_phone: e.target.value })} /></div>
+              <div className="space-y-2"><Label>عنوان الطلب *</Label><Input value={requestForm.title} onChange={(e) => setRequestForm({ ...requestForm, title: e.target.value })} /></div>
+              <div className="space-y-2"><Label>الوصف *</Label><Textarea rows={4} value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })} /></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>تاريخ الفعالية</Label><Input type="date" value={requestForm.event_date} onChange={(e) => setRequestForm({ ...requestForm, event_date: e.target.value })} /></div>
+                <div className="space-y-2"><Label>المدينة</Label><Input value={requestForm.city} onChange={(e) => setRequestForm({ ...requestForm, city: e.target.value })} /></div>
+                <div className="space-y-2"><Label>الميزانية (ر.س)</Label><Input type="number" value={requestForm.budget} onChange={(e) => setRequestForm({ ...requestForm, budget: e.target.value })} /></div>
+                <div className="space-y-2"><Label>جوال التواصل</Label><Input dir="ltr" placeholder="+9665xxxxxxxx" value={requestForm.contact_phone} onChange={(e) => setRequestForm({ ...requestForm, contact_phone: e.target.value })} /></div>
               </div>
               <Button onClick={submitRequest} className="w-full">إرسال الطلب</Button>
             </div>

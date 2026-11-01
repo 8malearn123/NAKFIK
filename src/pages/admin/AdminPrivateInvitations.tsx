@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { Badge } from "@/components/ui/badge";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Mail, ExternalLink, Users, Calendar, Trash2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate, formatNumber, percent } from "@/lib/format";
+import { Mail, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const AdminPrivateInvitations = () => {
@@ -33,50 +38,77 @@ const AdminPrivateInvitations = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-display text-2xl text-primary flex items-center gap-2">
-            <Mail className="w-6 h-6" /> الدعوات الخاصة
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">جميع دعوات المؤسسات الخاصة (مناسبات، VIP، تكريم)</p>
-        </div>
+        <PageHeader
+          title="الدعوات الخاصة"
+          description={<>جميع دعوات المؤسسات الخاصة (مناسبات، <bdi dir="ltr">VIP</bdi>، تكريم)</>}
+        />
 
         {loading ? (
-          <div className="grid gap-3">{[1, 2, 3].map(i => <div key={i} className="h-24 bg-card border rounded-xl animate-pulse" />)}</div>
+          <div className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />
         ) : items.length === 0 ? (
-          <p className="text-center text-muted-foreground p-12 bg-card border rounded-2xl">لا توجد دعوات خاصة</p>
-        ) : (
-          <div className="grid gap-3">
-            {items.map((inv) => {
-              const guests = inv.private_invitation_guests || [];
-              const confirmed = guests.filter((g: any) => g.rsvp_status === "confirmed").length;
-              return (
-                <div key={inv.id} className="bg-card border rounded-2xl p-4 flex items-center gap-4 flex-wrap">
-                  <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${inv.theme_color}, ${inv.accent_color})` }}
-                  >
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold">{inv.title}</h3>
-                      <Badge variant={inv.status === "active" ? "default" : "secondary"}>
-                        {inv.status === "active" ? "نشطة" : inv.status === "draft" ? "مسودة" : "مغلقة"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-3 mt-1 flex-wrap">
-                      <span>{inv.organizations?.name}</span>
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(inv.event_date).toLocaleDateString("ar-SA")}</span>
-                      <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {confirmed}/{guests.length} مؤكد</span>
-                    </p>
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={() => remove(inv.id)}>
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              );
-            })}
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState icon={Mail} title="لا توجد دعوات خاصة" />
           </div>
+        ) : (
+          <Panel flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">الدعوة</TableHead>
+                  <TableHead>الموعد</TableHead>
+                  <TableHead>مؤكدون</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead className="pe-6"><span className="sr-only">إجراءات</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((inv) => {
+                  const guests = inv.private_invitation_guests || [];
+                  const confirmed = guests.filter((g: any) => g.rsvp_status === "confirmed").length;
+                  return (
+                    <TableRow key={inv.id}>
+                      <TableCell className="ps-6">
+                        <div className="flex items-center gap-3">
+                          <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                            <Mail className="h-[18px] w-[18px]" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="whitespace-nowrap font-semibold leading-[22px]">{inv.title}</p>
+                            <p className="whitespace-nowrap text-xs leading-[18px] text-muted-foreground">{inv.organizations?.name}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(inv.event_date)}</TableCell>
+                      <TableCell>
+                        {guests.length === 0 ? (
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">لا يوجد مدعوون بعد</span>
+                        ) : (
+                          <div className="flex w-40 flex-col gap-1.5">
+                            <span className="text-xs leading-[18px] text-muted-foreground">
+                              <b className="text-sm font-bold text-foreground">{formatNumber(confirmed)}</b> من {formatNumber(guests.length)}
+                            </span>
+                            <div className="h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+                              <div className="h-full rounded-full bg-primary" style={{ width: `${percent(confirmed, guests.length)}%` }} />
+                            </div>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge tone={inv.status === "active" ? "success" : "neutral"}>
+                          {inv.status === "active" ? "نشطة" : inv.status === "draft" ? "مسودة" : "مغلقة"}
+                        </StatusBadge>
+                      </TableCell>
+                      <TableCell className="pe-6 text-end">
+                        <Button size="icon" variant="ghost" aria-label="حذف" className="h-9 w-9 text-destructive hover:text-destructive" onClick={() => remove(inv.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </AdminLayout>

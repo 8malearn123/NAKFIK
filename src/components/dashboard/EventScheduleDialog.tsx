@@ -7,11 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import StatusBadge from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
-import { CalendarClock, XCircle, History, ArrowLeft, Bell } from "lucide-react";
+import { ArrowRight, Bell, CalendarClock, History, XCircle } from "lucide-react";
 
 interface ScheduleChange {
   id: string;
@@ -32,8 +34,17 @@ interface Props {
 const SQL_HINT = "شغّل ملف nakfik_event_schedule.sql في Supabase أولاً لتفعيل هذه الميزة";
 
 // تنسيق التاريخ للعرض
-const fmt = (d: string | null) =>
-  d ? new Date(d).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" }) : "—";
+const fmt = (d: string | null) => (d ? formatDateTime(d) : "—");
+
+// عدد المسجلين بصياغة عربية صحيحة، مثل: مسجّل واحد، مسجّلَين، 5 مسجّلين، 23 مسجّلاً
+const registrants = (count: number) => {
+  if (count === 1) return "مسجّل واحد";
+  if (count === 2) return "مسجّلَين";
+  const tail = count % 100;
+  if (tail >= 3 && tail <= 10) return `${formatNumber(count)} مسجّلين`;
+  if (tail >= 11) return `${formatNumber(count)} مسجّلاً`;
+  return `${formatNumber(count)} مسجّل`;
+};
 
 // تحويل تاريخ الفعالية إلى قيمة datetime-local محلية
 const toLocalInput = (iso: string) => {
@@ -86,7 +97,7 @@ const EventScheduleDialog = ({ event, onOpenChange, onDone }: Props) => {
       toast.error(rpcError(error));
       return;
     }
-    toast.success(`تم إلغاء الفعالية وإرسال رسالة الاعتذار إلى ${Number(data) || 0} مسجّل`);
+    toast.success(`تم إلغاء الفعالية وإرسال رسالة الاعتذار إلى ${registrants(Number(data) || 0)}`);
     onDone({ status: "cancelled" });
     onOpenChange(false);
   };
@@ -108,53 +119,52 @@ const EventScheduleDialog = ({ event, onOpenChange, onDone }: Props) => {
       toast.error(rpcError(error));
       return;
     }
-    toast.success(`تم تحديث الموعد وإشعار ${Number(data) || 0} مسجّل بالموعد الجديد`);
+    toast.success(`تم تحديث الموعد وإشعار ${registrants(Number(data) || 0)} بالموعد الجديد`);
     onDone({ start_date: iso, ...(event.status === "cancelled" ? { status: "published" } : {}) });
     onOpenChange(false);
   };
 
   return (
     <Dialog open={!!event} onOpenChange={onOpenChange}>
-      <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent dir="rtl" className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl">
+        <DialogHeader className="pe-6 text-start sm:text-start">
           <DialogTitle>إلغاء / إعادة جدولة — {event.title_ar}</DialogTitle>
+          <DialogDescription>
+            الموعد الحالي: <span className="font-semibold text-foreground">{fmt(event.start_date)}</span>
+          </DialogDescription>
         </DialogHeader>
 
-        <p className="text-xs text-muted-foreground -mt-1">
-          الموعد الحالي: <span className="font-bold text-foreground">{fmt(event.start_date)}</span>
-        </p>
-
         {!mode ? (
-          <div className="grid grid-cols-2 gap-3 py-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => setMode("cancel")}
-              className="rounded-2xl border-2 border-border hover:border-destructive p-4 text-right transition-all hover:-translate-y-0.5"
+              className="rounded-xl bg-muted/50 p-4 text-start transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <XCircle className="w-7 h-7 text-destructive mb-2" />
-              <p className="font-bold text-sm">إلغاء الفعالية</p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
+              <span className="mb-3 grid h-9 w-9 place-items-center rounded-[10px] bg-[#FBECEA] text-[#B42F24]"><XCircle className="h-[18px] w-[18px]" /></span>
+              <p className="text-sm font-bold">إلغاء الفعالية</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 إشعار ورسالة اعتذار رسمية تلقائية لجميع المسجلين مع إمكانية ذكر السبب
               </p>
             </button>
             <button
               type="button"
               onClick={() => setMode("reschedule")}
-              className="rounded-2xl border-2 border-border hover:border-primary p-4 text-right transition-all hover:-translate-y-0.5"
+              className="rounded-xl bg-muted/50 p-4 text-start transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <CalendarClock className="w-7 h-7 text-primary mb-2" />
-              <p className="font-bold text-sm">إعادة جدولة</p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
+              <span className="mb-3 grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary"><CalendarClock className="h-[18px] w-[18px]" /></span>
+              <p className="text-sm font-bold">إعادة جدولة</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
                 موعد جديد يُحدَّث تلقائياً في التذاكر مع إشعار جميع المسجلين به
               </p>
             </button>
           </div>
         ) : mode === "cancel" ? (
-          <div className="space-y-3">
-            <div className="rounded-xl bg-destructive/5 border border-destructive/30 p-3 text-xs leading-relaxed text-destructive">
+          <div className="space-y-4">
+            <div className="rounded-xl bg-[#FBECEA] p-3 text-[13px] leading-5 text-[#B42F24]">
               سيتم تغيير حالة الفعالية إلى "ملغاة" وإرسال رسالة اعتذار رسمية فورية لجميع المسجلين.
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>سبب الإلغاء (يظهر في رسالة الاعتذار — اختياري)</Label>
               <Textarea
                 value={reason}
@@ -163,19 +173,10 @@ const EventScheduleDialog = ({ event, onOpenChange, onDone }: Props) => {
                 rows={3}
               />
             </div>
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={doCancel}
-              disabled={busy}
-            >
-              <Bell className="w-4 h-4 ml-1" />
-              {busy ? "جارٍ الإلغاء وإرسال الإشعارات..." : "تأكيد الإلغاء وإشعار جميع المسجلين"}
-            </Button>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <Label>الموعد الجديد (التاريخ والوقت) *</Label>
               <Input
                 type="datetime-local"
@@ -184,7 +185,7 @@ const EventScheduleDialog = ({ event, onOpenChange, onDone }: Props) => {
                 dir="ltr"
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>سبب التأجيل (يظهر في الإشعار — اختياري)</Label>
               <Textarea
                 value={reason}
@@ -193,48 +194,56 @@ const EventScheduleDialog = ({ event, onOpenChange, onDone }: Props) => {
                 rows={2}
               />
             </div>
-            <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-xs leading-relaxed text-muted-foreground">
+            <div className="rounded-xl bg-muted/50 p-3 text-[13px] leading-5 text-muted-foreground">
               سيتم تحديث موعد الفعالية في جميع التذاكر تلقائياً، وإرسال إشعار لكل مسجّل يوضح الموعد الجديد.
             </div>
-            <Button className="w-full" onClick={doReschedule} disabled={busy}>
-              <Bell className="w-4 h-4 ml-1" />
-              {busy ? "جارٍ التحديث وإرسال الإشعارات..." : "تأكيد التأجيل وإشعار جميع المسجلين"}
-            </Button>
           </div>
         )}
 
         {/* سجل التعديلات — تاريخ كامل لكل عمليات الإلغاء وإعادة الجدولة */}
         {log.length > 0 && (
-          <div className="mt-2 pt-3 border-t border-border/50">
-            <p className="text-xs font-bold text-foreground flex items-center gap-1.5 mb-2">
-              <History className="w-3.5 h-3.5" /> سجل التعديلات
+          <div className="border-t border-border pt-4">
+            <p className="mb-2.5 flex items-center gap-1.5 text-[13px] font-bold leading-5">
+              <History className="h-4 w-4 text-muted-foreground" /> سجل التعديلات
             </p>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
+            <div className="max-h-44 space-y-2 overflow-y-auto">
               {log.map((l) => (
-                <div key={l.id} className="rounded-lg border border-border/50 bg-muted/30 p-2.5 text-[11px] leading-relaxed">
-                  <div className="flex items-center justify-between">
-                    <span className={`font-bold ${l.action === "cancelled" ? "text-destructive" : "text-primary"}`}>
+                <div key={l.id} className="space-y-1 rounded-xl bg-muted/50 p-3 text-xs leading-5">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <StatusBadge tone={l.action === "cancelled" ? "danger" : "primary"}>
                       {l.action === "cancelled" ? "إلغاء" : "إعادة جدولة"}
-                    </span>
+                    </StatusBadge>
                     <span className="text-muted-foreground">{fmt(l.created_at)}</span>
                   </div>
                   {l.action === "rescheduled" && (
-                    <p className="text-muted-foreground mt-0.5">
-                      من {fmt(l.old_start_date)} إلى <span className="font-bold text-foreground">{fmt(l.new_start_date)}</span>
+                    <p className="text-muted-foreground">
+                      من {fmt(l.old_start_date)} إلى <span className="font-semibold text-foreground">{fmt(l.new_start_date)}</span>
                     </p>
                   )}
-                  {l.reason && <p className="mt-0.5">السبب: {l.reason}</p>}
-                  <p className="text-muted-foreground mt-0.5">تم إشعار {l.notified_count} مسجّل</p>
+                  {l.reason && <p>السبب: {l.reason}</p>}
+                  <p className="text-muted-foreground">تم إشعار {registrants(Number(l.notified_count) || 0)}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
+          {mode === "cancel" && (
+            <Button variant="destructive" onClick={doCancel} disabled={busy}>
+              <Bell className="h-4 w-4" />
+              {busy ? "جارٍ الإلغاء وإرسال الإشعارات..." : "تأكيد الإلغاء وإشعار جميع المسجلين"}
+            </Button>
+          )}
+          {mode === "reschedule" && (
+            <Button onClick={doReschedule} disabled={busy}>
+              <Bell className="h-4 w-4" />
+              {busy ? "جارٍ التحديث وإرسال الإشعارات..." : "تأكيد التأجيل وإشعار جميع المسجلين"}
+            </Button>
+          )}
           {mode && (
             <Button variant="ghost" onClick={() => setMode(null)} disabled={busy}>
-              <ArrowLeft className="w-4 h-4 ml-1 rotate-180" /> رجوع
+              <ArrowRight className="h-4 w-4" /> رجوع
             </Button>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>إغلاق</Button>
