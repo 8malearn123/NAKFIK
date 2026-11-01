@@ -86,7 +86,7 @@ const AppShell = ({ sections, userName, userSubtitle, notificationsPath, onSignO
           {!collapsed && (
             <>
               <span className="truncate">{l.label}</span>
-              <span className="ms-auto rounded-full bg-muted px-2 text-[11px] leading-5">قريباً</span>
+              <span className="ms-auto rounded-full bg-muted px-2 text-xs leading-5">قريباً</span>
             </>
           )}
         </div>
@@ -187,11 +187,12 @@ const AppShell = ({ sections, userName, userSubtitle, notificationsPath, onSignO
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex h-10 min-w-0 max-w-[360px] flex-1 items-center gap-2.5 rounded-xl bg-card px-3 text-sm text-muted-foreground shadow-[0_1px_2px_rgb(36_19_47/0.04)] transition-colors hover:bg-card/70"
+            aria-label="ابحث عن صفحة"
+            className="flex h-10 w-10 flex-none items-center justify-center gap-2.5 rounded-xl text-sm text-muted-foreground transition-colors hover:bg-card/70 sm:w-auto sm:min-w-0 sm:max-w-[360px] sm:flex-1 sm:justify-start sm:bg-card sm:px-3 sm:shadow-[0_1px_2px_rgb(36_19_47/0.04)]"
           >
             <Search className="h-[17px] w-[17px] flex-none" />
-            <span className="truncate">ابحث عن صفحة</span>
-            <kbd className="ms-auto hidden rounded-md border border-border bg-muted/60 px-1.5 text-[11px] leading-[18px] sm:block">
+            <span className="hidden truncate sm:block">ابحث عن صفحة</span>
+            <kbd className="ms-auto hidden rounded-md border border-border bg-muted/60 px-1.5 text-xs leading-[18px] sm:block">
               <bdi dir="ltr">⌘K</bdi>
             </kbd>
           </button>

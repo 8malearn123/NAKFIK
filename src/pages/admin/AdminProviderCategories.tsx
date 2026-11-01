@@ -90,7 +90,7 @@ const AdminProviderCategories = () => {
                 <EmptyState
                   icon={Layers}
                   title="لا توجد فئات بعد"
-                  action={<Button variant="outline" onClick={() => nameRef.current?.focus()}><Plus className="h-4 w-4" /> إضافة</Button>}
+                  action={<Button variant="outline" size="sm" onClick={() => nameRef.current?.focus()}><Plus className="h-4 w-4" /> إضافة</Button>}
                 />
               </div>
             ) : (

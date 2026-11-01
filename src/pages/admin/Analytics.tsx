@@ -68,8 +68,8 @@ const Analytics = () => {
 
       // Events by status
       const statusMap: Record<string, string> = {
-        draft: "مسودة", pending_review: "قيد المراجعة", approved: "معتمد",
-        published: "منشور", rejected: "مرفوض", cancelled: "ملغي", completed: "مكتمل",
+        draft: "مسودة", pending_review: "قيد المراجعة", approved: "معتمدة",
+        published: "منشورة", rejected: "مرفوضة", cancelled: "ملغاة", completed: "منتهية",
       };
       const statusCounts: Record<string, number> = {};
       (events || []).forEach(e => { statusCounts[e.status] = (statusCounts[e.status] || 0) + 1; });
@@ -115,7 +115,7 @@ const Analytics = () => {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader title="تحليلات المنصة" />
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
           <div className="grid gap-6 xl:grid-cols-3">
@@ -141,7 +141,7 @@ const Analytics = () => {
       <div className="space-y-6">
         <PageHeader title="تحليلات المنصة" />
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3">
           {kpis.map((kpi) => <StatCard key={kpi.label} label={kpi.label} value={formatNumber(kpi.value)} icon={kpi.icon} />)}
         </div>
 

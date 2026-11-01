@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import BrandLogo from "@/components/brand/BrandLogo";
-import { Lock, CheckCircle } from "lucide-react";
+import { ArrowRight, Lock, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -148,7 +148,8 @@ const ResetPassword = () => {
         )}
 
         <div className="mt-6 text-center">
-          <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/login" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
+            <ArrowRight className="h-4 w-4 ltr:rotate-180" />
             {t("pgAuth.reset.backToLogin")}
           </Link>
         </div>

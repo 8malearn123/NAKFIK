@@ -154,7 +154,7 @@ const AdminHeatmap = () => {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader title="الخارطة الحرارية للمنصة" description="…" />
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
             {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
           <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
@@ -170,10 +170,10 @@ const AdminHeatmap = () => {
       <div className="space-y-6">
         <PageHeader title="الخارطة الحرارية للمنصة" description="نظرة شاملة على ضغط البوابات عبر كل الفعاليات النشطة، تحديث كل 30 ثانية" />
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
           <StatCard label="فعاليات نشطة" value={formatNumber(platformStats.totalEvents)} icon={Calendar} />
           <StatCard label="إجمالي الدخول" value={formatNumber(platformStats.totalScans)} icon={DoorOpen} />
-          <StatCard label="السعة الكلية" value={platformStats.totalCap ? formatNumber(platformStats.totalCap) : "∞"} icon={Users} />
+          <StatCard label="السعة الكلية" value={platformStats.totalCap ? formatNumber(platformStats.totalCap) : "—"} icon={Users} />
           <StatCard label="متوسط الإشغال" value={`${platformStats.pct}%`} icon={Gauge} />
           <StatCard label="فعاليات حرجة" value={formatNumber(platformStats.critical)} icon={AlertTriangle} />
         </div>

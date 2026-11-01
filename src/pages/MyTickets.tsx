@@ -65,7 +65,7 @@ const TicketCard = ({ reg, onCancelled, embedded }: { reg: RegistrationRow; onCa
   };
 
   return (
-    <article className={`overflow-hidden rounded-2xl bg-card shadow-soft ${embedded ? "border" : ""}`}>
+    <article className={`overflow-hidden ${embedded ? "rounded-xl bg-muted/50" : "rounded-2xl bg-card shadow-soft"}`}>
       <div className="flex flex-col sm:flex-row">
         <div className="relative h-36 flex-none sm:h-auto sm:w-44">
           <img src={reg.event.cover_image_url || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=200&fit=crop"} alt={reg.event.title_ar} className="absolute inset-0 h-full w-full object-cover" />
@@ -76,7 +76,7 @@ const TicketCard = ({ reg, onCancelled, embedded }: { reg: RegistrationRow; onCa
             <div className="min-w-0">
               <h3 className="truncate text-base font-bold leading-6">{reg.event.title_ar}</h3>
               <div className="mt-2 space-y-1 text-[13px] leading-5 text-muted-foreground">
-                <p className="flex items-center gap-2"><Calendar className="h-[15px] w-[15px] flex-none opacity-70" /> {formatDate(reg.event.start_date)}</p>
+                <p className="flex items-center gap-2"><Calendar className="h-[15px] w-[15px] flex-none opacity-70" /> {formatDate(reg.event.start_date, true, lang)}</p>
                 <p className="flex items-center gap-2"><MapPin className="h-[15px] w-[15px] flex-none opacity-70" /> <span className="truncate">{reg.event.is_online ? t("pgTickets.online") : (reg.event.venue_name || t("pgTickets.notSpecified"))}</span></p>
                 {reg.ticket && (
                   <p className="flex items-center gap-2">
@@ -108,7 +108,7 @@ const TicketCard = ({ reg, onCancelled, embedded }: { reg: RegistrationRow; onCa
                     {expanded ? <ChevronUp className="h-[15px] w-[15px]" /> : <ChevronDown className="h-[15px] w-[15px]" />}
                     {expanded ? t("pgTickets.hideDetails") : t("pgTickets.viewTicket")}
                   </Button>
-                  <AddToWalletButton registrationId={reg.id} compact />
+                  <AddToWalletButton registrationId={reg.id} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="icon" variant="outline" className="ms-auto h-9 w-9 flex-none" disabled={cancelling} aria-label={lang === "ar" ? "المزيد" : "More"}>
@@ -142,30 +142,30 @@ const TicketCard = ({ reg, onCancelled, embedded }: { reg: RegistrationRow; onCa
       </div>
       {expanded && !isPast && (
         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} className="border-t border-border p-5">
-          <div className="max-w-sm mx-auto bg-gradient-to-br from-primary to-brand-purple rounded-2xl p-5 text-primary-foreground shadow-xl">
-            <div className="flex items-center gap-3 mb-3 pb-3 border-b border-primary-foreground/20">
-              <div className="w-12 h-12 rounded-full bg-primary-foreground/15 flex items-center justify-center overflow-hidden border-2 border-primary-foreground/30 flex-shrink-0">
+          <div className={`mx-auto max-w-sm rounded-xl p-5 ${embedded ? "bg-card" : "bg-muted/50"}`}>
+            <div className="mb-3 flex items-center gap-3 border-b border-border pb-3">
+              <div className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-full bg-secondary text-lg font-bold text-primary">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : <span className="text-lg font-bold">{profile?.full_name?.[0] || t("pgTickets.avatarFallback")}</span>}
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : profile?.full_name?.[0] || t("pgTickets.avatarFallback")}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm truncate">{profile?.full_name || "—"}</p>
-                {profile?.job_title && <p className="text-[11px] text-primary-foreground/80 truncate">{profile.job_title}</p>}
-                {profile?.company && <p className="text-[10px] text-brand-gold truncate font-semibold">{profile.company}</p>}
+                <p className="truncate text-sm font-bold leading-[22px]">{profile?.full_name || "—"}</p>
+                {profile?.job_title && <p className="truncate text-xs leading-[18px] text-muted-foreground">{profile.job_title}</p>}
+                {profile?.company && <p className="truncate text-xs font-semibold leading-[18px] text-primary">{profile.company}</p>}
               </div>
             </div>
-            <div className="bg-white rounded-2xl p-4 flex items-center justify-center mb-3">
+            <div className="mb-3 flex items-center justify-center rounded-xl bg-white p-3">
               <QRCodeSVG value={reg.qr_code} size={160} bgColor="#FFFFFF" fgColor="#492C5A" level="H" />
             </div>
-            <p className="text-center text-[11px] font-bold mb-2">{reg.event.title_ar}</p>
-            <div className="space-y-1 text-[11px] text-primary-foreground/80">
-              {profile?.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3" /><span dir="ltr">{profile.phone}</span></div>}
-              {profile?.email && <div className="flex items-center gap-1.5"><Mail className="w-3 h-3" /><span dir="ltr" className="truncate">{profile.email}</span></div>}
-              <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /><span>{formatDate(reg.event.start_date)}</span></div>
-              {reg.event.venue_name && <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3" /><span className="truncate">{reg.event.venue_name}</span></div>}
+            <p className="mb-2 text-center text-xs font-bold leading-[18px]">{reg.event.title_ar}</p>
+            <div className="space-y-1 text-xs leading-[18px] text-muted-foreground">
+              {profile?.phone && <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 flex-none opacity-70" /><bdi dir="ltr">{profile.phone}</bdi></div>}
+              {profile?.email && <div className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 flex-none opacity-70" /><bdi dir="ltr" className="truncate">{profile.email}</bdi></div>}
+              <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 flex-none opacity-70" /><span>{formatDate(reg.event.start_date, true, lang)}</span></div>
+              {reg.event.venue_name && <div className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 flex-none opacity-70" /><span className="truncate">{reg.event.venue_name}</span></div>}
             </div>
-            <p className="text-[8px] font-mono text-primary-foreground/40 text-center mt-3 pt-3 border-t border-primary-foreground/20" dir="ltr">{reg.qr_code}</p>
+            <p className="mt-3 border-t border-border pt-3 text-center text-xs leading-[18px] text-muted-foreground" dir="ltr"><span className="break-all">{reg.qr_code}</span></p>
           </div>
           <p className="mt-3 text-center text-xs text-muted-foreground">{t("pgTickets.showCardAtEntry")}</p>
           <EventFeaturedCardsView eventId={reg.event.id} />
@@ -222,7 +222,7 @@ const MyTickets = ({ embedded = false }: { embedded?: boolean }) => {
 
   const actions = (
     <>
-      <Button asChild>
+      <Button asChild variant="outline">
         <Link to="/my/cards"><IdCardIcon className="h-4 w-4" /> بطاقاتي</Link>
       </Button>
       <Button asChild variant="outline">

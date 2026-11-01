@@ -226,7 +226,7 @@ const Team = () => {
               icon={Users}
               title="لا يوجد أعضاء في الفريق"
               description="أضف أعضاء لمساعدتك في إدارة الفعاليات"
-              action={!showAdd ? <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /> إضافة عضو</Button> : undefined}
+              action={!showAdd ? <Button variant="soft" size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /> إضافة عضو</Button> : undefined}
             />
           </div>
         ) : (
@@ -250,18 +250,16 @@ const Team = () => {
                           {(m.full_name || m.email || "?").charAt(0).toUpperCase()}
                         </span>
                         <div className="min-w-0">
-                          <p className="whitespace-nowrap font-semibold leading-[22px]">{m.full_name || "بدون اسم"}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="whitespace-nowrap font-semibold leading-[22px]">{m.full_name || "بدون اسم"}</p>
+                            {m.invite_status === "pending" && <StatusBadge tone="warning">دعوة معلّقة</StatusBadge>}
+                          </div>
                           {m.email && <p className="text-xs leading-[18px] text-muted-foreground"><bdi dir="ltr">{m.email}</bdi></p>}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{m.phone ? <bdi dir="ltr">{m.phone}</bdi> : "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="whitespace-nowrap">{roleLabels[m.role] || m.role}</span>
-                        {m.invite_status === "pending" && <StatusBadge tone="warning">دعوة معلّقة</StatusBadge>}
-                      </div>
-                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{roleLabels[m.role] || m.role}</TableCell>
                     <TableCell>
                       {m.permissions && m.permissions.length > 0 ? (
                         <div className="flex min-w-[200px] flex-wrap gap-1">

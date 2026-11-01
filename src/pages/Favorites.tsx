@@ -34,7 +34,7 @@ interface EventRow {
 }
 
 const Favorites = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +77,7 @@ const Favorites = () => {
                 <EventCard key={event.id} event={{
                   id: event.id,
                   title: event.title_ar,
-                  date: formatDate(event.start_date),
+                  date: formatDate(event.start_date, true, lang),
                   location: event.is_online ? t("pgFavorites.online") : (event.venue_name || t("pgFavorites.unspecified")),
                   category: event.category,
                   price: event.is_free ? t("pgFavorites.free") : t("pgFavorites.paid"),

@@ -9,7 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
 import { LifeBuoy } from "lucide-react";
 
@@ -25,7 +25,7 @@ const labels: Record<string, string> = {
   new: "جديد", in_review: "قيد المراجعة", assigned: "تم الإحالة", closed: "مغلق", cancelled: "ملغي",
 };
 const tones: Record<string, StatusTone> = {
-  new: "warning", in_review: "primary", assigned: "success", closed: "neutral", cancelled: "danger",
+  new: "primary", in_review: "warning", assigned: "success", closed: "neutral", cancelled: "danger",
 };
 
 const AdminServiceRequests = () => {
@@ -82,7 +82,7 @@ const AdminServiceRequests = () => {
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(r.created_at)}</TableCell>
                     <TableCell className="whitespace-nowrap">{r.city || "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.budget ? formatMoney(r.budget) : "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.budget ? `${formatNumber(r.budget)} ر.س` : "—"}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {r.contact_phone ? <bdi dir="ltr">{r.contact_phone}</bdi> : "—"}
                     </TableCell>

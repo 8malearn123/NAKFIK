@@ -58,7 +58,7 @@ const PartnerDiscounts = () => {
               icon={Tag}
               title="لا توجد عروض حالياً"
               description="تابعنا قريباً"
-              action={<Button asChild><Link to="/dashboard/services">سوق الخدمات</Link></Button>}
+              action={<Button asChild size="sm"><Link to="/dashboard/services">سوق الخدمات</Link></Button>}
             />
           </div>
         ) : (

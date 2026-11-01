@@ -467,14 +467,37 @@ const Reports = () => {
     const charts = Array.from(document.querySelectorAll(".recharts-wrapper svg, #public-reports svg[role='img']"))
       .map(svg => {
         const c = svg.cloneNode(true) as SVGElement;
+        const isDonut = svg.getAttribute("role") === "img";
         // الحلقات مرسومة بحجمها الطبيعي، والرسوم الزمنية تمتد بعرض الصفحة
-        c.setAttribute("width", svg.getAttribute("role") === "img" ? "220" : "660");
+        c.setAttribute("width", isDonut ? "220" : "660");
         c.removeAttribute("height");
+        // نص وسط الحلقة يعتمد على كلاسات Tailwind غير الموجودة في نافذة الطباعة
+        if (isDonut) {
+          const [value, label] = Array.from(c.querySelectorAll("text"));
+          value?.setAttribute("style", "font-size:26px;font-weight:700;fill:#1f1830");
+          label?.setAttribute("style", "font-size:12px;fill:#777");
+        }
         return c.outerHTML;
       });
     // أشرطة تبويب الأداء ليست رسماً، فتُصدَّر جدولاً عند فتح التبويب
     const topEventsTable = document.getElementById("report-top-events")
       ? `<h2>أعلى الفعاليات حضوراً</h2><table><thead><tr><th>الفعالية</th><th>الحضور</th></tr></thead><tbody>${topEvents.map(e => `<tr><td>${e.name}</td><td>${formatNumber(e.attendees)}</td></tr>`).join("")}</tbody></table>`
+      : "";
+    // مفتاح كل حلقة عنصر HTML بجانب الرسم، فتُصدَّر أرقامها جدولاً تحت عنوان بطاقتها
+    const donutTables = Array.from(document.querySelectorAll("#public-reports svg[role='img']"))
+      .map(svg => {
+        const title = svg.closest("section")?.querySelector("h2")?.textContent || "";
+        const legend = Array.from(svg.nextElementSibling?.children || []).map(row => {
+          const value = row.querySelector("b")?.textContent || "";
+          return { label: (row.textContent || "").slice(0, -value.length), value };
+        });
+        return `<h2>${title}</h2><table><thead><tr><th>البند</th><th>العدد</th></tr></thead><tbody>${legend.map(l => `<tr><td>${l.label}</td><td>${l.value}</td></tr>`).join("")}</tbody></table>`;
+      })
+      .join("");
+    // أشرطة ردود الدعوات عناصر HTML أيضاً، فتُصدَّر جدولاً عند فتح تبويب الدعوات الخاصة
+    const invitationRows = Array.from(document.querySelectorAll<HTMLElement>("#report-invitation-bars [data-title]"));
+    const invitationsTable = invitationRows.length
+      ? `<h2>حالة الردود لكل دعوة</h2><table><thead><tr><th>الدعوة</th><th>مؤكدون</th><th>معتذرون</th><th>بانتظار الرد</th></tr></thead><tbody>${invitationRows.map(r => `<tr><td>${r.dataset.title}</td><td>${formatNumber(Number(r.dataset.confirmed))}</td><td>${formatNumber(Number(r.dataset.declined))}</td><td>${formatNumber(Number(r.dataset.pending))}</td></tr>`).join("")}</tbody></table>`
       : "";
     const rows = buildEventRows();
     const head = Object.keys(rows[0] || { "الفعالية": "" });
@@ -518,6 +541,8 @@ const Reports = () => {
   <table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>
   <tbody>${rows.map(r => `<tr>${head.map(h => `<td>${(r as any)[h]}</td>`).join("")}</tr>`).join("")}</tbody></table>
   ${topEventsTable}
+  ${invitationsTable}
+  ${donutTables}
   ${charts.length ? `<h2>الرسوم البيانية</h2>${charts.map(c => `<div class="chart">${c}</div>`).join("")}` : ""}
   <div class="foot">أُنشئ هذا التقرير آلياً من منصة نكفيك تيكت</div>
 <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
@@ -569,7 +594,7 @@ const Reports = () => {
         />
 
         {loading ? (
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
             {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-40 animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
         ) : (
@@ -588,7 +613,7 @@ const Reports = () => {
               </p>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
               {cards.map(c => (
                 <StatCard key={c.label} label={c.label} value={c.value} unit={c.unit} icon={c.icon} {...deltaProps(c.delta)} />
               ))}
@@ -596,15 +621,13 @@ const Reports = () => {
 
             <Tabs defaultValue="trends">
               {/* على الجوال يتمرر الشريط داخل مكانه ولا تتحرك الصفحة جانبياً */}
-              <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
-                <TabsList className="w-max">
-                  <TabsTrigger value="trends">الاتجاهات</TabsTrigger>
-                  <TabsTrigger value="performance">أداء الفعاليات</TabsTrigger>
-                  <TabsTrigger value="distribution">التوزيع</TabsTrigger>
-                  <TabsTrigger value="financial">المالية</TabsTrigger>
-                  <TabsTrigger value="invitations">الدعوات الخاصة</TabsTrigger>
-                </TabsList>
-              </div>
+              <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <TabsTrigger value="trends">الاتجاهات</TabsTrigger>
+                <TabsTrigger value="performance">أداء الفعاليات</TabsTrigger>
+                <TabsTrigger value="distribution">التوزيع</TabsTrigger>
+                <TabsTrigger value="financial">المالية</TabsTrigger>
+                <TabsTrigger value="invitations">الدعوات الخاصة</TabsTrigger>
+              </TabsList>
 
               <TabsContent value="trends" className="mt-6">
                 <Panel

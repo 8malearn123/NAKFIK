@@ -167,7 +167,7 @@ const EventCheckpoints = () => {
               icon={DoorOpen}
               title="لا توجد بوابات بعد"
               description="أضف نقاط الدخول والخروج والقاعات لهذه الفعالية"
-              action={<Button onClick={addRow}><Plus className="h-4 w-4" /> أضف أول بوابة</Button>}
+              action={<Button variant="soft" size="sm" onClick={addRow}><Plus className="h-4 w-4" /> أضف أول بوابة</Button>}
             />
           </div>
         ) : (

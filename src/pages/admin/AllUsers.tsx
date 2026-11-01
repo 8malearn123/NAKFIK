@@ -117,7 +117,7 @@ const AllUsers = () => {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <Tabs value={typeFilter} onValueChange={setTypeFilter} className="max-w-full">
-            <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none]">
+            <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {tabs.map((t) => (
                 <TabsTrigger key={t.key} value={t.key} className="gap-1.5">
                   {t.label}
@@ -154,9 +154,9 @@ const AllUsers = () => {
               title="لا يوجد مستخدمون مطابقون للبحث"
               action={
                 users.length === 0 ? (
-                  <Button asChild><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>
+                  <Button asChild size="sm"><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>
                 ) : (
-                  <Button variant="outline" onClick={resetFilters}><X className="h-4 w-4" /> إعادة تعيين</Button>
+                  <Button variant="outline" size="sm" onClick={resetFilters}><X className="h-4 w-4" /> إعادة تعيين</Button>
                 )
               }
             />

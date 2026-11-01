@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -144,65 +145,76 @@ export default function CertificateDesigns() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6" dir="rtl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold font-cairo flex items-center gap-2"><Award className="w-7 h-7 text-primary" /> الشهادات</h1>
-            <p className="text-sm text-muted-foreground mt-1">صمّم شهادات احترافية وأصدرها لمستلميك مع رابط تحقق فريد لكل واحدة</p>
-          </div>
-          <Button onClick={openNew}><Plus className="w-4 h-4 ml-1" /> شهادة جديدة</Button>
-        </div>
+      <div className="space-y-6">
+        <PageHeader
+          title="الشهادات"
+          description="صمّم شهادات احترافية وأصدرها لمستلميك مع رابط تحقق فريد لكل واحدة"
+          actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> شهادة جديدة</Button>}
+        />
 
-        {loading ? <p className="text-muted-foreground">جاري التحميل...</p> : items.length === 0 ? (
-          <div className="text-center py-16 border-2 border-dashed rounded-2xl">
-            <Award className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">لا توجد شهادات بعد</p>
-            <Button className="mt-4" onClick={openNew}><Sparkles className="w-4 h-4 ml-1" /> ابدأ بقالب جاهز</Button>
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Award}
+              title="لا توجد شهادات بعد"
+              action={<Button variant="soft" size="sm" onClick={openNew}><Sparkles className="h-4 w-4" /> ابدأ بقالب جاهز</Button>}
+            />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {items.map((c) => (
-              <div key={c.id} className="rounded-2xl border overflow-hidden bg-card hover:shadow-lg transition">
-                <div className="aspect-[1.414/1] relative" style={{ background: `linear-gradient(160deg, ${c.theme_color}, ${c.theme_color}dd)`, color: c.text_color, fontFamily: c.heading_font }}>
+              <article key={c.id} className="flex min-w-0 flex-col overflow-hidden rounded-2xl bg-card shadow-soft">
+                {/* معاينة الشهادة بألوان تصميمها */}
+                <div className="relative aspect-[1.414/1]" style={{ background: c.theme_color, color: c.text_color, fontFamily: c.heading_font }}>
                   <div className="absolute inset-3 border" style={{ borderColor: c.accent_color }} />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
-                    <p className="text-[10px] tracking-widest opacity-80" style={{ color: c.accent_color }}>CERTIFICATE</p>
-                    <p className="text-lg font-bold mt-1">{c.title}</p>
-                    <div className="h-px w-16 bg-current opacity-50 my-2" style={{ background: c.accent_color }} />
-                    <p className="text-[10px] opacity-70">{c.issuer_name}</p>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                    <p className="text-xs opacity-80" style={{ color: c.accent_color }}>CERTIFICATE</p>
+                    <p className="mt-1 text-lg font-bold">{c.title}</p>
+                    <div className="my-2 h-px w-16 opacity-50" style={{ background: c.accent_color }} />
+                    <p className="text-xs opacity-70">{c.issuer_name}</p>
                   </div>
                 </div>
-                <div className="p-3 space-y-2">
-                  <p className="font-semibold text-sm truncate">{c.title}</p>
-                  <div className="flex gap-1.5 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(c)}><Pencil className="w-3 h-3 ml-1" /> تعديل</Button>
-                    <Button size="sm" variant="outline" onClick={() => openRecipients(c)}><Users className="w-3 h-3 ml-1" /> المستلمون</Button>
-                    <Button size="sm" variant="ghost" onClick={() => del(c.id)}><Trash2 className="w-3 h-3 text-destructive" /></Button>
+                <div className="flex flex-1 flex-col gap-3 p-5">
+                  <h3 className="truncate text-base font-bold leading-6">{c.title}</h3>
+                  <div className="mt-auto flex items-center gap-2">
+                    <Button size="sm" variant="soft" className="flex-1" onClick={() => openEdit(c)}>
+                      <Pencil className="h-[15px] w-[15px]" /> تعديل
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => openRecipients(c)}>
+                      <Users className="h-[15px] w-[15px]" /> المستلمون
+                    </Button>
+                    <Button size="icon" variant="outline" aria-label="حذف" className="h-9 w-9 flex-none text-destructive hover:text-destructive" onClick={() => del(c.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
 
         {/* Editor */}
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent dir="rtl" className="max-w-5xl max-h-[92vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editing ? "تعديل الشهادة" : "شهادة جديدة"}</DialogTitle></DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[92vh] w-[calc(100%-1.5rem)] max-w-5xl overflow-y-auto rounded-2xl">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>{editing ? "تعديل الشهادة" : "شهادة جديدة"}</DialogTitle></DialogHeader>
             <Tabs defaultValue="content">
               <TabsList className="grid grid-cols-2">
-                <TabsTrigger value="content"><FileText className="w-3 h-3 ml-1" /> المحتوى</TabsTrigger>
-                <TabsTrigger value="design"><Sparkles className="w-3 h-3 ml-1" /> التصميم</TabsTrigger>
+                <TabsTrigger value="content" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> المحتوى</TabsTrigger>
+                <TabsTrigger value="design" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" /> التصميم</TabsTrigger>
               </TabsList>
-              <TabsContent value="content" className="space-y-3 mt-4">
-                <div><Label>عنوان الشهادة *</Label><Input value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-                <div><Label>العنوان الفرعي</Label><Input value={form.subtitle || ""} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder="CERTIFICATE OF ATTENDANCE" /></div>
-                <div><Label>نص الشهادة</Label><Textarea rows={5} value={form.body_text || ""} onChange={(e) => setForm({ ...form, body_text: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>الجهة المُصدِرة</Label><Input value={form.issuer_name || ""} onChange={(e) => setForm({ ...form, issuer_name: e.target.value })} /></div>
-                  <div><Label>اسم الموقّع</Label><Input value={form.signature_name || ""} onChange={(e) => setForm({ ...form, signature_name: e.target.value })} /></div>
+              <TabsContent value="content" className="mt-4 space-y-4">
+                <div className="space-y-1.5"><Label>عنوان الشهادة *</Label><Input value={form.title || ""} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label>العنوان الفرعي</Label><Input value={form.subtitle || ""} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder="CERTIFICATE OF ATTENDANCE" /></div>
+                <div className="space-y-1.5"><Label>نص الشهادة</Label><Textarea rows={5} value={form.body_text || ""} onChange={(e) => setForm({ ...form, body_text: e.target.value })} /></div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5"><Label>الجهة المُصدِرة</Label><Input value={form.issuer_name || ""} onChange={(e) => setForm({ ...form, issuer_name: e.target.value })} /></div>
+                  <div className="space-y-1.5"><Label>اسم الموقّع</Label><Input value={form.signature_name || ""} onChange={(e) => setForm({ ...form, signature_name: e.target.value })} /></div>
                 </div>
-                <div><Label>المسمّى الوظيفي للموقّع</Label><Input value={form.signature_title || ""} onChange={(e) => setForm({ ...form, signature_title: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label>المسمّى الوظيفي للموقّع</Label><Input value={form.signature_title || ""} onChange={(e) => setForm({ ...form, signature_title: e.target.value })} /></div>
               </TabsContent>
               <TabsContent value="design" className="mt-4">
                 <DesignStudio
@@ -229,38 +241,40 @@ export default function CertificateDesigns() {
                 />
               </TabsContent>
             </Tabs>
-            <DialogFooter className="gap-2 mt-4">
-              <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            <DialogFooter className="flex-col sm:flex-row">
               <Button onClick={save}>{editing ? "حفظ التعديلات" : "إنشاء الشهادة"}</Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Recipients */}
         <Dialog open={recipientsOpen} onOpenChange={setRecipientsOpen}>
-          <DialogContent dir="rtl" className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>مستلمو شهادة — {activeCert?.title}</DialogTitle></DialogHeader>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-muted/30 rounded-xl p-3 mb-3">
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] max-w-3xl overflow-y-auto rounded-2xl">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>مستلمو شهادة — {activeCert?.title}</DialogTitle></DialogHeader>
+            <div className="grid gap-2.5 rounded-xl bg-muted/50 p-3 sm:grid-cols-3">
               <Input placeholder="اسم المستلم *" value={newR.recipient_name} onChange={(e) => setNewR({ ...newR, recipient_name: e.target.value })} />
               <Input dir="ltr" placeholder="البريد (اختياري)" value={newR.recipient_email} onChange={(e) => setNewR({ ...newR, recipient_email: e.target.value })} />
-              <Button onClick={addRecipient}><Send className="w-4 h-4 ml-1" /> إضافة وإصدار</Button>
+              <Button onClick={addRecipient}><Send className="h-4 w-4" /> إضافة وإصدار</Button>
             </div>
             {recipients.length === 0 ? (
-              <p className="text-center text-muted-foreground py-6">لا يوجد مستلمون بعد</p>
+              <EmptyState icon={Users} title="لا يوجد مستلمون بعد" />
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {recipients.map((r) => {
                   const url = `${window.location.origin}/certificate/${r.verification_token}`;
                   return (
-                    <div key={r.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-                      <QRCodeSVG value={url} size={56} />
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm">{r.recipient_name}</p>
-                        {r.recipient_email && <p className="text-xs text-muted-foreground">{r.recipient_email}</p>}
-                        <a href={url} target="_blank" rel="noreferrer" className="text-[11px] text-primary underline">{url}</a>
+                    <div key={r.id} className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
+                      <div className="flex-none rounded-lg bg-white p-1.5"><QRCodeSVG value={url} size={56} /></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold leading-[22px]">{r.recipient_name}</p>
+                        {r.recipient_email && <p className="truncate text-xs leading-[18px] text-muted-foreground"><bdi dir="ltr">{r.recipient_email}</bdi></p>}
+                        <a href={url} target="_blank" rel="noreferrer" className="block truncate text-xs leading-[18px] text-primary underline"><bdi dir="ltr">{url}</bdi></a>
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(url); toast.success("تم النسخ"); }}>نسخ</Button>
-                      <Button size="sm" variant="ghost" onClick={() => removeRecipient(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      <Button size="sm" variant="ghost" className="flex-none" onClick={() => { navigator.clipboard.writeText(url); toast.success("تم النسخ"); }}>نسخ</Button>
+                      <Button size="icon" variant="ghost" aria-label="حذف المستلم" className="h-9 w-9 flex-none text-destructive hover:text-destructive" onClick={() => removeRecipient(r.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   );
                 })}

@@ -163,7 +163,12 @@ const EditEvent = () => {
   };
 
   const header = (actions?: React.ReactNode) => (
-    <PageHeader title="تعديل الفعالية" description="عدّل بيانات الفعالية، احذفها، أو اعرضها كما يراها الجمهور" actions={actions} />
+    <div className="space-y-2">
+      <Link to="/dashboard/events" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+        <ArrowRight className="h-4 w-4" /> العودة لفعالياتي
+      </Link>
+      <PageHeader title="تعديل الفعالية" description="عدّل بيانات الفعالية، احذفها، أو اعرضها كما يراها الجمهور" actions={actions} />
+    </div>
   );
 
   if (loading) {
@@ -185,9 +190,6 @@ const EditEvent = () => {
       <div className="space-y-6">
         {header(
           <>
-            <Button variant="ghost" asChild>
-              <Link to="/dashboard/events"><ArrowRight className="h-4 w-4" /> العودة لفعالياتي</Link>
-            </Button>
             <Button variant="outline" asChild>
               <Link to={`/events/${eventId}`} target="_blank"><Eye className="h-4 w-4" /> عرض</Link>
             </Button>

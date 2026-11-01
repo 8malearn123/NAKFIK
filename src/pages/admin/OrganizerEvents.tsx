@@ -23,6 +23,9 @@ const statusLabels: Record<string, { label: string; tone: StatusTone }> = {
   cancelled: { label: "ملغاة", tone: "neutral" },
 };
 
+// الاسم المعروض لقيمة subscription_plan؛ القيمة الخام تبقى للمنطق
+const PLAN_LABELS: Record<string, string> = { free: "المجانية", starter: "الأساسية", pro: "الاحترافية", enterprise: "المؤسسية" };
+
 // تمييز العدد بصيغته الصحيحة: 3 فعاليات، 11 فعالية
 const eventsLabel = (n: number) => {
   if (n === 2) return "فعاليتان";
@@ -120,7 +123,7 @@ const OrganizerEvents = () => {
             <EmptyState
               icon={Building2}
               title="المنظم غير موجود"
-              action={<Button asChild variant="outline"><Link to="/admin/organizers">عودة لقائمة المنظمين</Link></Button>}
+              action={<Button asChild variant="outline" size="sm"><Link to="/admin/organizers">عودة لقائمة المنظمين</Link></Button>}
             />
           </div>
         </div>
@@ -131,32 +134,30 @@ const OrganizerEvents = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <PageHeader
-          title={org.name}
-          description={
-            <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <StatusBadge tone={org.is_active ? "success" : "danger"}>{org.is_active ? "نشط" : "معطل"}</StatusBadge>
-              <span>
-                <bdi dir="ltr">{org.subscription_plan}</bdi>، {eventsLabel(events.length)}
+        <div className="space-y-2">
+          <Link to="/admin/organizers" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+            <ArrowRight className="h-4 w-4" /> عودة للمنظمين
+          </Link>
+          <PageHeader
+            title={org.name}
+            description={
+              <span className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <StatusBadge tone={org.is_active ? "success" : "danger"}>{org.is_active ? "نشط" : "معطل"}</StatusBadge>
+                <span>
+                  <bdi>{PLAN_LABELS[org.subscription_plan] || org.subscription_plan}</bdi>، {eventsLabel(events.length)}
+                </span>
               </span>
-            </span>
-          }
-          actions={
-            <>
-              <Button asChild variant="outline">
-                <Link to="/admin/organizers"><ArrowRight className="h-4 w-4" /> عودة للمنظمين</Link>
-              </Button>
-              <Button onClick={handleImpersonate}><LogIn className="h-4 w-4" /> الدخول كهذا المنظم</Button>
-            </>
-          }
-        />
+            }
+            actions={<Button onClick={handleImpersonate}><LogIn className="h-4 w-4" /> الدخول كهذا المنظم</Button>}
+          />
+        </div>
 
         {events.length === 0 ? (
           <div className="rounded-2xl bg-card shadow-soft">
             <EmptyState
               icon={Calendar}
               title="لا توجد فعاليات لهذا المنظم"
-              action={<Button asChild variant="outline"><Link to="/admin/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية</Link></Button>}
+              action={<Button asChild variant="outline" size="sm"><Link to="/admin/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية</Link></Button>}
             />
           </div>
         ) : (

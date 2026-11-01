@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -12,9 +12,11 @@ import EmptyState from "@/components/app/EmptyState";
 import PageHeader from "@/components/app/PageHeader";
 import RsvpBar from "@/components/app/RsvpBar";
 import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
-import { daysLeftLabel, formatTime, formatWeekday } from "@/lib/format";
+import { guestsObject, daysLeftLabel, formatDate, formatDateShort, formatNumber, formatTime, formatWeekday } from "@/lib/format";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvitationScheduleDialog from "@/components/dashboard/InvitationScheduleDialog";
 import ReminderSettings from "@/components/dashboard/ReminderSettings";
@@ -25,7 +27,7 @@ import {
   Calendar, MapPin, Shirt, Phone, Gift, Send, CheckCircle2, X,
   Heart, Flower2, GraduationCap, Cake, Landmark, Mic2, Scissors, Crown, Briefcase, Sparkles,
   Upload, Image as ImageIcon, Loader2, Database, Bell, ClipboardList, CalendarDays, Save, DoorOpen,
-  BarChart3, MoreHorizontal, ScanLine, UserPlus,
+  ArrowRight, BarChart3, ChevronDown, MoreHorizontal, ScanLine, UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import DesignStudio from "@/components/design/DesignStudio";
@@ -94,10 +96,10 @@ interface Guest {
 }
 
 // تصنيفات المدعوين — يحددها المنظم فقط ولا يراها أو يغيرها المدعو
-const GUEST_TIERS: Record<string, { label: string; cls: string }> = {
-  vvip:    { label: "VVIP", cls: "bg-amber-500/15 text-amber-700 border-amber-400/60" },
-  vip:     { label: "VIP",  cls: "bg-primary/10 text-primary border-primary/40" },
-  regular: { label: "عادي", cls: "bg-muted text-muted-foreground border-border" },
+const GUEST_TIERS: Record<string, { label: string }> = {
+  vvip:    { label: "VVIP" },
+  vip:     { label: "VIP" },
+  regular: { label: "عادي" },
 };
 const TIER_KEYS = ["vvip", "vip", "regular"] as const;
 
@@ -168,6 +170,70 @@ const GIFT_PAY_METHODS: { key: string; label: string }[] = [
   { key: "tabby", label: "Tabby" },
   { key: "tamara", label: "Tamara" },
 ];
+
+// نافذة بترويسة وتذييل ثابتين، والمحتوى وحده يتمرر
+const DIALOG_CLS = "flex max-h-[90dvh] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none";
+const DIALOG_HEAD = "px-6 pb-4 pe-12 pt-6 text-start";
+const DIALOG_BODY = "min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6";
+const TAB_BODY = "mt-0 min-h-0 flex-1 overflow-y-auto px-6 pb-6";
+const DIALOG_FOOT = "flex-row flex-wrap gap-2 border-t border-border px-6 py-4";
+const ICON_TILE = "grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary";
+// الأزرار المخصصة تأخذ حلقة تركيز الهوية بدل الحلقة الزرقاء الافتراضية، ومن الداخل حتى لا تقصها مناطق التمرير
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+const MODE_TILE = `rounded-xl bg-muted/50 p-5 text-start transition-colors hover:bg-muted ${FOCUS}`;
+const SECTION = "text-[15px] font-bold leading-6";
+const HINT = "text-xs leading-[18px] text-muted-foreground";
+const WARNING_NOTE = "rounded-xl bg-[#FDF3E3] p-3 text-[13px] leading-5 text-[#9A5F12]";
+
+const TIER_TONES: Record<string, StatusTone> = { vvip: "warning", vip: "primary", regular: "neutral" };
+
+// حالة الخيار المحدد موحدة في كل مربعات الاختيار
+const choiceCls = (active: boolean, idle = "bg-muted/50 hover:bg-muted") =>
+  `transition-colors ${FOCUS} ${active ? "bg-secondary font-semibold text-primary ring-1 ring-inset ring-primary" : idle}`;
+
+// تاريخ ووقت مختصران للجداول
+const formatStamp = (value: string) => `${formatDateShort(value)}، ${formatTime(value)}`;
+
+// حالة تتبع المدعو بصياغة محايدة: الرد أولاً، ثم الفتح، ثم الإرسال
+const guestTracking = (g: Guest & { opened_at?: string | null; invite_sent_at?: string | null }): { label: string; tone: StatusTone; at: string | null } => {
+  if (g.rsvp_status === "confirmed") return { label: "تم التأكيد", tone: "success", at: g.confirmed_at };
+  if (g.rsvp_status === "declined") return { label: "تم الاعتذار", tone: "danger", at: g.confirmed_at };
+  if (g.opened_at) return { label: "فُتحت الدعوة، بانتظار الرد", tone: "primary", at: g.opened_at };
+  if (g.invite_sent_at || g.rsvp_status === "invited") return { label: "أُرسلت الدعوة، بانتظار الرد", tone: "neutral", at: g.invite_sent_at ?? null };
+  return { label: "لم تُرسل بعد", tone: "neutral", at: null };
+};
+
+const reminderLabel = (h: number) =>
+  h === 1 ? "قبل الموعد بساعة" : h === 2 ? "قبل الموعد بساعتين" : `قبل الموعد بـ ${h} ${h <= 10 ? "ساعات" : "ساعة"}`;
+
+// الأعداد بصياغة عربية صحيحة: واحد، مثنى، جمع حتى 10، ثم تمييز مفرد
+const guestCount = (n: number) => {
+  if (n === 1) return "مدعو واحد";
+  if (n === 2) return "مدعوان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مدعوين" : tail >= 11 ? "مدعواً" : "مدعو"}`;
+};
+const companionsLabel = (n: number) => {
+  if (!(n > 0)) return "";
+  if (n === 1) return "مرافق واحد";
+  if (n === 2) return "مرافقان";
+  return `${formatNumber(n)} ${n <= 10 ? "مرافقين" : "مرافقاً"}`;
+};
+const gateCount = (n: number) => {
+  if (n === 1) return "بوابة واحدة";
+  if (n === 2) return "بوابتان";
+  return `${formatNumber(n)} ${n <= 10 ? "بوابات" : "بوابة"}`;
+};
+
+function Field({ label, hint, className = "", children }: { label?: React.ReactNode; hint?: React.ReactNode; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      {label && <Label>{label}</Label>}
+      {children}
+      {hint && <p className={HINT}>{hint}</p>}
+    </div>
+  );
+}
 
 const PrivateInvitations = () => {
   const { user } = useAuth();
@@ -574,8 +640,7 @@ const PrivateInvitations = () => {
   const copy = (txt: string) => { navigator.clipboard.writeText(txt); toast.success("تم النسخ"); };
 
   // ===== رسالة المشاركة التلقائية — تتولد حسب حالة الدعوة وحالة المدعو =====
-  const fmtShareDate = (d: string) =>
-    new Date(d).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" });
+  const fmtShareDate = (d: string) => `${formatDate(d)}، ${formatTime(d)}`;
 
   const autoShareMessage = (inv: Inv, g?: Guest | null): string => {
     const hello = g?.guest_name ? `مرحباً ${g.guest_name}،\n` : "";
@@ -629,44 +694,6 @@ const PrivateInvitations = () => {
     markInviteSent(g);
   };
 
-  const statusBadge = (s: string) => {
-    const map: Record<string, { label: string; cls: string }> = {
-      pending: { label: "بانتظار", cls: "bg-muted text-muted-foreground" },
-      invited: { label: "تم الإرسال", cls: "bg-blue-500/10 text-blue-700" },
-      confirmed: { label: "مؤكد", cls: "bg-green-500/10 text-green-700" },
-      declined: { label: "اعتذر", cls: "bg-destructive/10 text-destructive" },
-    };
-    const v = map[s] || map.pending;
-    return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${v.cls}`}>{v.label}</span>;
-  };
-
-  // حالة التتبع الكاملة للمدعو: الرد أولاً، ثم الفتح، ثم الإرسال
-  const trackingState = (g: Guest): { label: string; cls: string; at: string | null } => {
-    if (g.rsvp_status === "confirmed")
-      return { label: "أكد الحضور", cls: "bg-green-500/10 text-green-700", at: g.confirmed_at };
-    if (g.rsvp_status === "declined")
-      return { label: "اعتذر", cls: "bg-destructive/10 text-destructive", at: g.confirmed_at };
-    if ((g as any).opened_at)
-      return { label: "فتح الدعوة — لم يرد بعد", cls: "bg-indigo-500/10 text-indigo-700", at: (g as any).opened_at };
-    if ((g as any).invite_sent_at || g.rsvp_status === "invited")
-      return { label: "أُرسلت الدعوة — لم يرد بعد", cls: "bg-blue-500/10 text-blue-700", at: (g as any).invite_sent_at };
-    return { label: "لم تُرسل بعد", cls: "bg-muted text-muted-foreground", at: null };
-  };
-
-  const trackingBadge = (g: Guest) => {
-    const s = trackingState(g);
-    return (
-      <span className="inline-flex items-center gap-1.5">
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s.cls}`}>{s.label}</span>
-        {s.at && (
-          <span className="text-[10px] text-muted-foreground">
-            {new Date(s.at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}
-          </span>
-        )}
-      </span>
-    );
-  };
-
   const statsOf = (inv: Inv): InvStats => invStats[inv.id] ?? { total: 0, confirmed: 0, declined: 0, sent: 0 };
 
   // زر واحد يقول ما يجب فعله الآن، وبقية الإجراءات في قائمة المزيد
@@ -677,7 +704,7 @@ const PrivateInvitations = () => {
     if (s.sent === 0) return { label: "أرسل الروابط", icon: Send, run: () => openGuests(inv) };
     if (new Date(inv.event_date).getTime() - Date.now() < 7 * 86400000) return { label: "جهّز تسجيل الحضور", icon: ScanLine, run: () => openDays(inv) };
     const waiting = s.total - s.confirmed - s.declined;
-    if (waiting > 0) return { label: `ذكّر ${waiting} مدعواً`, icon: Bell, run: () => setReminderInv(inv) };
+    if (waiting > 0) return { label: `ذكّر ${guestsObject(waiting)}`, icon: Bell, run: () => setReminderInv(inv) };
     return { label: "المدعوون", icon: Users, run: () => openGuests(inv) };
   };
 
@@ -717,7 +744,7 @@ const PrivateInvitations = () => {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl bg-card shadow-soft">
-            <EmptyState icon={Mail} title="لم تنشئ أي دعوة خاصة بعد" description="أنشئ أول دعوة وأضف مدعويك وأرسل لهم روابطهم" action={<Button onClick={openNew}><Plus className="w-4 h-4" /> أنشئ أول دعوة</Button>} />
+            <EmptyState icon={Mail} title="لم تنشئ أي دعوة خاصة بعد" description="أنشئ أول دعوة وأضف مدعويك وأرسل لهم روابطهم" action={<Button variant="soft" size="sm" onClick={openNew}><Plus className="w-4 h-4" /> أنشئ أول دعوة</Button>} />
           </div>
         ) : (
           <div dir="rtl" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -748,7 +775,7 @@ const PrivateInvitations = () => {
                       {stats.total === 0 ? (
                         <p className="text-sm text-muted-foreground">لا يوجد مدعوون بعد</p>
                       ) : stats.sent === 0 ? (
-                        <p className="text-sm text-muted-foreground">{stats.total} مدعو، لم تُرسل الروابط</p>
+                        <p className="text-sm text-muted-foreground">{guestCount(stats.total)}، لم تُرسل الروابط</p>
                       ) : (
                         <RsvpBar confirmed={stats.confirmed} declined={stats.declined} total={stats.total} />
                       )}
@@ -1274,7 +1301,7 @@ const PrivateInvitations = () => {
                   icon={Users}
                   title="لا يوجد مدعوون بعد"
                   description="أضف مدعويك من النموذج أعلاه أو استورد قائمة جاهزة"
-                  action={<Button variant="outline" onClick={openImport}><Database className="h-4 w-4" /> استيراد من قاعدة بيانات</Button>}
+                  action={<Button variant="outline" size="sm" onClick={openImport}><Database className="h-4 w-4" /> استيراد من قاعدة بيانات</Button>}
                 />
               ) : (
                 <Table>
@@ -1432,7 +1459,7 @@ const PrivateInvitations = () => {
                     icon={CalendarDays}
                     title="لا أيام بعد"
                     description="أضف اليوم الأول لتبدأ"
-                    action={<Button onClick={addInvDay}><Plus className="h-4 w-4" /> إضافة يوم</Button>}
+                    action={<Button size="sm" onClick={addInvDay}><Plus className="h-4 w-4" /> إضافة يوم</Button>}
                   />
                 ) : (
                   <>
@@ -1646,7 +1673,7 @@ const PrivateInvitations = () => {
               <EmptyState
                 icon={Database}
                 title="لا توجد قوائم بعد"
-                action={<Button asChild variant="outline"><a href="/dashboard/guest-lists">إنشاء قائمة جديدة</a></Button>}
+                action={<Button asChild variant="outline" size="sm"><a href="/dashboard/guest-lists">إنشاء قائمة جديدة</a></Button>}
               />
             ) : (
               <div className={`${DIALOG_BODY} !space-y-2.5`}>
@@ -1782,75 +1809,3 @@ const PrivateInvitations = () => {
 };
 
 export default PrivateInvitations;
-
-// مساعدات النوافذ أسفل الملف لأن نطاق هذا التعديل يبدأ من تعليق Create/Edit Dialog؛ الاستيرادات في ES مرفوعة فتعمل هنا كالمعتاد
-import { Fragment } from "react";
-import { ArrowRight, ChevronDown } from "lucide-react";
-import { DialogDescription } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDateShort, formatNumber } from "@/lib/format";
-
-// نافذة بترويسة وتذييل ثابتين، والمحتوى وحده يتمرر
-const DIALOG_CLS = "flex max-h-[90dvh] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none";
-const DIALOG_HEAD = "px-6 pb-4 pe-12 pt-6 text-start";
-const DIALOG_BODY = "min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6";
-const TAB_BODY = "mt-0 min-h-0 flex-1 overflow-y-auto px-6 pb-6";
-const DIALOG_FOOT = "flex-row flex-wrap gap-2 border-t border-border px-6 py-4";
-const ICON_TILE = "grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary";
-// الأزرار المخصصة تأخذ حلقة تركيز الهوية بدل الحلقة الزرقاء الافتراضية، ومن الداخل حتى لا تقصها مناطق التمرير
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
-const MODE_TILE = `rounded-xl bg-muted/50 p-5 text-start transition-colors hover:bg-muted ${FOCUS}`;
-const SECTION = "text-[15px] font-bold leading-6";
-const HINT = "text-xs leading-[18px] text-muted-foreground";
-const WARNING_NOTE = "rounded-xl bg-[#FDF3E3] p-3 text-[13px] leading-5 text-[#9A5F12]";
-
-const TIER_TONES: Record<string, StatusTone> = { vvip: "warning", vip: "primary", regular: "neutral" };
-
-// حالة الخيار المحدد موحدة في كل مربعات الاختيار
-const choiceCls = (active: boolean, idle = "bg-muted/50 hover:bg-muted") =>
-  `transition-colors ${FOCUS} ${active ? "bg-secondary font-semibold text-primary ring-1 ring-inset ring-primary" : idle}`;
-
-// تاريخ ووقت مختصران للجداول
-const formatStamp = (value: string) => `${formatDateShort(value)}، ${formatTime(value)}`;
-
-// حالة تتبع المدعو بصياغة محايدة: الرد أولاً، ثم الفتح، ثم الإرسال
-const guestTracking = (g: Guest & { opened_at?: string | null; invite_sent_at?: string | null }): { label: string; tone: StatusTone; at: string | null } => {
-  if (g.rsvp_status === "confirmed") return { label: "تم التأكيد", tone: "success", at: g.confirmed_at };
-  if (g.rsvp_status === "declined") return { label: "تم الاعتذار", tone: "danger", at: g.confirmed_at };
-  if (g.opened_at) return { label: "فُتحت الدعوة، بانتظار الرد", tone: "primary", at: g.opened_at };
-  if (g.invite_sent_at || g.rsvp_status === "invited") return { label: "أُرسلت الدعوة، بانتظار الرد", tone: "neutral", at: g.invite_sent_at ?? null };
-  return { label: "لم تُرسل بعد", tone: "neutral", at: null };
-};
-
-const reminderLabel = (h: number) =>
-  h === 1 ? "قبل الموعد بساعة" : h === 2 ? "قبل الموعد بساعتين" : `قبل الموعد بـ ${h} ${h <= 10 ? "ساعات" : "ساعة"}`;
-
-// الأعداد بصياغة عربية صحيحة: واحد، مثنى، جمع حتى 10، ثم تمييز مفرد
-const guestCount = (n: number) => {
-  if (n === 1) return "مدعو واحد";
-  if (n === 2) return "مدعوان";
-  const tail = n % 100;
-  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مدعوين" : tail >= 11 ? "مدعواً" : "مدعو"}`;
-};
-const companionsLabel = (n: number) => {
-  if (!(n > 0)) return "";
-  if (n === 1) return "مرافق واحد";
-  if (n === 2) return "مرافقان";
-  return `${formatNumber(n)} ${n <= 10 ? "مرافقين" : "مرافقاً"}`;
-};
-const gateCount = (n: number) => {
-  if (n === 1) return "بوابة واحدة";
-  if (n === 2) return "بوابتان";
-  return `${formatNumber(n)} ${n <= 10 ? "بوابات" : "بوابة"}`;
-};
-
-function Field({ label, hint, className = "", children }: { label?: React.ReactNode; hint?: React.ReactNode; className?: string; children: React.ReactNode }) {
-  return (
-    <div className={`space-y-1.5 ${className}`}>
-      {label && <Label>{label}</Label>}
-      {children}
-      {hint && <p className={HINT}>{hint}</p>}
-    </div>
-  );
-}

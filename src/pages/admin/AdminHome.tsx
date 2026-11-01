@@ -44,6 +44,15 @@ const pendingAge = (iso: string) => {
   return days <= 10 ? `منذ ${days} أيام` : `منذ ${days} يوماً`;
 };
 
+// تمييز العدد بصيغته الصحيحة: اشتراكان ينتهيان، 3 اشتراكات تنتهي، 12 اشتراكاً ينتهي
+const expiringLabel = (n: number) => {
+  if (n === 1) return "اشتراك واحد ينتهي";
+  if (n === 2) return "اشتراكان ينتهيان";
+  const tail = n % 100;
+  if (tail >= 3 && tail <= 10) return `${formatNumber(n)} اشتراكات تنتهي`;
+  return `${formatNumber(n)} ${tail >= 11 ? "اشتراكاً" : "اشتراك"} ينتهي`;
+};
+
 const AdminHome = () => {
   const [loading, setLoading] = useState(true);
   const [kpi, setKpi] = useState({ soon: 0, soonPrev: 0, rate: 0, guests: 0, organizers: 0, newOrganizers: 0, revenue: 0, revenuePrev: 0 });
@@ -92,7 +101,7 @@ const AdminHome = () => {
         queue.push({ icon: ClipboardCheck, tone: "bg-[#FDF3E3] text-[#9A5F12]", title: e.title_ar, subtitle: `بانتظار المراجعة ${pendingAge(e.created_at)}`, action: "راجع", to: "/admin/pending" }),
       );
       if (expiring.length) {
-        queue.push({ icon: CreditCard, tone: "bg-secondary text-primary", title: `${formatNumber(expiring.length)} اشتراك ينتهي خلال 7 أيام`, subtitle: "راجع الاشتراكات قبل انتهائها", action: "افتح", to: "/admin/subscriptions" });
+        queue.push({ icon: CreditCard, tone: "bg-secondary text-primary", title: `${expiringLabel(expiring.length)} خلال 7 أيام`, subtitle: "راجع الاشتراكات قبل انتهائها", action: "افتح", to: "/admin/subscriptions" });
       }
       ((requests || []) as any[]).slice(0, 2).forEach((r) =>
         queue.push({ icon: LifeBuoy, tone: "bg-[#FBECEA] text-[#B42F24]", title: r.title, subtitle: `طلب خدمة بلا رد ${pendingAge(r.created_at)}`, action: "رد", to: "/admin/service-requests" }),
@@ -117,15 +126,20 @@ const AdminHome = () => {
           }),
       );
 
-      const today = new Date();
+      // نوافذ كاملة من 30 يوماً تنتهي اليوم، فالشهر الجاري لا يرسم هبوطاً وهمياً في بدايته
+      const WINDOW = 30 * 86_400_000;
+      const today = Date.now();
       setTrend(
         Array.from({ length: 6 }, (_, idx) => {
-          const d = new Date(today.getFullYear(), today.getMonth() - (5 - idx), 1);
-          const key = monthKey(d);
+          const end = today - (5 - idx) * WINDOW;
+          const inWindow = (value?: string | null) => {
+            const at = value ? new Date(value).getTime() : 0;
+            return at > end - WINDOW && at <= end;
+          };
           return {
-            month: formatMonth(d),
-            sent: gs.filter((g) => g.created_at && monthKey(new Date(g.created_at)) === key).length,
-            replied: gs.filter((g) => g.confirmed_at && monthKey(new Date(g.confirmed_at)) === key).length,
+            month: formatDateShort(end),
+            sent: gs.filter((g) => inWindow(g.created_at)).length,
+            replied: gs.filter((g) => inWindow(g.confirmed_at)).length,
           };
         }),
       );
@@ -150,7 +164,7 @@ const AdminHome = () => {
           }
         />
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           <StatCard label="مناسبات خلال 7 أيام" value={loading ? "…" : kpi.soon} icon={Calendar} delta={`${soonDelta >= 0 ? "+" : ""}${soonDelta}`} deltaDown={soonDelta < 0} note="مقارنة بالأسبوع الماضي" />
           <StatCard label="نسبة الرد على الدعوات" value={loading ? "…" : `${kpi.rate}%`} icon={UserCheck} note={`من ${formatNumber(kpi.guests)} مدعو`} />
           <StatCard label="المنظمون" value={loading ? "…" : kpi.organizers} icon={Users} delta={`+${kpi.newOrganizers}`} note="جدد هذا الشهر" />
@@ -209,8 +223,8 @@ const AdminHome = () => {
                   return (
                     <TableRow key={u.id}>
                       <TableCell className="ps-6">
-                        <p className="font-semibold leading-[22px]">{u.title}</p>
-                        <p className="text-xs leading-[18px] text-muted-foreground">{u.organizer}</p>
+                        <p className="whitespace-nowrap font-semibold leading-[22px]">{u.title}</p>
+                        <p className="whitespace-nowrap text-xs leading-[18px] text-muted-foreground">{u.organizer}</p>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{formatDateShort(u.date)}</TableCell>
                       <TableCell>{formatNumber(u.guests)}</TableCell>

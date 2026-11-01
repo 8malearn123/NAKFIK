@@ -43,6 +43,14 @@ const pendingCount = (n: number) => {
 
 const metaIcon = "h-[15px] w-[15px] flex-none opacity-70";
 
+// تمييز العدد بصيغته الصحيحة: 3 حاضرين، 40 حاضراً، 100 حاضر
+const attendeesLabel = (n: number) => {
+  if (n === 1) return "حاضر واحد";
+  if (n === 2) return "حاضران";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "حاضرين" : tail >= 11 ? "حاضراً" : "حاضر"}`;
+};
+
 const PendingEvents = () => {
   const [events, setEvents] = useState<PendingEvent[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -126,7 +134,7 @@ const PendingEvents = () => {
                       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] leading-5 text-muted-foreground">
                         <span className="flex items-center gap-1.5"><Calendar className={metaIcon} />{formatDate(event.start_date)}</span>
                         <span className="flex items-center gap-1.5"><MapPin className={metaIcon} />{event.is_online ? "أونلاين" : (event.venue_name || "غير محدد")}</span>
-                        <span className="flex items-center gap-1.5"><Users className={metaIcon} />{event.max_attendees ? formatNumber(event.max_attendees) : "∞"} حاضر</span>
+                        <span className="flex items-center gap-1.5"><Users className={metaIcon} />{event.max_attendees ? attendeesLabel(event.max_attendees) : "∞ حاضر"}</span>
                         <span className="flex items-center gap-1.5"><Tag className={metaIcon} />{categoryLabels[event.category] || event.category}</span>
                       </div>
                     </div>

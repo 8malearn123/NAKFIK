@@ -103,7 +103,7 @@ const AdminFinance = () => {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader title="المالية والمحاسبة" />
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
             {[1, 2, 3, 4].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
           <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
@@ -119,7 +119,7 @@ const AdminFinance = () => {
       <div className="space-y-6">
         <PageHeader title="المالية والمحاسبة" />
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           {[
             { label: "إجمالي المبيعات", value: totalRevenue, icon: DollarSign },
             { label: "إجمالي العمولات", value: totalCommission, icon: TrendingUp },
@@ -129,7 +129,7 @@ const AdminFinance = () => {
         </div>
 
         <Tabs defaultValue="transactions">
-          <TabsList className="max-w-full justify-start overflow-x-auto">
+          <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsTrigger value="transactions">المعاملات</TabsTrigger>
             <TabsTrigger value="payouts">التسويات</TabsTrigger>
             <TabsTrigger value="commissions">العمولات</TabsTrigger>

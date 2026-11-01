@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Loader2, Wallet } from "lucide-react";
 
 // زر "أضف إلى Apple Wallet" — يطلب ملف .pkpass من الخادم لتذكرة محددة.
 // كل فعالية تنزل كبطاقة مستقلة في المحفظة بهويتها وتصنيف حاملها.
 
-const AddToWalletButton = ({ registrationId, compact = false }: { registrationId: string; compact?: boolean }) => {
+const AddToWalletButton = ({ registrationId }: { registrationId: string }) => {
   const [loading, setLoading] = useState(false);
 
   const addToWallet = async () => {
@@ -53,18 +54,17 @@ const AddToWalletButton = ({ registrationId, compact = false }: { registrationId
   };
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="sm"
       onClick={addToWallet}
       disabled={loading}
-      className={`inline-flex items-center gap-1.5 rounded-full bg-black text-white font-semibold hover:bg-black/85 transition disabled:opacity-60 ${
-        compact ? "text-[11px] px-3 py-1.5" : "text-xs px-4 py-2"
-      }`}
       title="أضف هذه الفعالية بطاقةً مستقلة في Apple Wallet"
     >
-      {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
-       Apple Wallet
-    </button>
+      {loading ? <Loader2 className="animate-spin" /> : <Wallet />}
+      <bdi dir="ltr">Apple Wallet</bdi>
+    </Button>
   );
 };
 

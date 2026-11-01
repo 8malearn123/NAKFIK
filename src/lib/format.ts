@@ -1,27 +1,33 @@
 // تنسيق موحد في كل الشاشات: أرقام غربية وتقويم ميلادي بأسماء أشهر عربية.
 // لا تستخدم toLocaleDateString("ar-SA") مباشرة، فهي تعطي أرقاماً وتقويماً مختلفين حسب الجهاز.
-const LOCALE = "ar-SA-u-ca-gregory-nu-latn";
+const LOCALES = { ar: "ar-SA-u-ca-gregory-nu-latn", en: "en-GB" };
+type Lang = keyof typeof LOCALES;
 
 const toDate = (value: string | number | Date) => (value instanceof Date ? value : new Date(value));
 
-export const formatDate = (value: string | number | Date, withYear = true) =>
-  toDate(value).toLocaleDateString(LOCALE, { day: "numeric", month: "long", ...(withYear ? { year: "numeric" } : {}) });
+export const formatDate = (value: string | number | Date, withYear = true, lang: Lang = "ar") =>
+  toDate(value).toLocaleDateString(LOCALES[lang], { day: "numeric", month: "long", ...(withYear ? { year: "numeric" } : {}) });
 
-export const formatDateShort = (value: string | number | Date) =>
-  toDate(value).toLocaleDateString(LOCALE, { day: "numeric", month: "short" });
+export const formatDateShort = (value: string | number | Date, lang: Lang = "ar") =>
+  toDate(value).toLocaleDateString(LOCALES[lang], { day: "numeric", month: "short" });
 
-export const formatWeekday = (value: string | number | Date) =>
-  toDate(value).toLocaleDateString(LOCALE, { weekday: "long", day: "numeric", month: "long" });
+export const formatWeekday = (value: string | number | Date, lang: Lang = "ar") =>
+  toDate(value).toLocaleDateString(LOCALES[lang], { weekday: "long", day: "numeric", month: "long" });
 
-export const formatTime = (value: string | number | Date) =>
-  toDate(value).toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit" });
+export const formatTime = (value: string | number | Date, lang: Lang = "ar") =>
+  toDate(value).toLocaleTimeString(LOCALES[lang], { hour: "numeric", minute: "2-digit" });
 
-export const formatDateTime = (value: string | number | Date) =>
-  `${formatWeekday(value)}، ${formatTime(value)}`;
+// للسجلات الحية التي تتوالى فيها الأحداث داخل الدقيقة نفسها
+export const formatTimeWithSeconds = (value: string | number | Date, lang: Lang = "ar") =>
+  toDate(value).toLocaleTimeString(LOCALES[lang], { hour: "numeric", minute: "2-digit", second: "2-digit" });
+
+export const formatDateTime = (value: string | number | Date, lang: Lang = "ar") =>
+  `${formatWeekday(value, lang)}${lang === "ar" ? "،" : ","} ${formatTime(value, lang)}`;
 
 export const formatNumber = (value: number) => value.toLocaleString("en-US");
 
-export const formatMoney = (value: number) => `${formatNumber(Math.round(value))} ر.س`;
+// تبقي الهللات عند وجودها حتى تتطابق المجاميع المحاسبية
+export const formatMoney = (value: number) => `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ر.س`;
 
 export const percent = (part: number, total: number) => (total > 0 ? Math.round((part / total) * 100) : 0);
 
@@ -41,7 +47,15 @@ export const daysLeftLabel = (value: string | number | Date) => {
   return `بعد ${days} يوماً`;
 };
 
-export const formatMonth = (value: string | number | Date) => toDate(value).toLocaleDateString(LOCALE, { month: "long" });
+export const formatMonth = (value: string | number | Date, lang: Lang = "ar") => toDate(value).toLocaleDateString(LOCALES[lang], { month: "long" });
 
 // علامة LRM تبقي النسبة بشكل 69% حتى لو جاءت بعد نص عربي في السطر نفسه
 export const formatPercent = (value: number) => `‎${value}%`;
+
+// عدد المدعوين بعد فعل، مثل: ذكّر 5 مدعوين، ذكّر 66 مدعواً
+export const guestsObject = (count: number) => {
+  if (count === 1) return "مدعواً واحداً";
+  if (count === 2) return "مدعوَّين";
+  if (count >= 3 && count <= 10) return `${count} مدعوين`;
+  return `${formatNumber(count)} مدعواً`;
+};

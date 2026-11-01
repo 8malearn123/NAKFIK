@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Calendar, DollarSign, Mail, Ticket, UserCheck, Users } from "lucide-react";
+import { AlertCircle, Calendar, DollarSign, Mail, Ticket, UserCheck, Users, type LucideIcon } from "lucide-react";
 import { usePlanScope } from "@/hooks/usePlanScope";
 import { getMissingOrgFields, isOrgReady } from "@/lib/orgCompleteness";
 import { Link } from "react-router-dom";
@@ -15,7 +15,15 @@ import PageHeader from "@/components/app/PageHeader";
 import Panel from "@/components/app/Panel";
 import StatCard from "@/components/app/StatCard";
 import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
-import { daysLeftLabel, formatDate, formatMoney, formatNumber } from "@/lib/format";
+import { daysLeftLabel, formatDate, formatNumber } from "@/lib/format";
+
+// تمييز العدد بصيغته الصحيحة: مسجّلان، 3 مسجّلين، 40 مسجّلاً
+const registrantsLabel = (n: number) => {
+  if (n === 1) return "مسجّل واحد";
+  if (n === 2) return "مسجّلان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مسجّلين" : tail >= 11 ? "مسجّلاً" : "مسجّل"}`;
+};
 
 const statusLabels: Record<string, { label: string; tone: StatusTone }> = {
   active: { label: "نشطة", tone: "success" },
@@ -60,8 +68,7 @@ const DashboardHome = () => {
           .from("events")
           .select("id, title_ar, start_date, status, current_attendees_count")
           .eq("organization_id", organization.id)
-          .order("start_date", { ascending: true })
-          .limit(5);
+          .order("start_date", { ascending: true });
 
         const eventsList = (evts || []) as EventRow[];
         setEvents(eventsList);
@@ -87,8 +94,7 @@ const DashboardHome = () => {
         // أقرب المناسبات للعرض في القائمة
         const upcoming = [...invList]
           .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-          .filter((i) => i.status !== "cancelled")
-          .slice(0, 5);
+          .filter((i) => i.status !== "cancelled");
         setEvents(upcoming.map((i) => ({
           id: i.id,
           title_ar: i.title,
@@ -120,12 +126,15 @@ const DashboardHome = () => {
     load();
   }, [organization, canPublic]);
 
-  const statsCards = canPublic
+  // القائمة للقادم فقط؛ المنتهية تبقى في عدّاد الإجمالي
+  const upcomingEvents = events.filter((e) => new Date(e.start_date).getTime() >= Date.now()).slice(0, 5);
+
+  const statsCards: { icon: LucideIcon; label: string; value: string; unit?: string }[] = canPublic
     ? [
         { icon: Calendar, label: "إجمالي الفعاليات", value: formatNumber(stats.totalEvents) },
         { icon: Users, label: "إجمالي المسجلين", value: formatNumber(stats.totalRegistrations) },
         { icon: Ticket, label: "التذاكر المباعة", value: formatNumber(stats.totalTicketsSold) },
-        { icon: DollarSign, label: "الإيرادات", value: formatMoney(stats.totalRevenue) },
+        { icon: DollarSign, label: "الإيرادات", value: formatNumber(stats.totalRevenue), unit: "ر.س" },
       ]
     : [
         // المرحلة الأولى: نفس البطاقات بدلالات الدعوات الخاصة
@@ -173,9 +182,9 @@ const DashboardHome = () => {
           </div>
         )}
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           {statsCards.map((stat) => (
-            <StatCard key={stat.label} label={stat.label} value={loading ? "…" : stat.value} icon={stat.icon} />
+            <StatCard key={stat.label} label={stat.label} value={loading ? "…" : stat.value} unit={loading ? undefined : stat.unit} icon={stat.icon} />
           ))}
         </div>
 
@@ -191,9 +200,9 @@ const DashboardHome = () => {
             <div className="space-y-3">
               {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/60" />)}
             </div>
-          ) : events.length > 0 ? (
+          ) : upcomingEvents.length > 0 ? (
             <div className="divide-y divide-border">
-              {events.map((event) => {
+              {upcomingEvents.map((event) => {
                 const status = statusLabels[event.status] || statusLabels.draft;
                 return (
                   <div key={event.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
@@ -202,7 +211,7 @@ const DashboardHome = () => {
                       <p className="truncate text-sm font-semibold leading-[22px]">{event.title_ar}</p>
                       <p className="text-xs leading-[18px] text-muted-foreground">
                         {formatDate(event.start_date)}، {daysLeftLabel(event.start_date)}
-                        {canPublic && `، ${formatNumber(event.current_attendees_count)} مسجّل`}
+                        {canPublic && `، ${registrantsLabel(event.current_attendees_count)}`}
                       </p>
                     </div>
                     <StatusBadge tone={status.tone}>{status.label}</StatusBadge>

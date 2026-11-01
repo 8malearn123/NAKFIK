@@ -156,7 +156,7 @@ const InvitationsReport = ({ organizationId, period = "all" }: Props) => {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           {[1, 2, 3, 4].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
         </div>
         <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
@@ -204,7 +204,7 @@ const InvitationsReport = ({ organizationId, period = "all" }: Props) => {
         {period !== "all" && <span className="text-xs text-muted-foreground">مفلتر حسب الفترة المختارة أعلى الصفحة</span>}
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
         {cards.map((c) => <StatCard key={c.label} label={c.label} value={c.value} icon={c.icon} />)}
       </div>
 
@@ -217,9 +217,16 @@ const InvitationsReport = ({ organizationId, period = "all" }: Props) => {
         >
           <div className="mb-4 sm:hidden"><ChartLegend series={[...RSVP_SERIES]} /></div>
           {chartData.length === 0 ? noData : (
-            <div className="space-y-4">
+            <div id="report-invitation-bars" className="space-y-4">
               {chartData.map((r) => (
-                <div key={r.id} title={`مؤكدون ${formatNumber(r.confirmed)}، معتذرون ${formatNumber(r.declined)}، بانتظار الرد ${formatNumber(r.pending)}`}>
+                <div
+                  key={r.id}
+                  data-title={r.title}
+                  data-confirmed={r.confirmed}
+                  data-declined={r.declined}
+                  data-pending={r.pending}
+                  title={`مؤكدون ${formatNumber(r.confirmed)}، معتذرون ${formatNumber(r.declined)}، بانتظار الرد ${formatNumber(r.pending)}`}
+                >
                   <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
                     <span className="truncate font-semibold">{r.title}</span>
                     <span className="whitespace-nowrap text-xs text-muted-foreground">

@@ -230,14 +230,15 @@
   font-weight: 700;
   letter-spacing: 0;
 }
-/* البطاقات المكتوبة يدوياً في الصفحات تأخذ الشكل الموحد تلقائياً */
-.soft-ui .bg-card[class*="rounded-"] {
-  border-color: transparent;
-  box-shadow: var(--shadow-soft);
-}
-.soft-ui .bg-card .bg-card[class*="rounded-"],
-.soft-ui [role="dialog"] .bg-card[class*="rounded-"],
-.soft-ui [role="menu"].bg-card {
-  border-color: hsl(var(--border));
-  box-shadow: none;
+/* البطاقات المكتوبة يدوياً تأخذ الشكل الموحد، وتبقى أصناف Tailwind (مثل حدود الخطأ) أقوى منها */
+@layer components {
+  .soft-ui :where(.bg-card[class*="rounded-"]) {
+    border-color: transparent;
+    box-shadow: var(--shadow-soft);
+  }
+  .soft-ui :where(.bg-card) :where(.bg-card[class*="rounded-"]),
+  .soft-ui :where([role="dialog"]) :where(.bg-card[class*="rounded-"]) {
+    border-color: hsl(var(--border));
+    box-shadow: none;
+  }
 }

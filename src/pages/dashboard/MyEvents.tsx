@@ -334,18 +334,16 @@ const MyEvents = () => {
 
         {!loading && events.length > 0 && (
           <div className="flex flex-wrap items-center gap-2.5">
-            <div className="max-w-full overflow-x-auto [scrollbar-width:none]">
-              <Tabs value={filter} onValueChange={(v) => setFilter(v as EventStatus | "all")}>
-                <TabsList className="w-max">
-                  {statusFilters.map((sf) => (
-                    <TabsTrigger key={sf.key} value={sf.key} className="gap-1.5 px-3 sm:px-4">
-                      {sf.label}
-                      <span className="text-xs font-normal text-muted-foreground">{formatNumber(filterCount(sf.key))}</span>
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            </div>
+            <Tabs className="min-w-0 max-w-full" value={filter} onValueChange={(v) => setFilter(v as EventStatus | "all")}>
+              <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {statusFilters.map((sf) => (
+                  <TabsTrigger key={sf.key} value={sf.key} className="gap-1.5 px-3 sm:px-4">
+                    {sf.label}
+                    <span className="text-xs font-normal text-muted-foreground">{formatNumber(filterCount(sf.key))}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
             <div className="relative w-full sm:w-64 xl:ms-auto">
               <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input type="text" placeholder="ابحث عن فعالية..." value={search} onChange={(e) => setSearch(e.target.value)} className="ps-9" />
@@ -451,14 +449,14 @@ const MyEvents = () => {
               <EmptyState
                 icon={Calendar}
                 title="لا توجد فعاليات"
-                action={<Button variant="outline" onClick={() => { setFilter("all"); setSearch(""); }}>إعادة تعيين</Button>}
+                action={<Button variant="outline" size="sm" onClick={() => { setFilter("all"); setSearch(""); }}>إعادة تعيين</Button>}
               />
             ) : (
               <EmptyState
                 icon={Calendar}
                 title="لا توجد فعاليات"
                 description="أنشئ فعاليتك الأولى الآن"
-                action={<Button asChild><Link to="/dashboard/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية</Link></Button>}
+                action={<Button asChild variant="soft" size="sm"><Link to="/dashboard/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية</Link></Button>}
               />
             )}
           </div>
@@ -478,7 +476,7 @@ const MyEvents = () => {
 
       {/* نافذة توضيح عدم توفر ميزة النسخ */}
       <Dialog open={dupBlockOpen} onOpenChange={setDupBlockOpen}>
-        <DialogContent dir="rtl" className="max-w-sm rounded-2xl">
+        <DialogContent dir="rtl" className="w-[calc(100%-1.5rem)] rounded-2xl max-w-sm">
           <DialogHeader className="items-center space-y-3 text-center sm:text-center">
             <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary">
               <Lock className="h-[18px] w-[18px]" />

@@ -257,8 +257,8 @@ const ServiceMarket = () => {
 
         {/* Booking Dialog */}
         <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
-          <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>حجز: {activeService?.name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
@@ -268,7 +268,7 @@ const ServiceMarket = () => {
                 <div className="space-y-2"><Label>البريد</Label><Input dir="ltr" type="email" value={bookingForm.customer_email} onChange={(e) => setBookingForm({ ...bookingForm, customer_email: e.target.value })} /></div>
                 <div className="space-y-2"><Label>تاريخ الفعالية</Label><Input type="date" value={bookingForm.event_date} onChange={(e) => setBookingForm({ ...bookingForm, event_date: e.target.value })} /></div>
                 <div className="space-y-2"><Label>المدينة</Label><Input value={bookingForm.city} onChange={(e) => setBookingForm({ ...bookingForm, city: e.target.value })} /></div>
-                <div className="space-y-2"><Label>عدد الحضور المتوقع</Label><Input type="number" value={bookingForm.attendees_count} onChange={(e) => setBookingForm({ ...bookingForm, attendees_count: e.target.value })} /></div>
+                <div className="space-y-2 sm:col-span-2"><Label>عدد الحضور المتوقع</Label><Input type="number" value={bookingForm.attendees_count} onChange={(e) => setBookingForm({ ...bookingForm, attendees_count: e.target.value })} /></div>
               </div>
               <div className="space-y-2"><Label>تفاصيل إضافية</Label><Textarea rows={3} value={bookingForm.notes} onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })} /></div>
               <Button onClick={submitBooking} className="w-full">إرسال طلب الحجز</Button>
@@ -278,8 +278,8 @@ const ServiceMarket = () => {
 
         {/* Custom Request Dialog */}
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
-          <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>طلب خدمة مخصص</DialogTitle></DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>طلب خدمة مخصص</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>الفئة *</Label>

@@ -175,7 +175,7 @@ const EventAttendance = () => {
         </div>
 
         {/* ملخص */}
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           <StatCard label="إجمالي المسجلين" value={loading ? "…" : formatNumber(stats.total)} icon={Users} />
           <StatCard label="دخلوا الفعالية" value={loading ? "…" : formatNumber(stats.entered)} icon={LogIn} />
           <StatCard label="بالداخل الآن" value={loading ? "…" : formatNumber(stats.inside)} icon={DoorOpen} />
@@ -211,13 +211,13 @@ const EventAttendance = () => {
               <EmptyState
                 icon={Search}
                 title="لا يوجد مسجلون مطابقون للبحث"
-                action={<Button variant="outline" onClick={() => setSearch("")}>مسح البحث</Button>}
+                action={<Button variant="outline" size="sm" onClick={() => setSearch("")}>مسح البحث</Button>}
               />
             ) : (
               <EmptyState
                 icon={Users}
                 title="لا يوجد مسجلون بعد"
-                action={<Button asChild><Link to={`/dashboard/events/${eventId}/guests`}>قائمة المدعوين</Link></Button>}
+                action={<Button asChild variant="soft" size="sm"><Link to="/dashboard/events">العودة لفعالياتي</Link></Button>}
               />
             )}
           </div>

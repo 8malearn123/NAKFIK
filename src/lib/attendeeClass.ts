@@ -10,11 +10,11 @@ export interface AttendeeClassMeta {
 }
 
 export const ATTENDEE_CLASS_META: Record<AttendeeClass, AttendeeClassMeta> = {
-  vvip:      { label: "VVIP", cls: "bg-amber-500/15 text-amber-700 border-amber-400/60", cardCls: "bg-amber-400 text-amber-950" },
-  vip:       { label: "VIP", cls: "bg-primary/10 text-primary border-primary/40", cardCls: "bg-purple-300 text-purple-950" },
-  speaker:   { label: "متحدث", cls: "bg-teal/10 text-teal-700 border-teal/40", cardCls: "bg-teal-300 text-teal-950" },
-  organizer: { label: "منظم", cls: "bg-blue-500/10 text-blue-700 border-blue-400/50", cardCls: "bg-blue-300 text-blue-950" },
-  regular:   { label: "عادي", cls: "bg-muted text-muted-foreground border-border", cardCls: "bg-white/80 text-gray-800" },
+  vvip:      { label: "VVIP", cls: "bg-[#FDF3E3] text-[#9A5F12] border-transparent", cardCls: "bg-amber-400 text-amber-950" },
+  vip:       { label: "VIP", cls: "bg-secondary text-primary border-transparent", cardCls: "bg-purple-300 text-purple-950" },
+  speaker:   { label: "متحدث", cls: "bg-[#E8F5EE] text-[#0E7A4F] border-transparent", cardCls: "bg-teal-300 text-teal-950" },
+  organizer: { label: "منظم", cls: "bg-[#F1EFF4] text-[#5F5968] border-transparent", cardCls: "bg-blue-300 text-blue-950" },
+  regular:   { label: "عادي", cls: "bg-[#F1EFF4] text-[#5F5968] border-transparent", cardCls: "bg-white/80 text-gray-800" },
 };
 
 export const classifyAttendee = (

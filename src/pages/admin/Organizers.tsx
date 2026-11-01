@@ -24,6 +24,9 @@ interface OrgRow {
 
 const HINT = "يمكنك عرض فعاليات أي منظم أو الدخول كحسابه";
 
+// الاسم المعروض لقيمة subscription_plan؛ القيمة الخام تبقى للمنطق
+const PLAN_LABELS: Record<string, string> = { free: "المجانية", starter: "الأساسية", pro: "الاحترافية", enterprise: "المؤسسية" };
+
 // تمييز العدد بصيغته الصحيحة: 3 منظمين، 11 منظماً، 100 منظم
 const organizersLabel = (n: number) => {
   if (n === 2) return "منظمان";
@@ -96,7 +99,7 @@ const Organizers = () => {
             <EmptyState
               icon={Building2}
               title="لا يوجد منظمون مسجلون حتى الآن"
-              action={<Button asChild><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>}
+              action={<Button asChild size="sm"><Link to="/admin/users/invite"><Plus className="h-4 w-4" /> دعوة حساب</Link></Button>}
             />
           </div>
         ) : (
@@ -124,7 +127,7 @@ const Organizers = () => {
                       </div>
                     </TableCell>
                     <TableCell>{formatNumber(eventCounts[o.id] || 0)}</TableCell>
-                    <TableCell><bdi dir="ltr">{o.subscription_plan}</bdi></TableCell>
+                    <TableCell className="whitespace-nowrap"><bdi>{PLAN_LABELS[o.subscription_plan] || o.subscription_plan}</bdi></TableCell>
                     <TableCell>
                       <StatusBadge tone={o.is_active ? "success" : "danger"}>{o.is_active ? "نشط" : "معطل"}</StatusBadge>
                     </TableCell>

@@ -255,8 +255,8 @@ const Announcements = () => {
         )}
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent dir="rtl" className="max-h-[92vh] max-w-lg overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[92vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>{editingId ? "تعديل الإعلان" : "إعلان جديد"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">

@@ -121,16 +121,16 @@ const AdminTeam = () => {
               icon={Users}
               title="لا يوجد أعضاء بعد"
               description="أضف مستخدمين لمساعدتك في إدارة المنصة"
-              action={<Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /> إضافة عضو</Button>}
+              action={<Button variant="soft" size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4" /> إضافة عضو</Button>}
             />
           </div>
         ) : (
-          <Panel flush>
+          <Panel title="أعضاء الفريق" flush>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="ps-6">العضو</TableHead>
-                  <TableHead>الجوال</TableHead>
+                  <TableHead>رقم الجوال</TableHead>
                   <TableHead>الصلاحيات</TableHead>
                   <TableHead className="pe-6"><span className="sr-only">إجراءات</span></TableHead>
                 </TableRow>
@@ -182,8 +182,8 @@ const AdminTeam = () => {
         )}
 
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
-          <DialogContent dir="rtl" className="max-h-[90vh] max-w-2xl overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-2xl overflow-y-auto">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>عضو إدارة جديد</DialogTitle>
             </DialogHeader>
 

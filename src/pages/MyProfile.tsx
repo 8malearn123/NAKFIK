@@ -315,7 +315,7 @@ const MyProfile = () => {
     setDownloading(true);
     try {
       const dataUrl = await toPng(cardRef.current, {
-        pixelRatio: 3, cacheBust: true, backgroundColor: "#492C5A",
+        pixelRatio: 3, cacheBust: true, backgroundColor: "#FFFFFF",
         filter: (node) => {
           if (node instanceof HTMLImageElement) {
             try {
@@ -500,12 +500,12 @@ const MyProfile = () => {
                   <Panel title={t("pgProfile.overview.digitalCard")}>
                     {connectCode ? (
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                        <div className="w-fit flex-none rounded-xl border bg-white p-2">
+                        <div className="w-fit flex-none rounded-xl bg-white p-2">
                           <QRCodeSVG value={connectUrl} size={100} fgColor="#492C5A" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-muted-foreground">{t("pgProfile.overview.publicCardLink")}</p>
-                          <bdi dir="ltr" className="mt-1 block break-all text-[13px] font-medium leading-5">{connectUrl}</bdi>
+                          <bdi dir="ltr" className="mt-1 block truncate text-[13px] font-medium leading-5">{connectUrl}</bdi>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button size="sm" variant="outline" onClick={copyLink}><Copy className="h-[15px] w-[15px]" /> {t("pgProfile.overview.copy")}</Button>
                             <Button size="sm" variant="outline" onClick={downloadCard} disabled={downloading}>
@@ -644,12 +644,15 @@ const MyProfile = () => {
               </Tabs>
 
               {/* Save bar */}
-              <div className="flex flex-wrap items-center justify-end gap-3">
+              <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-end gap-3 rounded-2xl bg-card p-3 shadow-soft">
                 {savedAt && (
-                  <p className="me-auto flex items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
-                    <CheckCircle className="h-4 w-4 flex-none text-[#0E7A4F]" />
-                    {t("pgProfile.save.lastSaved")} {formatTime(savedAt)}
-                  </p>
+                  <div className="me-auto flex min-w-0 items-center gap-2">
+                    <CheckCircle className="h-5 w-5 flex-none text-[#0E7A4F]" />
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold leading-5">{t("pgProfile.save.savedTitle")}</p>
+                      <p className="text-xs leading-[18px] text-muted-foreground">{t("pgProfile.save.lastSaved")} {formatTime(savedAt, lang)}</p>
+                    </div>
+                  </div>
                 )}
                 <Button onClick={handleSave} disabled={saving}>
                   {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> {t("pgProfile.save.saving")}</> : <><Save className="h-4 w-4" /> {t("pgProfile.save.saveAll")}</>}
@@ -680,8 +683,6 @@ const MyProfile = () => {
                       qr_label: t("pgProfile.aside.scanToConnect"),
                       logo_url: null,
                       ring_color: "#CC8E3D",
-                      bg_from: "#2b1342",
-                      bg_to: "#7a2855",
                     }}
                   />
 

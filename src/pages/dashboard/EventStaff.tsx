@@ -177,7 +177,7 @@ const EventStaff = () => {
                   icon={Users}
                   title="لا يوجد موظفون بعد"
                   description="أضف أول موظف ليظهر هنا مع دوره وصلاحياته"
-                  action={<Button variant="soft" onClick={() => emailRef.current?.focus()}><Plus className="h-4 w-4" /> إضافة موظف</Button>}
+                  action={<Button variant="soft" size="sm" onClick={() => emailRef.current?.focus()}><Plus className="h-4 w-4" /> إضافة موظف</Button>}
                 />
               ) : (
                 <Table>

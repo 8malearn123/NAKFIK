@@ -4,6 +4,7 @@ import { Calendar, Clock, AlertTriangle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffectiveUser } from "@/hooks/useEffectiveUser";
+import { usePlanScope } from "@/hooks/usePlanScope";
 import { daysLeftLabel, formatDate, formatNumber } from "@/lib/format";
 
 interface SubRow {
@@ -23,14 +24,15 @@ interface PlanRow {
 }
 
 // عدد الفعاليات المتبقية بصياغة عربية صحيحة
-const remainingLabel = (n: number) => {
-  if (n === 1) return "فعالية واحدة متبقية";
-  if (n === 2) return "فعاليتان متبقيتان";
-  if (n >= 3 && n <= 10) return `${n} فعاليات متبقية`;
-  return `${formatNumber(n)} فعالية متبقية`;
+const remainingLabel = (n: number, canPublic: boolean) => {
+  if (n === 1) return canPublic ? "فعالية واحدة متبقية" : "مناسبة واحدة متبقية";
+  if (n === 2) return canPublic ? "فعاليتان متبقيتان" : "مناسبتان متبقيتان";
+  if (n >= 3 && n <= 10) return `${n} ${canPublic ? "فعاليات" : "مناسبات"} متبقية`;
+  return `${formatNumber(n)} ${canPublic ? "فعالية" : "مناسبة"} متبقية`;
 };
 
 const SubscriptionUsageCard = () => {
+  const { canPublic } = usePlanScope();
   const { effectiveUserId } = useEffectiveUser();
   const [sub, setSub] = useState<SubRow | null>(null);
   const [plan, setPlan] = useState<PlanRow | null>(null);
@@ -73,7 +75,7 @@ const SubscriptionUsageCard = () => {
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[15px] font-bold leading-6">لا يوجد اشتراك نشط</h3>
-          <p className="text-[13px] leading-5 text-muted-foreground">اشترك في باقة لتتمكن من إنشاء فعاليات</p>
+          <p className="text-[13px] leading-5 text-muted-foreground">اشترك في باقة لتتمكن من إنشاء {canPublic ? "فعاليات" : "مناسبات"}</p>
         </div>
         <Button asChild size="sm" className="w-full sm:w-auto">
           <Link to="/dashboard/subscription">عرض الباقات</Link>
@@ -106,7 +108,7 @@ const SubscriptionUsageCard = () => {
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[15px] font-bold leading-6">{plan?.name_ar || "باقتك"}</h3>
           <p className="text-[13px] leading-5 text-muted-foreground">
-            {isExpired ? "انتهت الصلاحية" : `${remainingLabel(remaining)} من ${formatNumber(quota)}`}
+            {isExpired ? "انتهت الصلاحية" : `${remainingLabel(remaining, canPublic)} من ${formatNumber(quota)}`}
           </p>
         </div>
         <Button asChild size="sm" variant={warning ? "default" : "outline"} className="flex-none">
@@ -119,7 +121,7 @@ const SubscriptionUsageCard = () => {
           <div className="mb-1.5 flex items-center justify-between gap-3 text-xs leading-[18px]">
             <span className="flex items-center gap-1.5 text-muted-foreground">
               <Calendar className="h-3.5 w-3.5" />
-              الفعاليات المستخدمة
+              {canPublic ? "الفعاليات المستخدمة" : "المناسبات المستخدمة"}
             </span>
             <span className="font-semibold">{formatNumber(used)} من {quota ? formatNumber(quota) : "∞"}</span>
           </div>
@@ -143,7 +145,7 @@ const SubscriptionUsageCard = () => {
 
         {isExhausted && !isExpired && (
           <p className="text-xs font-semibold leading-[18px] text-[#B42F24]">
-            لقد استنفدت رصيدك من الفعاليات. يرجى الترقية لإنشاء فعاليات جديدة.
+            {canPublic ? "لقد استنفدت رصيدك من الفعاليات. يرجى الترقية لإنشاء فعاليات جديدة." : "لقد استنفدت رصيدك من المناسبات. يرجى الترقية لإنشاء مناسبات جديدة."}
           </p>
         )}
       </div>

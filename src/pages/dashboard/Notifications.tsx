@@ -17,14 +17,12 @@ const Notifications = () => {
 
         <Tabs value={tab} onValueChange={setTab} dir="rtl">
           {/* الشريط يمرر داخل مكانه على الجوال حتى لا تتمدد الصفحة أفقياً */}
-          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
-            <TabsList className="flex w-max">
-              <TabsTrigger value="send" className="px-3 sm:px-4">إرسال إشعار</TabsTrigger>
-              <TabsTrigger value="inbox" className="px-3 sm:px-4">الوارد</TabsTrigger>
-              <TabsTrigger value="log" className="px-3 sm:px-4">السجل</TabsTrigger>
-              <TabsTrigger value="settings" className="px-3 sm:px-4">إعدادات واتساب</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsTrigger value="send" className="px-3 sm:px-4">إرسال إشعار</TabsTrigger>
+            <TabsTrigger value="inbox" className="px-3 sm:px-4">الوارد</TabsTrigger>
+            <TabsTrigger value="log" className="px-3 sm:px-4">السجل</TabsTrigger>
+            <TabsTrigger value="settings" className="px-3 sm:px-4">إعدادات واتساب</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="send" className="mt-6">
             <SendNotification />

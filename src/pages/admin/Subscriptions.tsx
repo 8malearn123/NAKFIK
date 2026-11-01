@@ -27,7 +27,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate, formatMoney, formatNumber } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 // تمييز العدد بصيغته الصحيحة: 3 أشهر، 12 شهراً، 100 شهر
@@ -310,7 +310,7 @@ const Subscriptions = () => {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader title="إدارة الاشتراكات" />
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
             {[1, 2, 3, 4].map((i) => <div key={i} className="h-[126px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -339,7 +339,7 @@ const Subscriptions = () => {
           }
         />
 
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           <StatCard label="إجمالي الخطط" value={formatNumber(plans.length)} icon={Package} />
           <StatCard label="خطط مفعلة" value={formatNumber(plans.filter(p => p.is_active).length)} icon={Check} />
           <StatCard label="اشتراكات فعالة" value={formatNumber(activeSubs.length)} icon={Users} />
@@ -358,7 +358,7 @@ const Subscriptions = () => {
                 <EmptyState
                   icon={Package}
                   title="لا توجد خطط بعد"
-                  action={<Button onClick={startCreate}><Plus className="h-4 w-4" /> إضافة خطة جديدة</Button>}
+                  action={<Button variant="soft" size="sm" onClick={startCreate}><Plus className="h-4 w-4" /> إضافة خطة جديدة</Button>}
                 />
               </div>
             ) : (
@@ -459,9 +459,9 @@ const Subscriptions = () => {
                   title={subscriptions.length === 0 ? "لا توجد اشتراكات بعد" : "لا توجد اشتراكات مطابقة للبحث"}
                   action={
                     subscriptions.length === 0 ? (
-                      <Button onClick={openGrant}><Gift className="h-4 w-4" /> منح باقة لمنظّم</Button>
+                      <Button variant="soft" size="sm" onClick={openGrant}><Gift className="h-4 w-4" /> منح باقة لمنظّم</Button>
                     ) : (
-                      <Button variant="outline" onClick={() => setSearch("")}><X className="h-4 w-4" /> إعادة تعيين</Button>
+                      <Button variant="outline" size="sm" onClick={() => setSearch("")}><X className="h-4 w-4" /> إعادة تعيين</Button>
                     )
                   }
                 />
@@ -488,7 +488,7 @@ const Subscriptions = () => {
                             <bdi dir="ltr" className="font-mono text-xs">{sub.account_id?.slice(0, 8)}...</bdi>
                           </TableCell>
                           <TableCell className="whitespace-nowrap font-semibold">{plan?.name_ar || "-"}</TableCell>
-                          <TableCell className="whitespace-nowrap">{formatMoney(Number(sub.amount))}</TableCell>
+                          <TableCell className="whitespace-nowrap">{`${formatNumber(Number(sub.amount))} ر.س`}</TableCell>
                           <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sub.current_period_start)}</TableCell>
                           <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(sub.current_period_end)}</TableCell>
                           <TableCell className="pe-6">{statusBadge(sub.status)}</TableCell>
@@ -504,8 +504,8 @@ const Subscriptions = () => {
 
         {/* نافذة منح باقة */}
         <Dialog open={grantOpen} onOpenChange={setGrantOpen}>
-          <DialogContent dir="rtl" className="max-w-md">
-            <DialogHeader>
+          <DialogContent dir="rtl" className="w-[calc(100%-1.5rem)] rounded-2xl max-w-md">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>منح باقة لمنظّم</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
@@ -566,8 +566,8 @@ const Subscriptions = () => {
 
         {/* نافذة إنشاء الخطة وتعديلها */}
         <Dialog open={isFormOpen} onOpenChange={(next) => { if (!next) cancelEdit(); }}>
-          <DialogContent dir="rtl" className="max-h-[90vh] max-w-2xl overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-2xl overflow-y-auto">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>{creating ? "إنشاء خطة جديدة" : "تعديل الخطة"}</DialogTitle>
             </DialogHeader>
 

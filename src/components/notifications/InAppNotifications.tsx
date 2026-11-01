@@ -18,7 +18,7 @@ interface InAppNotif {
 }
 
 const InAppNotifications = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [notifications, setNotifications] = useState<InAppNotif[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -77,7 +77,7 @@ const InAppNotifications = () => {
     <Panel
       flush
       title={t("inbox.title")}
-      description={unreadCount > 0 ? `${formatNumber(unreadCount)} غير مقروء` : undefined}
+      description={unreadCount > 0 ? `${formatNumber(unreadCount)} ${t("inbox.unreadLabel")}` : undefined}
       actions={
         unreadCount > 0 && (
           <Button variant="ghost" size="sm" onClick={markAllRead} className="-my-1 flex-none text-[13px] text-primary">
@@ -89,7 +89,7 @@ const InAppNotifications = () => {
     >
       <div className="divide-y divide-border border-t border-border">
         {notifications.map((notif) => {
-          const time = `${formatDateShort(notif.created_at)}، ${formatTime(notif.created_at)}`;
+          const time = `${formatDateShort(notif.created_at, lang)}، ${formatTime(notif.created_at, lang)}`;
           return (
             <div
               key={notif.id}

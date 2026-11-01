@@ -16,7 +16,7 @@ import PageHeader from "@/components/app/PageHeader";
 import Panel from "@/components/app/Panel";
 import StatCard from "@/components/app/StatCard";
 import TrendChart, { CHART_COLORS, ChartLegend } from "@/components/app/TrendChart";
-import { formatDateShort, formatMonth, formatNumber, formatPercent, percent } from "@/lib/format";
+import { formatDate, formatDateShort, formatDateTime, formatNumber, formatPercent, percent } from "@/lib/format";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
@@ -59,6 +59,14 @@ interface Guest {
   guest_tier?: string | null; confirmed_at?: string | null;
   checked_in_at?: string | null; invite_sent_at?: string | null; created_at?: string | null;
 }
+
+// تمييز العدد بصيغته الصحيحة: مدعوان، 3 مدعوين، 14 مدعواً، 100 مدعو
+const guestsLabel = (n: number) => {
+  if (n === 1) return "مدعو واحد";
+  if (n === 2) return "مدعوان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مدعوين" : tail >= 11 ? "مدعواً" : "مدعو"}`;
+};
 
 const tierOf = (g: Guest): Tier =>
   g.guest_tier === "vvip" ? "vvip" : g.guest_tier === "vip" ? "vip" : "regular";
@@ -147,20 +155,18 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     const idx: Record<string, number> = {};
     const now = new Date();
     const count = monthly ? 12 : period === "7d" ? 7 : 30;
+    // العرض الشهري نوافذ كاملة من 30 يوماً تنتهي اليوم، فالشهر الجاري لا يرسم هبوطاً وهمياً في بدايته
+    const WINDOW = 30 * 86_400_000;
     for (let i = count - 1; i >= 0; i--) {
-      // نبدأ من أول الشهر حتى لا يتكرر شهر عند 29-31
-      const d = monthly ? new Date(now.getFullYear(), now.getMonth() - i, 1) : new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const key = monthly ? `${d.getFullYear()}-${d.getMonth()}` : d.toISOString().slice(0, 10);
-      const label = monthly
-        ? formatMonth(d)
-        : formatDateShort(d);
+      const d = monthly ? new Date(now.getTime() - i * WINDOW) : new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = monthly ? String(i) : d.toISOString().slice(0, 10);
       idx[key] = buckets.length;
-      buckets.push({ key, label, تأكيدات: 0, اعتذارات: 0 });
+      buckets.push({ key, label: formatDateShort(d), تأكيدات: 0, اعتذارات: 0 });
     }
     fGuests.forEach((g) => {
       if (!g.confirmed_at) return;
       const d = new Date(g.confirmed_at);
-      const key = monthly ? `${d.getFullYear()}-${d.getMonth()}` : d.toISOString().slice(0, 10);
+      const key = monthly ? String(Math.floor((now.getTime() - d.getTime()) / WINDOW)) : d.toISOString().slice(0, 10);
       const i = idx[key];
       if (i === undefined) return;
       if (g.rsvp_status === "confirmed") buckets[i].تأكيدات++;
@@ -215,7 +221,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     const declined = g.filter((x) => x.rsvp_status === "declined").length;
     return {
       "المناسبة": i.title,
-      "التاريخ": new Date(i.event_date).toLocaleDateString("ar-SA"),
+      "التاريخ": formatDate(i.event_date),
       "الحالة": i.status === "active" ? "نشطة" : i.status === "cancelled" ? "ملغاة" : i.status === "draft" ? "مسودة" : i.status,
       "المدعوون": g.length,
       "مؤكدون": confirmed,
@@ -241,7 +247,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     ws1["!cols"] = [{ wch: 20 }, { wch: 30 }];
     XLSX.utils.book_append_sheet(wb, ws1, "الملخص");
     const ws2 = XLSX.utils.json_to_sheet(buildInvRows());
-    ws2["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
+    ws2["!cols"] = [{ wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws2, "المناسبات");
     const ws3 = XLSX.utils.json_to_sheet(tierDist.map((t) => ({
       "التصنيف": t.label, "المدعوون": t.count, "مؤكدون": t.confirmed, "النسبة": `${t.pct}%`,
@@ -299,7 +305,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
 </style></head><body>
   <div class="head">
     <div class="brand">نكفيك تيكت — تقرير الدعوات الخاصة</div>
-    <div class="meta">${new Date().toLocaleString("ar-SA")}<br/>${orgName || ""}</div>
+    <div class="meta">${formatDateTime(new Date())}<br/>${orgName || ""}</div>
   </div>
   <div class="filters"><b>الفلاتر المطبقة:</b> ${filtersSummary().join(" · ")}</div>
   <div class="stats">
@@ -335,7 +341,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
 
   if (loading) {
     return (
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
         {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-36 animate-pulse rounded-2xl bg-card shadow-soft" />)}
       </div>
     );
@@ -351,7 +357,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
             icon={Mail}
             title="لا توجد دعوات خاصة بعد"
             description="أنشئ أول دعوة لتظهر تقاريرها هنا"
-            action={<Button asChild><Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> إنشاء دعوة خاصة</Link></Button>}
+            action={<Button asChild size="sm"><Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> إنشاء دعوة خاصة</Link></Button>}
           />
         </div>
       </div>
@@ -389,7 +395,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
         )}
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
         {statCards.map((s) => <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} />)}
       </div>
 
@@ -437,7 +443,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
                   <div className="mb-1.5 flex items-center gap-2 text-sm">
                     {t.key === "vvip" && <Crown className="h-3.5 w-3.5 text-accent" />}
                     <span className="font-semibold"><bdi>{t.label}</bdi></span>
-                    <span className="ms-auto text-xs text-muted-foreground">{formatNumber(t.count)} مدعو، {formatPercent(t.pct)}</span>
+                    <span className="ms-auto text-xs text-muted-foreground">{guestsLabel(t.count)}، {formatPercent(t.pct)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
                     <div className="h-full rounded-full" style={{ width: `${t.pct}%`, background: t.color }} />

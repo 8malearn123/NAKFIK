@@ -20,7 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDate, formatMoney, formatNumber } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
 import { CalendarCheck, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 
@@ -137,7 +137,7 @@ const AdminFeaturedServices = () => {
                 <EmptyState
                   icon={Sparkles}
                   title="لا توجد خدمات"
-                  action={<Button onClick={openNew}><Plus className="h-4 w-4" /> إضافة خدمة</Button>}
+                  action={<Button variant="soft" size="sm" onClick={openNew}><Plus className="h-4 w-4" /> إضافة خدمة</Button>}
                 />
               </div>
             ) : (
@@ -163,7 +163,7 @@ const AdminFeaturedServices = () => {
                         {(s.starting_price || s.is_featured) && (
                           <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-2">
                             <span className="text-[13px] font-semibold">
-                              {s.starting_price ? `يبدأ من ${formatMoney(s.starting_price)}` : ""}
+                              {s.starting_price ? `يبدأ من ${formatNumber(s.starting_price)} ر.س` : ""}
                             </span>
                             {s.is_featured && <StatusBadge tone="primary">مميزة</StatusBadge>}
                           </div>
@@ -246,8 +246,8 @@ const AdminFeaturedServices = () => {
         </Tabs>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent dir="rtl" className="max-h-[90vh] max-w-lg overflow-y-auto">
-            <DialogHeader><DialogTitle>{editingId ? "تعديل خدمة" : "إضافة خدمة"}</DialogTitle></DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>{editingId ? "تعديل خدمة" : "إضافة خدمة"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2"><Label>اسم الخدمة *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>

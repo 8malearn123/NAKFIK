@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import BrandLogo from "@/components/brand/BrandLogo";
-import { User, Building2, Mail, Lock, Phone, ArrowLeft, Calendar, Sparkles } from "lucide-react";
+import { User, Building2, Mail, Lock, Phone, ArrowLeft, ArrowRight, Calendar, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -154,12 +154,12 @@ const Register = () => {
     <div className="min-h-screen flex font-cairo">
       {/* Right side - Purple branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute top-20 left-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
-        <div className="absolute bottom-32 right-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
-        <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
+        <div className="absolute top-20 end-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
+        <div className="absolute bottom-32 start-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
+        <div className="absolute -top-20 -start-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
         <div className="absolute inset-0 bg-brand-pattern opacity-40" />
-        <div className="brand-slash absolute top-[22%] -left-[15%] w-[75%] h-6 opacity-90" />
-        <div className="brand-slash absolute bottom-[18%] -right-[20%] w-[60%] h-3 opacity-40" />
+        <div className="brand-slash absolute top-[22%] -end-[15%] w-[75%] h-6 opacity-90" />
+        <div className="brand-slash absolute bottom-[18%] -start-[20%] w-[60%] h-3 opacity-40" />
 
         <div className="text-center relative z-10">
           <BrandLogo tone="white" alt={t("pgAuth.common.brandAlt")} className="h-28 mx-auto mb-10 drop-shadow-[0_10px_30px_rgba(0,0,0,0.25)]" />
@@ -350,7 +350,8 @@ const Register = () => {
           )}
 
           <div className="mt-6 text-center">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
+              <ArrowRight className="h-4 w-4 ltr:rotate-180" />
               {t("pgAuth.common.backHome")}
             </Link>
           </div>

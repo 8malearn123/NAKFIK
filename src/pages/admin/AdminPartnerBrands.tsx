@@ -14,7 +14,7 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { formatMoney, formatPercent } from "@/lib/format";
+import { formatNumber, formatPercent } from "@/lib/format";
 import { toast } from "sonner";
 import { Pencil, Plus, Tag, Trash2 } from "lucide-react";
 
@@ -106,7 +106,7 @@ const AdminPartnerBrands = () => {
             <EmptyState
               icon={Tag}
               title="لا يوجد شركاء بعد"
-              action={<Button onClick={openNew}><Plus className="h-4 w-4" /> إضافة شريك</Button>}
+              action={<Button variant="soft" size="sm" onClick={openNew}><Plus className="h-4 w-4" /> إضافة شريك</Button>}
             />
           </div>
         ) : (
@@ -130,9 +130,9 @@ const AdminPartnerBrands = () => {
                 {b.description && <p className="line-clamp-2 text-[13px] leading-5 text-muted-foreground">{b.description}</p>}
                 <div className="mt-auto space-y-4">
                   <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-2.5">
-                    <bdi dir="ltr" className="truncate font-mono text-sm font-bold text-primary">{b.discount_code}</bdi>
+                    <p className="min-w-0 truncate text-sm font-bold leading-[22px]"><bdi dir="ltr">{b.discount_code}</bdi></p>
                     <span className="flex-none text-[13px] font-semibold text-muted-foreground">
-                      {b.discount_type === "percent" ? formatPercent(b.discount_value) : formatMoney(b.discount_value)}
+                      {b.discount_type === "percent" ? formatPercent(b.discount_value) : `${formatNumber(b.discount_value)} ر.س`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -150,8 +150,8 @@ const AdminPartnerBrands = () => {
         )}
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto" dir="rtl">
-            <DialogHeader>
+          <DialogContent className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto" dir="rtl">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>{editingId ? "تعديل شريك" : "إضافة شريك"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">

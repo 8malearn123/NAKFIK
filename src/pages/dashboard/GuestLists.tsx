@@ -225,7 +225,7 @@ const GuestLists = () => {
               icon={Database}
               title="لم تنشئ أي قائمة بعد"
               description="أنشئ قائمة وأضف إليها مدعويك لتستخدمها في أي دعوة"
-              action={<Button onClick={openNew}><Plus className="h-4 w-4" /> أنشئ أول قائمة</Button>}
+              action={<Button variant="soft" size="sm" onClick={openNew}><Plus className="h-4 w-4" /> أنشئ أول قائمة</Button>}
             />
           </div>
         ) : (
@@ -332,7 +332,7 @@ const GuestLists = () => {
                   icon={Users}
                   title="لا يوجد مدعوون في هذه القائمة"
                   description="أضف مدعواً من النموذج أعلاه أو استورد قائمة كاملة"
-                  action={<Button variant="outline" onClick={() => { setBulkRaw(""); setBulkOpen(true); }}><Upload className="h-4 w-4" /> استيراد دفعة (لصق)</Button>}
+                  action={<Button variant="outline" size="sm" onClick={() => { setBulkRaw(""); setBulkOpen(true); }}><Upload className="h-4 w-4" /> استيراد دفعة (لصق)</Button>}
                 />
               ) : filteredContacts.length === 0 ? (
                 <p className="px-6 pb-8 pt-4 text-center text-sm text-muted-foreground">لا توجد نتائج مطابقة لبحثك</p>

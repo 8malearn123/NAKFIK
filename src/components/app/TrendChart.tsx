@@ -17,7 +17,7 @@ interface TrendChartProps {
   height?: number;
 }
 
-const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
+export const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
   if (!active || !payload?.length) return null;
   return (
     <div dir="rtl" className="rounded-xl bg-card px-3 py-2 text-xs shadow-soft-lg">
@@ -51,7 +51,7 @@ const TrendChart = ({ data, xKey, series, height = 280 }: TrendChartProps) => {
   return (
     <div dir="ltr">
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 8 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 24 }}>
           <defs>
             <linearGradient id={gradient} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor={series[0].color} stopOpacity={0.18} />

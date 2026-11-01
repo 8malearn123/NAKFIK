@@ -128,16 +128,14 @@ const Settings = () => {
 
         <Tabs defaultValue="company" dir={dir}>
           {/* الشريط يمرر داخل مكانه على الجوال حتى لا تتمدد الصفحة أفقياً */}
-          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
-            <TabsList className="flex w-max">
-              <TabsTrigger value="company">{t("pgSettings.tabCompany")}</TabsTrigger>
-              <TabsTrigger value="contact">{t("pgSettings.tabContact")}</TabsTrigger>
-              <TabsTrigger value="bank">{t("pgSettings.tabBank")}</TabsTrigger>
-              <TabsTrigger value="legal">{t("pgSettings.tabLegal")}</TabsTrigger>
-              <TabsTrigger value="profile">{t("pgSettings.tabProfile")}</TabsTrigger>
-              <TabsTrigger value="notifications">{t("pgSettings.tabNotifications")}</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsTrigger value="company">{t("pgSettings.tabCompany")}</TabsTrigger>
+            <TabsTrigger value="contact">{t("pgSettings.tabContact")}</TabsTrigger>
+            <TabsTrigger value="bank">{t("pgSettings.tabBank")}</TabsTrigger>
+            <TabsTrigger value="legal">{t("pgSettings.tabLegal")}</TabsTrigger>
+            <TabsTrigger value="profile">{t("pgSettings.tabProfile")}</TabsTrigger>
+            <TabsTrigger value="notifications">{t("pgSettings.tabNotifications")}</TabsTrigger>
+          </TabsList>
 
           {/* COMPANY IDENTITY */}
           <TabsContent value="company" className="mt-6 space-y-6">

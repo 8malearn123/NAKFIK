@@ -590,9 +590,12 @@ const CheckIn = () => {
 
   const resetResult = () => { setResult(null); setManualCode(""); };
 
-  // على الهاتف تبقى لوحة المفاتيح مفتوحة بعد الإدخال اليدوي وتغطي نتيجة المسح أسفل الشاشة
+  // على الهاتف تبقى لوحة المفاتيح مفتوحة بعد الإدخال اليدوي وتغطي نتيجة المسح أسفل الشاشة،
+  // فنخفيها مع ظهور النتيجة ونعيد التركيز إلى الحقل بعد إغلاقها ليتابع موظف البوابة الكتابة مباشرة
   useEffect(() => {
-    if (result && window.matchMedia("(max-width: 1023px)").matches) (document.activeElement as HTMLElement | null)?.blur();
+    if (!window.matchMedia("(max-width: 1023px)").matches) return;
+    if (result) (document.activeElement as HTMLElement | null)?.blur();
+    else document.getElementById("checkin-code")?.focus();
   }, [result]);
 
   const switchMode = (next: "manual" | "camera") => {
@@ -727,7 +730,7 @@ const CheckIn = () => {
         {/* Stats: سطر واحد على الجوال حتى تبقى منطقة المسح في أول الشاشة */}
         <div className="rounded-2xl bg-card px-4 py-3 shadow-soft xl:hidden">
           <div className="flex items-baseline justify-between gap-3 text-xs leading-[18px] text-muted-foreground">
-            <span>حضروا <b className="text-lg font-bold leading-6 text-foreground">{formatNumber(stats.checkedIn)}</b> من {formatNumber(stats.total)}</span>
+            <span>حضروا <b className="text-lg font-bold leading-6 text-foreground">{formatNumber(stats.checkedIn)}</b> من {formatNumber(stats.total)}، {formatPercent(attendanceRate)}</span>
             <span>لم يحضروا بعد <b className="text-sm font-bold text-foreground">{formatNumber(remaining)}</b></span>
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
@@ -808,7 +811,7 @@ const CheckIn = () => {
                   animate={{ opacity: 1 }}
                   className="fixed inset-0 z-[65] bg-foreground/40 lg:hidden"
                   aria-hidden
-                  onClick={resetResult}
+                  onClick={() => setResult(null)}
                 />
                 <motion.div
                   role="status"

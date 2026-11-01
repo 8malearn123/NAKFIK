@@ -354,7 +354,7 @@ const EventGuests = () => {
       <DashboardLayout>
         <div className="space-y-6">
           {header()}
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
             {[1, 2, 3, 4].map(i => <div key={i} className="h-36 animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
           <div className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />
@@ -439,7 +439,7 @@ const EventGuests = () => {
         )}
 
         {/* Stats */}
-        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
           <StatCard label="إجمالي المدعوين" value={formatNumber(stats.total)} icon={Users} />
           <StatCard label="مؤكدون" value={formatNumber(stats.confirmed)} icon={CheckCircle2} />
           <StatCard label="بانتظار الرد" value={formatNumber(stats.pending)} icon={Clock} />
@@ -487,13 +487,13 @@ const EventGuests = () => {
                 icon={Users}
                 title="لا يوجد مدعوون"
                 description="ارفع ملف Excel أو أضف ضيوفاً يدوياً"
-                action={<Button variant="soft" onClick={() => setShowAddModal(true)}><Plus className="h-4 w-4" /> إضافة ضيف</Button>}
+                action={<Button variant="soft" size="sm" onClick={() => setShowAddModal(true)}><Plus className="h-4 w-4" /> إضافة ضيف</Button>}
               />
             ) : (
               <EmptyState
                 icon={Search}
                 title="لا يوجد مدعوون مطابقون"
-                action={<Button variant="outline" onClick={() => { setFilter("all"); setSearch(""); }}>عرض الكل</Button>}
+                action={<Button variant="outline" size="sm" onClick={() => { setFilter("all"); setSearch(""); }}>عرض الكل</Button>}
               />
             )
           ) : (
@@ -547,8 +547,8 @@ const EventGuests = () => {
 
         {/* Add guest */}
         <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-          <DialogContent dir="rtl" className="max-h-[90vh] max-w-lg overflow-y-auto">
-            <DialogHeader><DialogTitle>إضافة ضيف يدوياً</DialogTitle></DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>إضافة ضيف يدوياً</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="guest-name">الاسم</Label>
@@ -584,8 +584,8 @@ const EventGuests = () => {
 
         {/* Invite settings */}
         <Dialog open={showSettings && !!event} onOpenChange={setShowSettings}>
-          <DialogContent dir="rtl" className="max-h-[90vh] max-w-lg overflow-y-auto">
-            <DialogHeader>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>إعدادات إرسال الدعوات</DialogTitle>
               <DialogDescription>تنطبق على جميع المدعوين في هذه الفعالية</DialogDescription>
             </DialogHeader>

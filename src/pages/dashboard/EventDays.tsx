@@ -270,7 +270,7 @@ const EventDays = () => {
               icon={CalendarDays}
               title="لا توجد أيام بعد"
               description="اضغط «توليد الأيام من مدة الفعالية» وسننشئها تلقائياً من تاريخ البداية للنهاية"
-              action={<Button variant="soft" onClick={generateDays}><Wand2 className="h-4 w-4" /> توليد الأيام من مدة الفعالية</Button>}
+              action={<Button variant="soft" size="sm" onClick={generateDays}><Wand2 className="h-4 w-4" /> توليد الأيام من مدة الفعالية</Button>}
             />
           </div>
         ) : (

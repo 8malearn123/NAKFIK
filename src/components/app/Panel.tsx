@@ -15,7 +15,7 @@ interface PanelProps {
 const Panel = ({ title, description, actions, className, bodyClassName, flush, children }: PanelProps) => (
   <section className={cn("flex min-w-0 flex-col overflow-hidden rounded-2xl bg-card shadow-soft", className)}>
     {(title || actions) && (
-      <div className={cn("flex items-start justify-between gap-3 px-6 pt-5", flush && "pb-4")}>
+      <div className={cn("flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-6 pt-5", flush && "pb-4")}>
         <div className="min-w-0">
           {title && <h2 className="text-[15px] font-bold leading-6">{title}</h2>}
           {description && <p className="text-[13px] leading-5 text-muted-foreground">{description}</p>}

@@ -1,4 +1,4 @@
-import { percent } from "@/lib/format";
+import { formatNumber, percent } from "@/lib/format";
 
 interface RsvpBarProps {
   confirmed: number;
@@ -13,7 +13,7 @@ const RsvpBar = ({ confirmed, declined, total }: RsvpBarProps) => {
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2 whitespace-nowrap text-xs leading-[18px] text-muted-foreground">
         <span>
-          <b className="text-sm font-bold leading-5 text-foreground">{replied}</b> من {total} ردوا
+          <b className="text-sm font-bold leading-5 text-foreground">{formatNumber(replied)}</b> من {formatNumber(total)} ردوا
         </span>
         <span>{percent(replied, total)}%</span>
       </div>

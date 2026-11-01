@@ -10,7 +10,7 @@
 
 export const DEMO_PASSWORD = "Demo@12345";
 const MODE_KEY = "nakfeek-demo-mode";
-const DB_KEY = "nakfeek-demo-db-v7";
+const DB_KEY = "nakfeek-demo-db-v8";
 const REAL_LOGIN_TIMEOUT_MS = 6000;
 
 const ORG_ID = "00000000-0000-4000-a000-000000000001";        // منظم شامل (عام + خاص)
@@ -79,11 +79,11 @@ function seed(): DB {
     is_online: false, online_link: null, is_free: true, max_attendees: 300, current_attendees_count: 0,
     cover_image_url: null, private_link: null, invite_channels: ["whatsapp"], invite_message_template: null,
     invite_send_mode: "manual", referral_points: 20, share_points: 5, social_hashtags: null,
-    social_share_enabled: false, social_share_text: null, rejection_reason: null, created_at: now, updated_at: now,
+    social_share_enabled: false, social_share_text: null, rejection_reason: null, created_at: daysFromNow(-26), updated_at: daysFromNow(-3),
     ...extra,
   });
   const events = [
-    event("00000000-0000-4000-b000-000000000001", "ملتقى الرياض للابتكار", 12, "published", { current_attendees_count: 2 }),
+    event("00000000-0000-4000-b000-000000000001", "ملتقى الرياض للابتكار", 12, "published", { current_attendees_count: 25 }),
     event("00000000-0000-4000-b000-000000000002", "ورشة تصميم تجربة المستخدم", 25, "pending_review", { category: "workshop", max_attendees: 40, created_at: daysFromNow(-3) }),
     event("00000000-0000-4000-b000-000000000003", "لقاء رواد الأعمال", -20, "completed", { category: "meetup" }),
     event("00000000-0000-4000-b000-000000000011", "مهرجان جدة للتقنية", 9, "published", { current_attendees_count: 1, venue_name: "سوبر دوم جدة", venue_address: "جدة", max_attendees: 1500 }, ORG_PUBLIC_ID, orgPub.id),
@@ -100,7 +100,7 @@ function seed(): DB {
     custom_template_url: null, cover_image_url: null, background_image_url: null, name_overlay: {},
     allow_companions: true, max_companions: 2, max_attendees: 200, contact_email: null, contact_phone: null,
     contact_whatsapp: null, gift_account_holder: null, gift_bank_name: null, gift_iban: null, gift_notes: null,
-    created_at: now, updated_at: now, ...extra,
+    created_at: daysFromNow(-180), updated_at: daysFromNow(-1), ...extra,
   });
   const invitations = [
     inv("00000000-0000-4000-c000-000000000001", "حفل زفاف خالد وسارة", 17),
@@ -131,8 +131,10 @@ function seed(): DB {
     const total = c + d + n;
     return Array.from({ length: total }, (_, i) => {
       const status = i < c ? "confirmed" : i < c + d ? "declined" : "pending";
-      const added = daysFromNow(-Math.round(150 - (i / Math.max(total, 1)) * 140), 12);
-      const replied = status === "pending" ? null : daysFromNow(-Math.round(145 - (i / Math.max(total, 1)) * 140), 18);
+      // توزيع زمني مستقل عن ترتيب الحالات حتى لا تتركز الردود في الأشهر الأقدم
+      const spread = ((i * 37) % Math.max(total, 1)) / Math.max(total, 1);
+      const added = daysFromNow(-Math.round(178 - spread * 176), 12);
+      const replied = status === "pending" ? null : daysFromNow(-Math.round(176 - spread * 174), 18);
       return {
         id: uuid(), invitation_id: iv.id, guest_name: `${firstNames[i % firstNames.length]} ${lastNames[(i + k) % lastNames.length]}`,
         guest_phone: `05${String(10000000 + k * 7000 + i * 13).slice(0, 8)}`, guest_email: null, guest_tier: i % 40 === 2 ? "vvip" : i % 12 === 0 ? "vip" : "regular",
@@ -180,8 +182,33 @@ function seed(): DB {
     cancel_at_period_end: false, cancelled_at: null, created_at: now, updated_at: now,
   });
   const PRO_PLAN_ID = "00000000-0000-4000-e000-000000000002";
+  const featuredId = (i: number) => `00000000-0000-4000-f100-00000000000${i + 1}`;
+  const checkpointId = (n: number) => `00000000-0000-4000-d100-00000000000${n}`;
+
+  // حضور ملتقى الرياض: أسماء وتذاكر حقيقية حتى تعمل شاشات الحضور والخريطة الحرارية
+  const crowd = Array.from({ length: 24 }, (_, i) => ({
+    ...profiles[0], id: uuid(), email: `guest${i + 1}@example.com`, account_type: "attendee", created_at: daysFromNow(-(i * 3) - 5),
+    full_name: `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`,
+  }));
+  const minutesAgo = (n: number) => new Date(Date.now() - n * 60000).toISOString();
+  const entryMinutes = (i: number) => 150 - i * 6;
+  const crowdRegs = crowd.map((p, i) => ({
+    id: uuid(), event_id: events[0].id, attendee_id: p.id, ticket_id: ticketId, status: i < 18 ? "checked_in" : "confirmed",
+    payment_status: "free", amount_paid: 0, qr_code: `DEMO-QR-C${i + 1}`, registered_at: daysFromNow(-(i % 10) - 1), created_at: daysFromNow(-(i % 10) - 1),
+    checked_in_at: i < 18 ? minutesAgo(entryMinutes(i)) : null,
+  }));
+  const scan = (reg: Row, checkpoint: number, scan_type: string, minutes: number) => ({
+    id: uuid(), event_id: events[0].id, checkpoint_id: checkpointId(checkpoint), attendee_id: reg.attendee_id, registration_id: reg.id,
+    scan_type, scanned_by: org.id, scanned_at: minutesAgo(minutes),
+  });
+  const scans = crowdRegs.slice(0, 18).flatMap((r, i) => [
+    scan(r, i % 6 === 0 ? 2 : 1, "entry", entryMinutes(i)),
+    ...(i % 3 ? [scan(r, 3, "entry", 120 - i * 5)] : []),
+    ...(i % 5 === 0 ? [scan(r, 1, "exit", 40 - i)] : []),
+  ]);
+
   return {
-    profiles,
+    profiles: [...profiles, ...crowd],
     user_roles: [
       { id: uuid(), user_id: admin.id, role: "super_admin" },
       { id: uuid(), user_id: org.id, role: "organizer" },
@@ -195,7 +222,7 @@ function seed(): DB {
     ],
     events,
     tickets: [
-      ticket(ticketId, events[0].id, "دخول عام", { quantity_sold: 2 }),
+      ticket(ticketId, events[0].id, "دخول عام", { quantity_sold: 25 }),
       ticket("00000000-0000-4000-d000-000000000011", "00000000-0000-4000-b000-000000000011", "دخول عام", { quantity_total: 1500, quantity_sold: 1 }),
       ticket("00000000-0000-4000-d000-000000000012", "00000000-0000-4000-b000-000000000012", "تذكرة VIP", { type: "vip", price: 350, quantity_total: 100 }),
     ],
@@ -203,6 +230,7 @@ function seed(): DB {
       { id: uuid(), event_id: events[0].id, attendee_id: att.id, ticket_id: ticketId, status: "confirmed", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-1", registered_at: now, checked_in_at: null },
       { id: uuid(), event_id: events[2].id, attendee_id: att.id, ticket_id: null, status: "checked_in", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-2", registered_at: now, checked_in_at: now },
       { id: uuid(), event_id: events[3].id, attendee_id: att.id, ticket_id: "00000000-0000-4000-d000-000000000011", status: "confirmed", payment_status: "free", amount_paid: 0, qr_code: "DEMO-QR-3", registered_at: now, checked_in_at: null },
+      ...crowdRegs,
     ],
     account_subscriptions: [subscription(org.id, 3), { ...subscription(orgPub.id, 3), expires_at: daysFromNow(5), current_period_end: daysFromNow(5) }, subscription(orgPriv.id, 3)],
     private_invitations: invitations,
@@ -230,16 +258,22 @@ function seed(): DB {
       { id: uuid(), business_name: "عدسة الرياض", contact_name: "فيصل الغامدي", phone: "0501239876", email: "hello@lens.example", city: "الرياض", category_id: "00000000-0000-4000-f000-000000000001", description: "تصوير المناسبات والمؤتمرات", status: "pending", website_url: null, logo_url: null, created_at: daysFromNow(-2), updated_at: now },
       { id: uuid(), business_name: "ضيافة النخبة", contact_name: "عمر العنزي", phone: "0559871234", email: "orders@nokhba.example", city: "جدة", category_id: "00000000-0000-4000-f000-000000000002", description: "ضيافة فاخرة للمناسبات الخاصة", status: "approved", website_url: null, logo_url: null, created_at: daysFromNow(-20), updated_at: now },
     ],
-    featured_services: [["تغطية تصويرية كاملة", "تصوير", "2,500", "يوم واحد"], ["تنسيق قاعة المناسبات", "تنسيق", "4,000", "يومان"], ["طاقم تسجيل الحضور", "تشغيل", "1,200", "يوم واحد"]].map(([name, category, price, duration], i) => ({ id: uuid(), name, category, description: "خدمة تقدمها نكفيك بفريق متخصص وتنفيذ كامل.", starting_price: Number(price.replace(",", "")), price_unit: "ر.س", duration, features: ["فريق متخصص", "تنفيذ كامل", "متابعة بعد المناسبة"], image_url: null, is_active: true, is_featured: i === 0, display_order: i, created_at: now, updated_at: now })),
+    featured_services: [["تغطية تصويرية كاملة", "تصوير", "2,500", "يوم واحد"], ["تنسيق قاعة المناسبات", "تنسيق", "4,000", "يومان"], ["طاقم تسجيل الحضور", "تشغيل", "1,200", "يوم واحد"]].map(([name, category, price, duration], i) => ({ id: featuredId(i), name, category, description: "خدمة تقدمها نكفيك بفريق متخصص وتنفيذ كامل.", starting_price: Number(price.replace(",", "")), price_unit: "يبدأ من", duration, features: ["فريق متخصص", "تنفيذ كامل", "متابعة بعد المناسبة"], image_url: null, is_active: true, is_featured: i === 0, display_order: i, created_at: now, updated_at: now })),
     service_requests: [
       { id: uuid(), organizer_id: org.id, title: "تصوير حفل تخرج", description: "نحتاج مصورين اثنين لمدة أربع ساعات.", category_id: "00000000-0000-4000-f000-000000000001", city: "الرياض", budget: 3000, contact_phone: "0501234567", event_date: daysFromNow(14), status: "new", admin_notes: null, assigned_provider_id: null, created_at: daysFromNow(-1), updated_at: now },
       { id: uuid(), organizer_id: org.id, title: "ضيافة عشاء الشركاء", description: "ضيافة لنحو 120 ضيفاً.", category_id: "00000000-0000-4000-f000-000000000002", city: "الرياض", budget: 18000, contact_phone: null, event_date: daysFromNow(5), status: "in_review", admin_notes: null, assigned_provider_id: null, created_at: daysFromNow(-6), updated_at: now },
     ],
-    service_bookings: [],
+    service_bookings: [
+      { id: uuid(), service_id: featuredId(0), customer_id: org.id, customer_name: "سارة الأحمد", customer_phone: "0501234567", customer_email: "org1@nakfeek.sa", city: "الرياض", event_date: daysFromNow(14), attendees_count: 300, notes: "حفل تخرج في قاعة الملكية", status: "new", admin_notes: null, created_at: daysFromNow(-2), updated_at: now },
+      { id: uuid(), service_id: featuredId(2), customer_id: orgPriv.id, customer_name: "منظم الفعاليات الخاصة", customer_phone: "0559876543", customer_email: "org-private@nakfeek.sa", city: "جدة", event_date: daysFromNow(6), attendees_count: 310, notes: null, status: "confirmed", admin_notes: null, created_at: daysFromNow(-9), updated_at: now },
+    ],
+    checkpoints: [["البوابة الرئيسية", "entry", 20], ["بوابة كبار الضيوف", "entry", 6], ["القاعة الكبرى", "session", 16]].map(([name_ar, checkpoint_type, capacity], i) => ({ id: checkpointId(i + 1), event_id: events[0].id, name_ar, checkpoint_type, capacity, color: ["492C5A", "CC8E3D", "006962"][i], display_order: i, is_active: true, created_at: now, updated_at: now })),
+    scan_events: scans,
+    event_featured_cards: [["د. نورة العتيبي", "متحدثة رئيسية"], ["شركة الأفق", "الراعي الذهبي"], ["م. فهد الشمري", "ضيف شرف"]].map(([name, role_label], i) => ({ id: uuid(), event_id: events[0].id, name, role_label, description: "حضور مميز في ملتقى الرياض للابتكار.", image_url: null, display_order: i, is_active: true, created_at: now, updated_at: now })),
     partner_brands: [["فنادق الرتز", "ضيافة", 15], ["طيران ناس", "سفر", 10], ["ورد نجد", "تنسيق", 20]].map(([name, category, value], i) => ({ id: uuid(), name, category, description: "خصم حصري لمنظمي نكفيك.", discount_code: `NAKFEEK${value}`, discount_type: "percent", discount_value: value, terms: "يسري على الحجوزات الجديدة فقط.", website_url: null, logo_url: null, is_active: true, display_order: i, expires_at: daysFromNow(90), created_by: admin.id, created_at: now, updated_at: now })),
-    transactions: [12, 9, 5, 2].map((d, i) => ({ id: uuid(), account_id: ORG_ID, account_type: "organizer", amount: [3500, 1750, 5250, 700][i], commission_rate: 5, commission_amount: [175, 87.5, 262.5, 35][i], net_amount: [3325, 1662.5, 4987.5, 665][i], currency: "SAR", event_id: events[4].id, status: "completed", transaction_type: "ticket_sale", description_ar: "بيع تذاكر مؤتمر التسويق الرقمي", payment_method: "mada", created_at: daysFromNow(-d), updated_at: now })),
-    payouts: [{ id: uuid(), account_id: ORG_ID, account_type: "organizer", amount: 6650, currency: "SAR", status: "pending", bank_name: "البنك الأهلي", iban: "SA0000000000000000000000", account_holder_name: "مكتب الأحمد للمناسبات", transactions_count: 3, total_sales: 7000, total_commission: 350, created_at: daysFromNow(-3), updated_at: now }],
-    commission_settings: [["tickets", 5], ["subscriptions", 0], ["services", 10]].map(([category, rate_percent]) => ({ id: uuid(), category, rate_percent, is_active: true, min_amount: null, max_amount: null, created_at: now, updated_at: now })),
+    transactions: [12, 9, 5, 0].map((d, i) => ({ id: uuid(), account_id: org.id, account_type: "organizer", amount: [3500, 1750, 5250, 700][i], commission_rate: 5, commission_amount: [175, 87.5, 262.5, 35][i], net_amount: [3325, 1662.5, 4987.5, 665][i], currency: "SAR", event_id: events[4].id, status: "completed", transaction_type: "ticket_sale", description_ar: "بيع تذاكر مؤتمر التسويق الرقمي", payment_method: "mada", created_at: daysFromNow(-d), updated_at: now })),
+    payouts: [{ id: uuid(), account_id: org.id, account_type: "organizer", amount: 6650, currency: "SAR", status: "pending", bank_name: "البنك الأهلي", iban: "SA0000000000000000000000", account_holder_name: "مكتب الأحمد للمناسبات", transactions_count: 3, total_sales: 7000, total_commission: 350, created_at: daysFromNow(-3), updated_at: now }],
+    commission_settings: [["ticket_sale", 5], ["reservation_deposit", 5], ["subscription", 0]].map(([category, rate_percent]) => ({ id: uuid(), category, rate_percent, is_active: true, min_amount: null, max_amount: null, created_at: now, updated_at: now })),
     networking_profiles: [
       { id: uuid(), user_id: att.id, connect_code: "demo-attendee-card", job_title: "مصممة منتجات", company: "استوديو نور", bio: "أحب بناء تجارب سهلة وواضحة.", whatsapp: "+966512345678", email_public: "attendee1@nakfeek.sa", expertise: ["تصميم", "بحث مستخدمين"], looking_for: ["شراكات", "فرص عمل"], networking_enabled: true, privacy_level: "public", created_at: now, updated_at: now },
       { id: uuid(), user_id: orgPub.id, connect_code: "demo-connection-card", job_title: "مدير فعاليات", company: "شركة الفعاليات العامة", bio: "تنظيم المؤتمرات الكبرى.", whatsapp: "+966598765432", email_public: "org-public@nakfeek.sa", expertise: ["إدارة فعاليات"], looking_for: [], networking_enabled: true, privacy_level: "public", created_at: now, updated_at: now },
@@ -400,7 +434,9 @@ function filterRows(rows: Row[], params: URLSearchParams): Row[] {
 const singular = (t: string) => t.replace(/ies$/, "y").replace(/s$/, "");
 
 // جداول لا يتبع عمود ربطها بالأب نمط <الأب>_id
-const CHILD_FK: Record<string, string> = { guest_list_contacts: "list_id" };
+const CHILD_FK: Record<string, string> = { guest_list_contacts: "list_id", private_invitation_guests: "invitation_id" };
+// وجداول يشير إليها عمود لا يطابق اسمها
+const PARENT_FK: Record<string, string> = { featured_services: "service_id" };
 
 function parseSelect(sel: string) {
   const items = splitTop(sel.replace(/\s+/g, ""));
@@ -420,7 +456,7 @@ function embed(rows: Row[], parentTable: string, sel: string | null): Row[] {
     const out: Row = { ...row };
     for (const rel of rels) {
       const target = db[rel.table] ?? [];
-      const fk = `${singular(rel.table)}_id`;
+      const fk = PARENT_FK[rel.table] ?? `${singular(rel.table)}_id`;
       const aliasFk = `${rel.alias}_id`;
       if (row[aliasFk] !== undefined || row[fk] !== undefined) {
         const id = row[aliasFk] ?? row[fk];
@@ -443,6 +479,9 @@ function handleRest(method: string, url: URL, headers: Headers, body: string | n
 
   const name = path.split("/")[0];
   const rows = table(name);
+  // RLS في الخادم تقصر الإشعارات على صاحبها، والإدراج يبقى مسموحاً لغيره
+  const demoEmail = currentDemoEmail();
+  const visible = name === "in_app_notifications" ? rows.filter((r) => demoEmail !== null && r.user_id === DEMO_USERS[demoEmail].id) : rows;
   const params = url.searchParams;
   const prefer = headers.get("Prefer") ?? "";
   const wantsObject = (headers.get("Accept") ?? "").includes("vnd.pgrst.object");
@@ -459,7 +498,7 @@ function handleRest(method: string, url: URL, headers: Headers, body: string | n
   };
 
   if (method === "GET" || method === "HEAD") {
-    let res = filterRows(rows, params);
+    let res = filterRows(visible, params);
     const order = params.get("order");
     if (order) {
       const keys = order.split(",").map((o) => { const [c, dir, nulls] = o.split("."); return { c, desc: dir === "desc", nulls }; });
@@ -500,13 +539,13 @@ function handleRest(method: string, url: URL, headers: Headers, body: string | n
   }
   if (method === "PATCH") {
     const patch = body ? JSON.parse(body) : {};
-    const hits = filterRows(rows, params);
+    const hits = filterRows(visible, params);
     hits.forEach((r) => Object.assign(r, patch, { updated_at: now }));
     saveDB();
     return returnRep ? respond(embed(hits, name, params.get("select"))) : new Response(null, { status: 204 });
   }
   if (method === "DELETE") {
-    const hits = filterRows(rows, params);
+    const hits = filterRows(visible, params);
     loadDB()[name] = rows.filter((r) => !hits.includes(r));
     saveDB();
     return returnRep ? respond(hits) : new Response(null, { status: 204 });
@@ -521,7 +560,7 @@ function handleRpc(fn: string, body: string | null): Response {
     case "has_role":
       return json(db.user_roles.some((r) => r.user_id === args._user_id && r.role === args._role));
     case "find_user_id_by_email":
-      return json(db.profiles.find((p) => String(p.email).toLowerCase() === String(args._email ?? args.email ?? "").toLowerCase())?.id ?? null);
+      return json(db.profiles.find((p) => String(p.email).toLowerCase() === String(args.p_email ?? args._email ?? args.email ?? "").toLowerCase())?.id ?? null);
     case "get_invitation_by_token": {
       const g = db.private_invitation_guests.find((x) => x.token === (args._token ?? args.token));
       if (!g) return json(null);

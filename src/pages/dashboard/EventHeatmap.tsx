@@ -9,7 +9,7 @@ import { CHART_COLORS } from "@/components/app/TrendChart";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { formatNumber, formatPercent, formatTime } from "@/lib/format";
+import { formatNumber, formatPercent, formatTimeWithSeconds } from "@/lib/format";
 import { AlertTriangle, ArrowRight, DoorOpen, ScanLine, Settings2, TrendingUp } from "lucide-react";
 
 interface Checkpoint {
@@ -253,7 +253,7 @@ const EventHeatmap = () => {
               icon={DoorOpen}
               title="لا توجد بوابات معدّة"
               description="أضف نقاط الدخول أولاً لتظهر بياناتها هنا"
-              action={<Button asChild><Link to={`/dashboard/events/${eventId}/checkpoints`}>إعداد البوابات</Link></Button>}
+              action={<Button asChild size="sm"><Link to={`/dashboard/events/${eventId}/checkpoints`}>إعداد البوابات</Link></Button>}
             />
           </div>
         )}
@@ -261,7 +261,7 @@ const EventHeatmap = () => {
         {gateStats.length > 0 && (
           <>
             {/* Live gate pressure cards */}
-            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
               {gateStats.map(g => {
                 const pb = pressureBucket(g.pct);
                 const next15 = prediction.get(g.id) || 0;
@@ -388,7 +388,7 @@ const EventHeatmap = () => {
                 <EmptyState
                   icon={ScanLine}
                   title="لا توجد مسحات بعد"
-                  action={<Button asChild><Link to="/dashboard/check-in">تسجيل الحضور</Link></Button>}
+                  action={<Button asChild size="sm"><Link to="/dashboard/check-in">تسجيل الحضور</Link></Button>}
                 />
               ) : (
                 <div className="max-h-80 overflow-auto [&>div]:overflow-visible">
@@ -407,7 +407,7 @@ const EventHeatmap = () => {
                         const reg = s.registration_id ? regs[s.registration_id] : null;
                         return (
                           <TableRow key={s.id}>
-                            <TableCell className="whitespace-nowrap ps-6 text-xs text-muted-foreground">{formatTime(s.scanned_at)}</TableCell>
+                            <TableCell className="whitespace-nowrap ps-6 text-xs text-muted-foreground">{formatTimeWithSeconds(s.scanned_at)}</TableCell>
                             <TableCell className="whitespace-nowrap font-semibold">{reg?.attendee_name || "—"}</TableCell>
                             <TableCell className="whitespace-nowrap text-muted-foreground"><bdi>{reg?.ticket_name || "—"}</bdi></TableCell>
                             <TableCell className="whitespace-nowrap pe-6">

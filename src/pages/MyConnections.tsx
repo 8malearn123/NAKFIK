@@ -52,6 +52,9 @@ interface ConnectionRow {
 export default function MyConnections({ embedded = false }: { embedded?: boolean }) {
   const { user } = useAuth();
   const { t, lang, dir } = useLanguage();
+  // داخل نافذة الملف الشخصي تصبح البطاقات أسطحاً متداخلة، فلا تحتاج ظلاً
+  const statCls = embedded ? "rounded-xl bg-muted/50 !shadow-none" : undefined;
+  const surfaceCls = embedded ? "rounded-xl bg-muted/50" : "rounded-2xl bg-card shadow-soft";
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ConnectionRow[]>([]);
   const [query, setQuery] = useState("");
@@ -146,7 +149,7 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
       [t("pgNetworking.connections.csvWhatsapp")]: r.contact.whatsapp,
       [t("pgNetworking.connections.csvEmail")]: r.contact.email_public,
       [t("pgNetworking.connections.csvEvent")]: r.event_title,
-      [t("pgNetworking.connections.csvDate")]: formatDate(r.scanned_at),
+      [t("pgNetworking.connections.csvDate")]: formatDate(r.scanned_at, true, lang),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -181,10 +184,10 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
         }
       />
 
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
-        <StatCard className="border px-4 sm:px-6" label={t("pgNetworking.connections.statContacts")} value={formatNumber(rows.length)} icon={Users} />
-        <StatCard className="border px-4 sm:px-6" label={t("pgNetworking.connections.statEvents")} value={formatNumber(events.length)} icon={CalendarIcon} />
-        <StatCard className="col-span-2 border px-4 sm:col-span-1 sm:px-6" label={t("pgNetworking.connections.statCompanies")} value={formatNumber(companies)} icon={Building2} />
+      <div className="grid gap-6 sm:grid-cols-3">
+        <StatCard className={statCls} label={t("pgNetworking.connections.statContacts")} value={formatNumber(rows.length)} icon={Users} />
+        <StatCard className={statCls} label={t("pgNetworking.connections.statEvents")} value={formatNumber(events.length)} icon={CalendarIcon} />
+        <StatCard className={statCls} label={t("pgNetworking.connections.statCompanies")} value={formatNumber(companies)} icon={Building2} />
       </div>
 
       {/* Toolbar */}
@@ -235,7 +238,7 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
           {[1, 2].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-card shadow-soft" />)}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border bg-card shadow-soft">
+        <div className={surfaceCls}>
           <EmptyState
             icon={Users}
             title={t("pgNetworking.connections.emptyState")}
@@ -243,7 +246,7 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
           />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border bg-card shadow-soft">
+        <div className={surfaceCls}>
           <EmptyState
             icon={Search}
             title={t("pgNetworking.connections.noResults")}
@@ -255,7 +258,7 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
           {filtered.map((r) => {
             const wa = waLink(r.contact.whatsapp);
             return (
-              <article key={r.id} className="flex flex-col rounded-2xl border bg-card p-5 shadow-soft">
+              <article key={r.id} className={`flex flex-col p-5 ${surfaceCls}`}>
                 <div className="flex items-start gap-3">
                   <div className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-full bg-secondary font-bold text-primary">
                     {r.contact.avatar_url ? (

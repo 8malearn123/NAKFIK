@@ -126,7 +126,7 @@ const EventScheduleDialog = ({ event, onOpenChange, onDone }: Props) => {
 
   return (
     <Dialog open={!!event} onOpenChange={onOpenChange}>
-      <DialogContent dir="rtl" className="max-h-[90vh] max-w-lg overflow-y-auto rounded-2xl">
+      <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
         <DialogHeader className="pe-6 text-start sm:text-start">
           <DialogTitle>إلغاء / إعادة جدولة — {event.title_ar}</DialogTitle>
           <DialogDescription>
