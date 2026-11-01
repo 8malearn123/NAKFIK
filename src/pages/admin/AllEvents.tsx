@@ -1,21 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
-import { Calendar, Eye, Search, LogIn, Building2 } from "lucide-react";
+import { Calendar, Eye, LogIn, Plus, Search } from "lucide-react";
 
-const statusLabels: Record<string, { label: string; cls: string }> = {
-  draft: { label: "مسودة", cls: "bg-muted text-muted-foreground" },
-  pending_review: { label: "قيد المراجعة", cls: "bg-amber-100 text-amber-700" },
-  approved: { label: "معتمدة", cls: "bg-teal/10 text-teal" },
-  published: { label: "منشورة", cls: "bg-teal/10 text-teal" },
-  rejected: { label: "مرفوضة", cls: "bg-destructive/10 text-destructive" },
-  completed: { label: "منتهية", cls: "bg-muted text-muted-foreground" },
-  cancelled: { label: "ملغاة", cls: "bg-muted text-muted-foreground" },
+const statusLabels: Record<string, { label: string; tone: StatusTone }> = {
+  draft: { label: "مسودة", tone: "neutral" },
+  pending_review: { label: "قيد المراجعة", tone: "warning" },
+  approved: { label: "معتمدة", tone: "success" },
+  published: { label: "منشورة", tone: "success" },
+  rejected: { label: "مرفوضة", tone: "danger" },
+  completed: { label: "منتهية", tone: "neutral" },
+  cancelled: { label: "ملغاة", tone: "neutral" },
+};
+
+const countOf = (n: number, one: string, two: string, few: string, many: string) => {
+  if (n === 1) return one;
+  if (n === 2) return two;
+  return `${formatNumber(n)} ${n <= 10 ? few : many}`;
 };
 
 interface EventRow {
@@ -99,107 +112,99 @@ const AllEvents = () => {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <div className="space-y-6">
+          <PageHeader title="جميع الفعاليات" description="…" />
+          <div className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />
         </div>
       </AdminLayout>
     );
   }
 
+  const filtersActive = search.trim() !== "" || orgFilter !== "all";
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">جميع الفعاليات</h1>
-            <p className="text-muted-foreground text-sm mt-1">{events.length} فعالية — {orgs.length} منظّم</p>
-          </div>
-        </div>
+        <PageHeader
+          title="جميع الفعاليات"
+          description={`${countOf(events.length, "فعالية واحدة", "فعاليتان", "فعاليات", "فعالية")}، ${countOf(orgs.length, "منظّم واحد", "منظّمان", "منظّمين", "منظّماً")}`}
+        />
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="بحث بالعنوان أو اسم المنظم..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pr-10"
+              className="ps-10"
             />
           </div>
-          <select
-            value={orgFilter}
-            onChange={e => setOrgFilter(e.target.value)}
-            className="h-10 px-3 rounded-lg border border-input bg-background text-sm min-w-[200px]"
-          >
-            <option value="all">كل المنظّمين</option>
-            {orgs.map(o => (
-              <option key={o.id} value={o.id}>{o.name}</option>
-            ))}
-          </select>
+          <Select value={orgFilter} onValueChange={setOrgFilter}>
+            <SelectTrigger aria-label="المنظم" className="h-10 w-full gap-2 font-medium sm:w-auto sm:min-w-[200px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل المنظّمين</SelectItem>
+              {orgs.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
 
         {filtered.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border/50 p-12 text-center space-y-3">
-            <Calendar className="w-12 h-12 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">لا توجد فعاليات مطابقة</p>
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Calendar}
+              title={filtersActive ? "لا توجد فعاليات مطابقة" : "لا توجد فعاليات بعد"}
+              action={filtersActive ? (
+                <Button size="sm" variant="outline" onClick={() => { setSearch(""); setOrgFilter("all"); }}>مسح الفلاتر</Button>
+              ) : (
+                <Button asChild size="sm"><Link to="/admin/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية لمنظم</Link></Button>
+              )}
+            />
           </div>
         ) : (
-          <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="text-right p-3">الفعالية</th>
-                    <th className="text-right p-3">المنظم</th>
-                    <th className="text-right p-3">التاريخ</th>
-                    <th className="text-right p-3">الحالة</th>
-                    <th className="text-right p-3">الحضور</th>
-                    <th className="p-3">إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {filtered.map(e => (
-                    <tr key={e.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="p-3 font-medium">{e.title_ar}</td>
-                      <td className="p-3">
+          <Panel flush>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">الفعالية</TableHead>
+                  <TableHead>التاريخ</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead>الحضور</TableHead>
+                  <TableHead className="pe-6 text-end">إجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(e => {
+                  const status = statusLabels[e.status];
+                  return (
+                    <TableRow key={e.id}>
+                      <TableCell className="whitespace-nowrap ps-6">
+                        <p className="font-semibold leading-[22px]">{e.title_ar}</p>
                         {e.organization ? (
-                          <Link
-                            to={`/admin/organizers/${e.organization.id}/events`}
-                            className="text-primary hover:underline inline-flex items-center gap-1"
-                          >
-                            <Building2 className="w-3.5 h-3.5" />
+                          <Link to={`/admin/organizers/${e.organization.id}/events`} className="text-xs leading-[18px] text-muted-foreground hover:text-primary hover:underline">
                             {e.organization.name}
                           </Link>
-                        ) : "—"}
-                      </td>
-                      <td className="p-3 text-muted-foreground" dir="ltr">{new Date(e.start_date).toLocaleDateString("ar-SA")}</td>
-                      <td className="p-3">
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusLabels[e.status]?.cls || ""}`}>
-                          {statusLabels[e.status]?.label || e.status}
-                        </span>
-                      </td>
-                      <td className="p-3">{e.current_attendees_count}</td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1.5 justify-end">
-                          <Button asChild size="sm" variant="ghost" className="h-8 text-xs">
-                            <Link to={`/events/${e.id}`}><Eye className="w-3.5 h-3.5" /> عرض</Link>
+                        ) : <p className="text-xs leading-[18px] text-muted-foreground">—</p>}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{formatDate(e.start_date)}</TableCell>
+                      <TableCell><StatusBadge tone={status?.tone ?? "neutral"}>{status?.label || e.status}</StatusBadge></TableCell>
+                      <TableCell>{formatNumber(e.current_attendees_count)}</TableCell>
+                      <TableCell className="pe-6">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button asChild size="sm" variant="ghost">
+                            <Link to={`/events/${e.id}`}><Eye className="h-4 w-4" /> عرض</Link>
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs"
-                            onClick={() => handleImpersonateOwner(e.organization)}
-                          >
-                            <LogIn className="w-3.5 h-3.5" /> دخول كالمنظم
+                          <Button size="sm" variant="outline" onClick={() => handleImpersonateOwner(e.organization)}>
+                            <LogIn className="h-4 w-4" /> دخول كالمنظم
                           </Button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </AdminLayout>

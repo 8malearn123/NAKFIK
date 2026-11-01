@@ -2,12 +2,16 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import PricingPage from "@/components/billing/PricingPage";
 import SubscriptionUsageCard from "@/components/dashboard/SubscriptionUsageCard";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePlanScope, PLAN_SCOPE_META, type PlanScope } from "@/hooks/usePlanScope";
 import { PUBLIC_EVENTS_ENABLED } from "@/lib/phase";
-import { Mail, Calendar, Sparkles, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Mail, Calendar, Sparkles } from "lucide-react";
 
 const SCOPE_ICONS: Record<PlanScope, typeof Mail> = { private: Mail, public: Calendar, both: Sparkles };
 
@@ -31,7 +35,7 @@ const OrganizerSubscription = () => {
       toast.error("تعذّر تغيير الباقة — شغّل ملف nakfik_plan_scope.sql في Supabase أولاً");
       return;
     }
-    toast.success(`تم التحويل إلى ${PLAN_SCOPE_META[next].label} ✅`);
+    toast.success(`تم التحويل إلى ${PLAN_SCOPE_META[next].label}`);
     await refreshProfile();
   };
 
@@ -60,7 +64,7 @@ const OrganizerSubscription = () => {
       } as any);
 
       if (error) throw error;
-      toast.success("تم تفعيل الباقة بنجاح! 🎉");
+      toast.success("تم تفعيل الباقة بنجاح!");
       setRefreshKey((k) => k + 1);
     } catch (e: any) {
       console.error(e);
@@ -72,64 +76,64 @@ const OrganizerSubscription = () => {
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="text-center">
-          <h1 className="font-bold text-2xl text-foreground">باقات الاشتراك</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            اختر الباقة المناسبة — كل باقة تحتوي على عدد محدد من الفعاليات وصلاحية زمنية
-          </p>
-        </div>
+      <div className="space-y-6">
+        <PageHeader
+          title="باقات الاشتراك"
+          description="اختر الباقة المناسبة — كل باقة تحتوي على عدد محدد من الفعاليات وصلاحية زمنية"
+        />
 
         {/* المرحلة الأولى: باقة الدعوات الخاصة فقط — لا تُعرض خيارات الفعاليات العامة */}
         {!PUBLIC_EVENTS_ENABLED && (
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h2 className="font-bold text-foreground mb-1">نوع الباقة</h2>
-            <div className="rounded-xl border-2 border-primary bg-primary/5 p-4 flex items-start gap-3">
-              <Mail className="w-6 h-6 text-primary mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-sm">{PLAN_SCOPE_META.private.label}</p>
-                <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">{PLAN_SCOPE_META.private.desc}</p>
+          <Panel title="نوع الباقة">
+            <div className="flex items-start gap-3 rounded-xl bg-muted/50 p-4">
+              <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                <Mail className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold leading-6">{PLAN_SCOPE_META.private.label}</p>
+                  <StatusBadge tone="primary">باقتك الحالية</StatusBadge>
+                </div>
+                <p className="mt-0.5 text-xs leading-[18px] text-muted-foreground">{PLAN_SCOPE_META.private.desc}</p>
               </div>
-              <span className="mr-auto text-[10px] font-bold text-primary bg-primary/10 rounded-full px-2.5 py-1 flex-shrink-0">باقتك الحالية</span>
             </div>
-          </div>
+          </Panel>
         )}
 
         {/* نوع الباقة — يحدد الميزات الظاهرة في الحساب (دعوات خاصة / فعاليات عامة / شاملة) */}
         {PUBLIC_EVENTS_ENABLED && (
-        <div className="bg-card rounded-2xl border border-border/50 p-5">
-          <h2 className="font-bold text-foreground mb-1">نوع الباقة</h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            يحدد الميزات والصفحات الظاهرة في حسابك — الصفحات خارج باقتك تُخفى بالكامل
-          </p>
-          <div className="grid sm:grid-cols-3 gap-3">
-            {(Object.keys(PLAN_SCOPE_META) as PlanScope[]).map((k) => {
-              const Icon = SCOPE_ICONS[k];
-              const active = scope === k;
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  disabled={switching}
-                  onClick={() => switchScope(k)}
-                  className={`relative rounded-xl border-2 p-4 text-start transition-all ${
-                    active ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/40"
-                  } ${switching ? "opacity-60" : ""}`}
-                >
-                  {active && (
-                    <span className="absolute top-2 start-2 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                      <Check className="w-3 h-3" />
+          <Panel title="نوع الباقة" description="يحدد الميزات والصفحات الظاهرة في حسابك — الصفحات خارج باقتك تُخفى بالكامل">
+            <div className="grid gap-3 lg:grid-cols-3">
+              {(Object.keys(PLAN_SCOPE_META) as PlanScope[]).map((k) => {
+                const Icon = SCOPE_ICONS[k];
+                const active = scope === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    disabled={switching}
+                    aria-pressed={active}
+                    onClick={() => switchScope(k)}
+                    className={cn(
+                      "flex items-start gap-3 rounded-xl p-4 text-start transition-colors disabled:opacity-60",
+                      active ? "bg-secondary ring-2 ring-primary" : "bg-muted/50 hover:bg-muted",
+                    )}
+                  >
+                    <span className={cn("grid h-9 w-9 flex-none place-items-center rounded-[10px] text-primary", active ? "bg-card" : "bg-secondary")}>
+                      <Icon className="h-[18px] w-[18px]" />
                     </span>
-                  )}
-                  <Icon className={`w-6 h-6 mb-2 ${active ? "text-primary" : "text-muted-foreground"}`} />
-                  <p className="font-bold text-sm">{PLAN_SCOPE_META[k].label}</p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">{PLAN_SCOPE_META[k].desc}</p>
-                  {active && <p className="text-[10px] font-bold text-primary mt-2">باقتك الحالية</p>}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                        <span className="text-sm font-semibold leading-6">{PLAN_SCOPE_META[k].label}</span>
+                        {active && <StatusBadge tone="primary" className="bg-card">باقتك الحالية</StatusBadge>}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-[18px] text-muted-foreground">{PLAN_SCOPE_META[k].desc}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
         )}
 
         <div key={refreshKey}>

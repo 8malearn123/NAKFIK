@@ -8,16 +8,15 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Mail, Users, CheckCircle2, DoorOpen, TrendingUp, Download, ChevronDown,
-  FileText, FileSpreadsheet, FileDown, Plus, Crown, SlidersHorizontal, X,
-  LineChart as LineIcon, BarChart3, PieChart as PieIcon,
-} from "lucide-react";
-import {
-  ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-} from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2, ChevronDown, Crown, DoorOpen, Download, FileDown, FileSpreadsheet, FileText, Mail, Plus, TrendingUp, Users, X } from "lucide-react";
+import DonutChart from "@/components/app/DonutChart";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import TrendChart, { CHART_COLORS, ChartLegend } from "@/components/app/TrendChart";
+import { formatDate, formatDateShort, formatDateTime, formatNumber, formatPercent, percent } from "@/lib/format";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
@@ -31,11 +30,28 @@ const PERIODS: { key: Period; label: string }[] = [
 
 type Tier = "vvip" | "vip" | "regular";
 const TIERS: { key: Tier; label: string; color: string }[] = [
-  { key: "vvip", label: "VVIP", color: "hsl(42 65% 50%)" },
-  { key: "vip", label: "VIP", color: "hsl(270 30% 52%)" },
-  { key: "regular", label: "عادي", color: "hsl(172 55% 40%)" },
+  { key: "vvip", label: "VVIP", color: CHART_COLORS.gold },
+  { key: "vip", label: "VIP", color: CHART_COLORS.primary },
+  { key: "regular", label: "عادي", color: CHART_COLORS.mauve },
 ];
-const RSVP_COLORS = { confirmed: "hsl(140 50% 45%)", declined: "hsl(0 70% 60%)", pending: "hsl(220 15% 65%)" };
+const RSVP_COLORS = { confirmed: CHART_COLORS.primary, declined: CHART_COLORS.gold, pending: CHART_COLORS.soft };
+const TREND_SERIES = [
+  { key: "تأكيدات", label: "تأكيدات", color: RSVP_COLORS.confirmed },
+  { key: "اعتذارات", label: "اعتذارات", color: RSVP_COLORS.declined },
+];
+
+interface FilterSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}
+
+const FilterSelect = ({ value, onChange, options }: FilterSelectProps) => (
+  <Select value={value} onValueChange={onChange}>
+    <SelectTrigger className="h-10 w-auto min-w-[150px] gap-2 font-medium"><SelectValue /></SelectTrigger>
+    <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+  </Select>
+);
 
 interface Inv { id: string; title: string; event_date: string; status: string }
 interface Guest {
@@ -43,6 +59,14 @@ interface Guest {
   guest_tier?: string | null; confirmed_at?: string | null;
   checked_in_at?: string | null; invite_sent_at?: string | null; created_at?: string | null;
 }
+
+// تمييز العدد بصيغته الصحيحة: مدعوان، 3 مدعوين، 14 مدعواً، 100 مدعو
+const guestsLabel = (n: number) => {
+  if (n === 1) return "مدعو واحد";
+  if (n === 2) return "مدعوان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مدعوين" : tail >= 11 ? "مدعواً" : "مدعو"}`;
+};
 
 const tierOf = (g: Guest): Tier =>
   g.guest_tier === "vvip" ? "vvip" : g.guest_tier === "vip" ? "vip" : "regular";
@@ -131,21 +155,18 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     const idx: Record<string, number> = {};
     const now = new Date();
     const count = monthly ? 12 : period === "7d" ? 7 : 30;
+    // العرض الشهري نوافذ كاملة من 30 يوماً تنتهي اليوم، فالشهر الجاري لا يرسم هبوطاً وهمياً في بدايته
+    const WINDOW = 30 * 86_400_000;
     for (let i = count - 1; i >= 0; i--) {
-      const d = new Date(now);
-      if (monthly) d.setMonth(d.getMonth() - i);
-      else d.setDate(d.getDate() - i);
-      const key = monthly ? `${d.getFullYear()}-${d.getMonth()}` : d.toISOString().slice(0, 10);
-      const label = monthly
-        ? d.toLocaleDateString("ar-SA", { month: "short" })
-        : d.toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
+      const d = monthly ? new Date(now.getTime() - i * WINDOW) : new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = monthly ? String(i) : d.toISOString().slice(0, 10);
       idx[key] = buckets.length;
-      buckets.push({ key, label, تأكيدات: 0, اعتذارات: 0 });
+      buckets.push({ key, label: formatDateShort(d), تأكيدات: 0, اعتذارات: 0 });
     }
     fGuests.forEach((g) => {
       if (!g.confirmed_at) return;
       const d = new Date(g.confirmed_at);
-      const key = monthly ? `${d.getFullYear()}-${d.getMonth()}` : d.toISOString().slice(0, 10);
+      const key = monthly ? String(Math.floor((now.getTime() - d.getTime()) / WINDOW)) : d.toISOString().slice(0, 10);
       const i = idx[key];
       if (i === undefined) return;
       if (g.rsvp_status === "confirmed") buckets[i].تأكيدات++;
@@ -156,9 +177,9 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
 
   // ===== توزيع الردود =====
   const rsvpDist = useMemo(() => ([
-    { name: "مؤكد", value: stats.confirmed, color: RSVP_COLORS.confirmed },
-    { name: "اعتذر", value: stats.declined, color: RSVP_COLORS.declined },
-    { name: "بدون رد", value: stats.total - stats.confirmed - stats.declined, color: RSVP_COLORS.pending },
+    { name: "مؤكدون", value: stats.confirmed, color: RSVP_COLORS.confirmed },
+    { name: "معتذرون", value: stats.declined, color: RSVP_COLORS.declined },
+    { name: "بانتظار الرد", value: stats.total - stats.confirmed - stats.declined, color: RSVP_COLORS.pending },
   ].filter((x) => x.value > 0)), [stats]);
 
   // ===== توزيع التصنيفات VVIP / VIP / عادي =====
@@ -177,7 +198,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
   const perInv = useMemo(() => fInvs.map((i) => {
     const g = fGuests.filter((x) => x.invitation_id === i.id);
     return {
-      name: i.title.length > 16 ? i.title.slice(0, 16) + "…" : i.title,
+      name: i.title,
       مدعوون: g.length,
       مؤكدون: g.filter((x) => x.rsvp_status === "confirmed").length,
     };
@@ -200,7 +221,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     const declined = g.filter((x) => x.rsvp_status === "declined").length;
     return {
       "المناسبة": i.title,
-      "التاريخ": new Date(i.event_date).toLocaleDateString("ar-SA"),
+      "التاريخ": formatDate(i.event_date),
       "الحالة": i.status === "active" ? "نشطة" : i.status === "cancelled" ? "ملغاة" : i.status === "draft" ? "مسودة" : i.status,
       "المدعوون": g.length,
       "مؤكدون": confirmed,
@@ -226,7 +247,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
     ws1["!cols"] = [{ wch: 20 }, { wch: 30 }];
     XLSX.utils.book_append_sheet(wb, ws1, "الملخص");
     const ws2 = XLSX.utils.json_to_sheet(buildInvRows());
-    ws2["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
+    ws2["!cols"] = [{ wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }];
     XLSX.utils.book_append_sheet(wb, ws2, "المناسبات");
     const ws3 = XLSX.utils.json_to_sheet(tierDist.map((t) => ({
       "التصنيف": t.label, "المدعوون": t.count, "مؤكدون": t.confirmed, "النسبة": `${t.pct}%`,
@@ -284,7 +305,7 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
 </style></head><body>
   <div class="head">
     <div class="brand">نكفيك تيكت — تقرير الدعوات الخاصة</div>
-    <div class="meta">${new Date().toLocaleString("ar-SA")}<br/>${orgName || ""}</div>
+    <div class="meta">${formatDateTime(new Date())}<br/>${orgName || ""}</div>
   </div>
   <div class="filters"><b>الفلاتر المطبقة:</b> ${filtersSummary().join(" · ")}</div>
   <div class="stats">
@@ -309,17 +330,19 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
   };
 
   const statCards = [
-    { icon: Mail, label: "المناسبات الخاصة", value: stats.invitations.toLocaleString("ar-SA"), color: "bg-primary/10 text-primary" },
-    { icon: Users, label: "إجمالي المدعوين", value: stats.total.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
-    { icon: CheckCircle2, label: "تأكيدات الحضور", value: stats.confirmed.toLocaleString("ar-SA"), color: "bg-emerald-100 text-emerald-700" },
-    { icon: DoorOpen, label: "حضور فعلي", value: stats.checkedIn.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
-    { icon: TrendingUp, label: "نسبة الاستجابة", value: `${stats.responseRate}%`, color: "bg-purple-100 text-purple-700" },
+    { icon: Mail, label: "المناسبات الخاصة", value: formatNumber(stats.invitations) },
+    { icon: Users, label: "إجمالي المدعوين", value: formatNumber(stats.total) },
+    { icon: CheckCircle2, label: "تأكيدات الحضور", value: formatNumber(stats.confirmed) },
+    { icon: DoorOpen, label: "حضور فعلي", value: formatNumber(stats.checkedIn) },
+    { icon: TrendingUp, label: "نسبة الاستجابة", value: `${stats.responseRate}%` },
   ];
+
+  const header = (actions?: React.ReactNode) => <PageHeader title="التقارير" description="أداء دعواتك الخاصة" actions={actions} />;
 
   if (loading) {
     return (
-      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-28 rounded-2xl bg-card border border-border/50 animate-pulse" />)}
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
+        {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-36 animate-pulse rounded-2xl bg-card shadow-soft" />)}
       </div>
     );
   }
@@ -328,251 +351,109 @@ const PrivateReports = ({ organizationId, orgName }: { organizationId?: string; 
   if (invs.length === 0) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
-          <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء دعواتك الخاصة</p>
-        </div>
-        <div className="text-center py-16 bg-card rounded-2xl border border-border/50">
-          <Mail className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground font-semibold">لا توجد دعوات خاصة بعد</p>
-          <p className="text-muted-foreground text-sm mb-4">أنشئ أول دعوة لتظهر تقاريرها هنا</p>
-          <Button className="rounded-full" asChild>
-            <Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> إنشاء دعوة خاصة</Link>
-          </Button>
+        {header()}
+        <div className="rounded-2xl bg-card shadow-soft">
+          <EmptyState
+            icon={Mail}
+            title="لا توجد دعوات خاصة بعد"
+            description="أنشئ أول دعوة لتظهر تقاريرها هنا"
+            action={<Button asChild size="sm"><Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> إنشاء دعوة خاصة</Link></Button>}
+          />
         </div>
       </div>
     );
   }
 
+  const noData = <p className="py-12 text-center text-sm text-muted-foreground">لا توجد بيانات ضمن الفلاتر المحددة</p>;
+
   return (
     <div id="priv-reports" className="space-y-6">
-      {/* الهيدر — بنفس تصميم صفحة التقارير الأصلية: العنوان يميناً والتصدير يساراً */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
-          <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء دعواتك الخاصة</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <DropdownMenu dir="rtl">
+      {header(
+        <>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-full">
-                <Download className="w-4 h-4" /> تصدير التقرير <ChevronDown className="w-3.5 h-3.5" />
-              </Button>
+              <Button variant="outline"><Download className="w-4 h-4" /> تصدير التقرير <ChevronDown className="w-3.5 h-3.5" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={exportPDF} className="gap-2 cursor-pointer">
-                <FileText className="w-4 h-4 text-destructive" /> تصدير بصيغة PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportExcel} className="gap-2 cursor-pointer">
-                <FileSpreadsheet className="w-4 h-4 text-green-600" /> تصدير بصيغة Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportCSV} className="gap-2 cursor-pointer">
-                <FileDown className="w-4 h-4 text-primary" /> تصدير بصيغة CSV
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportPDF} className="cursor-pointer"><FileText className="w-4 h-4" /> تصدير بصيغة PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportExcel} className="cursor-pointer"><FileSpreadsheet className="w-4 h-4" /> تصدير بصيغة Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportCSV} className="cursor-pointer"><FileDown className="w-4 h-4" /> تصدير بصيغة CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button className="rounded-full" asChild>
-            <Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> دعوة جديدة</Link>
-          </Button>
-        </div>
+          <Button asChild><Link to="/dashboard/invitations"><Plus className="w-4 h-4" /> دعوة جديدة</Link></Button>
+        </>,
+      )}
+
+      {/* الفلاتر تُطبَّق على كل إحصائيات ورسوم الصفحة */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <FilterSelect value={invFilter} onChange={setInvFilter} options={[{ value: "all", label: "كل المناسبات" }, ...invs.map((i) => ({ value: i.id, label: i.title }))]} />
+        <FilterSelect value={period} onChange={(v) => setPeriod(v as Period)} options={PERIODS.map((p) => ({ value: p.key, label: p.label }))} />
+        <FilterSelect value={tierFilter} onChange={(v) => setTierFilter(v as any)} options={[{ value: "all", label: "كل التصنيفات" }, ...TIERS.map((t) => ({ value: t.key, label: t.label }))]} />
+        <FilterSelect value={statusFilter} onChange={(v) => setStatusFilter(v as any)} options={[{ value: "all", label: "كل الحالات" }, { value: "upcoming", label: "قادمة" }, { value: "ended", label: "منتهية" }, { value: "cancelled", label: "ملغاة" }]} />
+        {filtersActive && (
+          <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground"><X className="w-3.5 h-3.5" /> إعادة تعيين</Button>
+        )}
       </div>
 
-      {/* الفلاتر — تُطبَّق على كل إحصائيات ورسوم الصفحة */}
-      <div className="bg-card rounded-2xl border border-border/50 p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <SlidersHorizontal className="w-4 h-4 text-primary" />
-          <span className="font-bold text-sm">الفلاتر</span>
-          {filtersActive && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="text-[11px] font-bold text-destructive inline-flex items-center gap-0.5 hover:underline ms-auto"
-            >
-              <X className="w-3 h-3" /> إعادة تعيين
-            </button>
+      <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
+        {statCards.map((s) => <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} />)}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Panel className="xl:col-span-2" title="الردود عبر الزمن" description="تأكيدات واعتذارات المدعوين" actions={<ChartLegend series={TREND_SERIES} />}>
+          <TrendChart data={trend} xKey="label" series={TREND_SERIES} height={270} />
+        </Panel>
+        <Panel title="توزيع الردود" bodyClassName="flex flex-col justify-center">
+          {rsvpDist.length === 0 ? noData : (
+            <DonutChart
+              center={`${percent(stats.confirmed, stats.total)}%`}
+              centerLabel="مؤكدون"
+              segments={rsvpDist.map((d) => ({ label: d.name, value: d.value, color: d.color }))}
+            />
           )}
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          <div>
-            <label className="text-[11px] text-muted-foreground block mb-1">المناسبة</label>
-            <select
-              value={invFilter}
-              onChange={(e) => setInvFilter(e.target.value)}
-              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-            >
-              <option value="all">كل المناسبات</option>
-              {invs.map((i) => <option key={i.id} value={i.id}>{i.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground block mb-1">الفترة الزمنية</label>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value as Period)}
-              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-            >
-              {PERIODS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground block mb-1">تصنيف المدعو</label>
-            <select
-              value={tierFilter}
-              onChange={(e) => setTierFilter(e.target.value as any)}
-              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-            >
-              <option value="all">كل التصنيفات</option>
-              {TIERS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground block mb-1">حالة المناسبة</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-            >
-              <option value="all">كل الحالات</option>
-              <option value="upcoming">قادمة</option>
-              <option value="ended">منتهية</option>
-              <option value="cancelled">ملغاة</option>
-            </select>
-          </div>
-        </div>
+        </Panel>
       </div>
 
-      {/* بطاقات الإحصائيات */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {statCards.map((s) => (
-          <div key={s.label} className="bg-card rounded-2xl border border-border/50 p-5">
-            <div className={`w-10 h-10 rounded-xl ${s.color} flex items-center justify-center mb-3`}>
-              <s.icon className="w-5 h-5" />
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Panel className="xl:col-span-2" title="أداء المناسبات" description="نسبة التأكيد لكل مناسبة">
+          {perInv.length === 0 ? noData : (
+            <div className="space-y-4">
+              {perInv.map((row) => {
+                const rate = percent(row.مؤكدون, row.مدعوون);
+                return (
+                  <div key={row.name}>
+                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                      <span className="truncate font-semibold">{row.name}</span>
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">{formatNumber(row.مؤكدون)} من {formatNumber(row.مدعوون)}، {formatPercent(rate)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${rate}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="font-bold text-2xl text-foreground mb-1">{s.value}</div>
-            <div className="text-muted-foreground text-xs">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* التبويبات — بنفس أسلوب تقارير المنصة */}
-      <Tabs defaultValue="trends" dir="rtl">
-        <TabsList>
-          <TabsTrigger value="trends" className="gap-1.5"><LineIcon className="w-4 h-4" /> الاتجاهات</TabsTrigger>
-          <TabsTrigger value="performance" className="gap-1.5"><BarChart3 className="w-4 h-4" /> أداء المناسبات</TabsTrigger>
-          <TabsTrigger value="distribution" className="gap-1.5"><PieIcon className="w-4 h-4" /> التوزيع</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="trends" className="mt-4">
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h3 className="font-bold text-foreground mb-4">اتجاه الردود — تأكيدات واعتذارات</h3>
-            <div className="h-64" dir="ltr">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trend}>
-                  <defs>
-                    <linearGradient id="gConf" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={RSVP_COLORS.confirmed} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={RSVP_COLORS.confirmed} stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gDecl" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={RSVP_COLORS.declined} stopOpacity={0.3} />
-                      <stop offset="100%" stopColor={RSVP_COLORS.declined} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                  <Tooltip />
-                  <Legend />
-                  <Area type="monotone" dataKey="تأكيدات" stroke={RSVP_COLORS.confirmed} fill="url(#gConf)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="اعتذارات" stroke={RSVP_COLORS.declined} fill="url(#gDecl)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="performance" className="mt-4">
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h3 className="font-bold text-foreground mb-4">أداء المناسبات — المدعوون مقابل المؤكدين</h3>
-            {perInv.length === 0 ? (
-              <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
-            ) : (
-              <div className="h-64" dir="ltr">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={perInv}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="مدعوون" fill="hsl(270 30% 52%)" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="مؤكدون" fill="hsl(172 55% 40%)" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="distribution" className="mt-4">
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-card rounded-2xl border border-border/50 p-5">
-              <h3 className="font-bold text-foreground mb-4">توزيع الردود</h3>
-              {rsvpDist.length === 0 ? (
-                <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
-              ) : (
-                <div className="h-56" dir="ltr">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={rsvpDist} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
-                        {rsvpDist.map((e, i) => <Cell key={i} fill={e.color} />)}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+          )}
+        </Panel>
+        <Panel title="تصنيفات المدعوين">
+          {fGuests.length === 0 ? noData : (
+            <div className="space-y-4">
+              {tierDist.map((t) => (
+                <div key={t.key}>
+                  <div className="mb-1.5 flex items-center gap-2 text-sm">
+                    {t.key === "vvip" && <Crown className="h-3.5 w-3.5 text-accent" />}
+                    <span className="font-semibold"><bdi>{t.label}</bdi></span>
+                    <span className="ms-auto text-xs text-muted-foreground">{guestsLabel(t.count)}، {formatPercent(t.pct)}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                    <div className="h-full rounded-full" style={{ width: `${t.pct}%`, background: t.color }} />
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-
-            <div className="bg-card rounded-2xl border border-border/50 p-5">
-              <h3 className="font-bold text-foreground mb-4 flex items-center gap-1.5">
-                <Crown className="w-4 h-4 text-amber-500" /> توزيع تصنيفات المدعوين
-              </h3>
-              {fGuests.length === 0 ? (
-                <p className="text-center text-muted-foreground text-sm py-12">لا توجد بيانات ضمن الفلاتر المحددة</p>
-              ) : (
-                <>
-                  <div className="h-40" dir="ltr">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={tierDist.filter((t) => t.count > 0)} dataKey="count" nameKey="label" innerRadius={40} outerRadius={65} paddingAngle={3}>
-                          {tierDist.filter((t) => t.count > 0).map((e, i) => <Cell key={i} fill={e.color} />)}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-2 mt-2">
-                    {tierDist.map((t) => (
-                      <div key={t.key} className="flex items-center gap-2 text-xs">
-                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: t.color }} />
-                        <span className="font-bold w-14">{t.label}</span>
-                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${t.pct}%`, background: t.color }} />
-                        </div>
-                        <span className="text-muted-foreground whitespace-nowrap">
-                          {t.count} مدعو · {t.confirmed} مؤكد · {t.pct}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+          )}
+        </Panel>
+      </div>
     </div>
   );
 };

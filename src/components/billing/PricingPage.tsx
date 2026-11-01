@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, Star, Calendar, Users } from "lucide-react";
+import EmptyState from "@/components/app/EmptyState";
+import StatusBadge from "@/components/app/StatusBadge";
+import { formatNumber } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { Check, Calendar, CreditCard, Users } from "lucide-react";
 
 interface Plan {
   id: string;
@@ -26,6 +29,18 @@ interface PricingPageProps {
   onSelectPlan?: (planId: string) => void;
 }
 
+// الأعداد بصياغة عربية صحيحة، مثل: 3 فعاليات، 50 فعالية، 12 شهراً
+const eventsLabel = (n: number) => {
+  if (n === 1) return "فعالية واحدة";
+  if (n === 2) return "فعاليتين";
+  return n <= 10 ? `${n} فعاليات` : `${formatNumber(n)} فعالية`;
+};
+const monthsLabel = (n: number) => {
+  if (n === 1) return "شهر واحد";
+  if (n === 2) return "شهرين";
+  return n <= 10 ? `${n} أشهر` : `${formatNumber(n)} شهراً`;
+};
+
 const PricingPage = ({ targetType, currentPlanId, onSelectPlan }: PricingPageProps) => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,89 +59,81 @@ const PricingPage = ({ targetType, currentPlanId, onSelectPlan }: PricingPagePro
       });
   }, [targetType]);
 
-  if (loading) return <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>;
+  if (loading) {
+    return (
+      <div className="grid gap-6 sm:grid-cols-2">
+        {[1, 2].map((i) => <div key={i} className="h-96 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+      </div>
+    );
+  }
 
   if (plans.length === 0) {
-    return <div className="text-center py-12 text-muted-foreground">لا توجد خطط متاحة حالياً</div>;
+    return (
+      <div className="rounded-2xl bg-card shadow-soft">
+        <EmptyState icon={CreditCard} title="لا توجد خطط متاحة حالياً" />
+      </div>
+    );
   }
 
   // popular = middle plan based on display order
   const popularIdx = Math.floor(plans.length / 2);
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto pb-4 -mx-4 px-4 scroll-smooth snap-x snap-mandatory">
-        <div className="flex gap-4 min-w-min">
-          {plans.map((plan, i) => {
-            const isCurrent = plan.id === currentPlanId;
-            const isPopular = i === popularIdx && plans.length > 1;
+    <div className={cn("grid gap-6 sm:grid-cols-2", plans.length === 3 && "xl:grid-cols-3", plans.length >= 4 && "xl:grid-cols-4")}>
+      {plans.map((plan, i) => {
+        const isCurrent = plan.id === currentPlanId;
+        const isPopular = i === popularIdx && plans.length > 1;
 
-            const limits: { icon: typeof Calendar; label: string }[] = [];
-            limits.push({ icon: Calendar, label: plan.max_events != null ? `${plan.max_events} فعالية` : "فعاليات غير محدودة" });
-            limits.push({ icon: Calendar, label: `صالحة لمدة ${plan.validity_months} شهر` });
-            if (plan.max_attendees_per_event != null) limits.push({ icon: Users, label: `${plan.max_attendees_per_event} مسجل لكل فعالية` });
-            if (plan.max_total_attendees != null) limits.push({ icon: Users, label: `${plan.max_total_attendees} إجمالي الحضور` });
-            if (plan.whatsapp_quota) limits.push({ icon: Check, label: `${plan.whatsapp_quota} رسالة واتساب` });
+        const limits: { icon: typeof Calendar; label: string }[] = [];
+        limits.push({ icon: Calendar, label: plan.max_events != null ? eventsLabel(plan.max_events) : "فعاليات غير محدودة" });
+        limits.push({ icon: Calendar, label: `صالحة لمدة ${monthsLabel(plan.validity_months)}` });
+        if (plan.max_attendees_per_event != null) limits.push({ icon: Users, label: `${formatNumber(plan.max_attendees_per_event)} مسجل لكل فعالية` });
+        if (plan.max_total_attendees != null) limits.push({ icon: Users, label: `${formatNumber(plan.max_total_attendees)} إجمالي الحضور` });
+        if (plan.whatsapp_quota) limits.push({ icon: Check, label: `${formatNumber(plan.whatsapp_quota)} رسالة واتساب` });
 
-            return (
-              <div key={plan.id} className={`relative bg-card rounded-2xl border-2 p-6 transition-all flex-shrink-0 w-[300px] snap-start flex flex-col ${
-                isPopular ? "border-primary shadow-lg" : "border-border/50"
-              } ${isCurrent ? "ring-2 ring-teal" : ""}`}>
-                {isPopular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary text-primary-foreground text-[10px]">
-                      <Star className="w-3 h-3 ml-1" /> الأكثر شيوعاً
-                    </Badge>
-                  </div>
-                )}
+        return (
+          <div key={plan.id} className="flex min-w-0 flex-col rounded-2xl bg-card p-6 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="min-w-0 text-[15px] font-bold leading-6">{plan.name_ar}</h3>
+              {isPopular && <StatusBadge tone="primary">الأكثر شيوعاً</StatusBadge>}
+            </div>
+            {plan.description_ar && <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{plan.description_ar}</p>}
 
-                <div className="mb-4">
-                  <h3 className="font-bold text-lg text-foreground">{plan.name_ar}</h3>
-                  {plan.description_ar && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{plan.description_ar}</p>}
-                </div>
+            <div className="mt-4 flex items-baseline gap-1">
+              <span className="text-[32px] font-bold leading-10">{plan.price === 0 ? "مجاناً" : formatNumber(Number(plan.price))}</span>
+              {plan.price > 0 && <span className="text-sm font-semibold text-muted-foreground">ر.س</span>}
+            </div>
+            <p className="mt-0.5 text-xs leading-[18px] text-muted-foreground">
+              {plan.max_events != null
+                ? `لـ ${eventsLabel(plan.max_events)}، ${monthsLabel(plan.validity_months)}`
+                : monthsLabel(plan.validity_months)}
+            </p>
 
-                <div className="mb-2">
-                  <span className="text-3xl font-bold text-foreground">{plan.price === 0 ? "مجاناً" : Number(plan.price).toLocaleString()}</span>
-                  {plan.price > 0 && <span className="text-sm text-muted-foreground mr-1">ر.س</span>}
-                </div>
-                <div className="mb-6 text-xs text-muted-foreground">
-                  {plan.max_events != null
-                    ? `لـ ${plan.max_events} ${plan.max_events === 1 ? "فعالية" : "فعاليات"} • ${plan.validity_months} شهر`
-                    : `${plan.validity_months} شهر`}
-                </div>
+            <ul className="mb-6 mt-5 flex-1 space-y-2.5 border-t border-border pt-5">
+              {limits.map((l, li) => (
+                <li key={`l${li}`} className="flex items-start gap-2.5 text-sm">
+                  <l.icon className="mt-0.5 h-4 w-4 flex-none text-primary" />
+                  <span>{l.label}</span>
+                </li>
+              ))}
+              {plan.features.map((f, fi) => (
+                <li key={`f${fi}`} className="flex items-start gap-2.5 text-sm">
+                  <Check className="mt-0.5 h-4 w-4 flex-none text-primary" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
 
-                <ul className="space-y-2 mb-6 flex-1">
-                  {limits.map((l, li) => (
-                    <li key={`l${li}`} className="flex items-start gap-2 text-sm text-foreground">
-                      <l.icon className="w-4 h-4 text-teal shrink-0 mt-0.5" />
-                      <span>{l.label}</span>
-                    </li>
-                  ))}
-                  {plan.features.map((f, fi) => (
-                    <li key={`f${fi}`} className="flex items-start gap-2 text-sm text-foreground">
-                      <Check className="w-4 h-4 text-teal shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {isCurrent ? (
-                  <Button disabled className="w-full rounded-xl" variant="outline">الخطة الحالية</Button>
-                ) : (
-                  <Button className={`w-full rounded-xl ${isPopular ? "bg-primary hover:bg-primary/90" : "bg-teal hover:bg-teal/90 text-teal-foreground"}`}
-                    onClick={() => onSelectPlan?.(plan.id)}>
-                    {plan.price === 0 ? "ابدأ مجاناً" : "اشترك الآن"}
-                  </Button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {plans.length > 3 && (
-        <p className="text-center text-xs text-muted-foreground">← اسحب لاستعراض المزيد من الخطط →</p>
-      )}
+            {isCurrent ? (
+              <Button disabled className="w-full" variant="outline">الخطة الحالية</Button>
+            ) : (
+              <Button className="w-full" variant={isPopular ? "default" : "soft"} onClick={() => onSelectPlan?.(plan.id)}>
+                {plan.price === 0 ? "ابدأ مجاناً" : "اشترك الآن"}
+              </Button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

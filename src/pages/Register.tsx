@@ -3,9 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { motion } from "framer-motion";
-import logo from "@/assets/logo.png";
-import { User, Building2, Mail, Lock, Phone, ArrowLeft, Calendar, Sparkles } from "lucide-react";
+import BrandLogo from "@/components/brand/BrandLogo";
+import { User, Building2, Mail, Lock, Phone, ArrowLeft, ArrowRight, Calendar, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -155,12 +154,15 @@ const Register = () => {
     <div className="min-h-screen flex font-cairo">
       {/* Right side - Purple branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute top-20 left-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
-        <div className="absolute bottom-32 right-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
-        <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
+        <div className="absolute top-20 end-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
+        <div className="absolute bottom-32 start-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
+        <div className="absolute -top-20 -start-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
+        <div className="absolute inset-0 bg-brand-pattern opacity-40" />
+        <div className="brand-slash absolute top-[22%] -end-[15%] w-[75%] h-6 opacity-90" />
+        <div className="brand-slash absolute bottom-[18%] -start-[20%] w-[60%] h-3 opacity-40" />
 
         <div className="text-center relative z-10">
-          <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-24 w-auto mx-auto mb-8" />
+          <BrandLogo tone="white" alt={t("pgAuth.common.brandAlt")} className="h-28 mx-auto mb-10 drop-shadow-[0_10px_30px_rgba(0,0,0,0.25)]" />
           <h2 className="text-primary-foreground font-bold text-3xl mb-4">{t("pgAuth.register.brandTitle")}</h2>
           <p className="text-primary-foreground/70 text-lg max-w-md">
             {t("pgAuth.register.brandSubtitle")}
@@ -170,14 +172,10 @@ const Register = () => {
 
       {/* Left side - Form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/">
-              <img src={logo} alt={t("pgAuth.common.brandAlt")} className="h-16 w-auto" />
+              <BrandLogo alt={t("pgAuth.common.brandAlt")} className="h-16" />
             </Link>
           </div>
 
@@ -193,30 +191,32 @@ const Register = () => {
 
           {/* Account type selection */}
           {!accountType ? (
-            <div className="space-y-4">
-              <p className="text-foreground font-semibold mb-4">{t("pgAuth.register.chooseType")}</p>
+            <div className="space-y-3">
+              <p className="mb-4 font-semibold text-foreground">{t("pgAuth.register.chooseType")}</p>
               <button
+                type="button"
                 onClick={() => setAccountType("attendee")}
-                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-border hover:border-primary bg-card hover:shadow-lg transition-all duration-200 text-start"
+                className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-start transition-colors hover:border-primary/40 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <User className="w-6 h-6 text-primary" />
-                </div>
+                <span className="grid h-10 w-10 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                  <User className="h-5 w-5" />
+                </span>
                 <div>
                   <h3 className="font-bold text-foreground">{t("pgAuth.register.attendeeTitle")}</h3>
-                  <p className="text-muted-foreground text-sm">{t("pgAuth.register.attendeeDesc")}</p>
+                  <p className="text-sm text-muted-foreground">{t("pgAuth.register.attendeeDesc")}</p>
                 </div>
               </button>
               <button
+                type="button"
                 onClick={() => setAccountType("organizer")}
-                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-border hover:border-accent bg-card hover:shadow-lg transition-all duration-200 text-start"
+                className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-4 text-start transition-colors hover:border-primary/40 hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <Building2 className="w-6 h-6 text-accent" />
-                </div>
+                <span className="grid h-10 w-10 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                  <Building2 className="h-5 w-5" />
+                </span>
                 <div>
                   <h3 className="font-bold text-foreground">{t("pgAuth.register.organizerTitle")}</h3>
-                  <p className="text-muted-foreground text-sm">{t("pgAuth.register.organizerDesc")}</p>
+                  <p className="text-sm text-muted-foreground">{t("pgAuth.register.organizerDesc")}</p>
                 </div>
               </button>
             </div>
@@ -225,9 +225,9 @@ const Register = () => {
               <button
                 type="button"
                 onClick={() => setAccountType(null)}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-2 transition-colors"
+                className="mb-2 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
                 {t("pgAuth.register.changeType")}
               </button>
 
@@ -252,16 +252,16 @@ const Register = () => {
               <div className="space-y-2">
                 <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="email" name="email" type="email" placeholder="example@email.com" value={formData.email} onChange={handleChange} className="pl-10" dir="ltr" required />
+                  <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="email" name="email" type="email" placeholder="example@email.com" value={formData.email} onChange={handleChange} className="pe-10 rtl:ps-10" dir="ltr" required />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">{t("pgAuth.register.phone")}</Label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pl-10" dir="ltr" required />
+                  <Phone className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input id="phone" name="phone" type="tel" placeholder="+966 5X XXX XXXX" value={formData.phone} onChange={handleChange} className="pe-10 rtl:ps-10" dir="ltr" required />
                 </div>
               </div>
 
@@ -270,7 +270,7 @@ const Register = () => {
                 <div className="space-y-2">
                   <div>
                     <p className="font-bold text-sm">{t("pgAuth.register.planSectionTitle")} *</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{t("pgAuth.register.planSectionDesc")}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t("pgAuth.register.planSectionDesc")}</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {([
@@ -282,15 +282,15 @@ const Register = () => {
                         key={p.key}
                         type="button"
                         onClick={() => setPlanScope(p.key)}
-                        className={`rounded-xl border-2 p-3 text-start transition-all ${
+                        className={`rounded-xl border p-3 text-start transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           planScope === p.key
-                            ? "border-primary bg-primary/5 shadow-sm"
+                            ? "border-primary bg-secondary"
                             : "border-border hover:border-primary/40"
                         }`}
                       >
                         <p.Icon className={`w-5 h-5 mb-1.5 ${planScope === p.key ? "text-primary" : "text-muted-foreground"}`} />
                         <p className="font-bold text-xs">{p.title}</p>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{p.desc}</p>
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{p.desc}</p>
                       </button>
                     ))}
                   </div>
@@ -299,10 +299,10 @@ const Register = () => {
 
               {/* البيانات المالية — إلزامية لحساب المنظم منذ التسجيل */}
               {accountType === "organizer" && (
-                <div className="rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-4 space-y-3">
+                <div className="space-y-4 rounded-xl bg-muted/60 p-4">
                   <div>
-                    <p className="font-bold text-sm">{t("pgAuth.register.bankSectionTitle")} *</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{t("pgAuth.register.bankSectionDesc")}</p>
+                    <p className="text-sm font-bold">{t("pgAuth.register.bankSectionTitle")} *</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{t("pgAuth.register.bankSectionDesc")}</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="bankName">{t("pgAuth.register.bankName")}</Label>
@@ -335,7 +335,7 @@ const Register = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
                 {loading ? t("pgAuth.register.submitting") :
                  accountType === "organizer" ? t("pgAuth.register.submitOrganizer") : t("pgAuth.register.submit")}
               </Button>
@@ -350,11 +350,12 @@ const Register = () => {
           )}
 
           <div className="mt-6 text-center">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
+              <ArrowRight className="h-4 w-4 ltr:rotate-180" />
               {t("pgAuth.common.backHome")}
             </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

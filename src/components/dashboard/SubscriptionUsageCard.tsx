@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Calendar, Clock, AlertTriangle, Sparkles } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffectiveUser } from "@/hooks/useEffectiveUser";
+import { usePlanScope } from "@/hooks/usePlanScope";
+import { daysLeftLabel, formatDate, formatNumber } from "@/lib/format";
 
 interface SubRow {
   id: string;
@@ -23,7 +23,16 @@ interface PlanRow {
   validity_months: number;
 }
 
+// عدد الفعاليات المتبقية بصياغة عربية صحيحة
+const remainingLabel = (n: number, canPublic: boolean) => {
+  if (n === 1) return canPublic ? "فعالية واحدة متبقية" : "مناسبة واحدة متبقية";
+  if (n === 2) return canPublic ? "فعاليتان متبقيتان" : "مناسبتان متبقيتان";
+  if (n >= 3 && n <= 10) return `${n} ${canPublic ? "فعاليات" : "مناسبات"} متبقية`;
+  return `${formatNumber(n)} ${canPublic ? "فعالية" : "مناسبة"} متبقية`;
+};
+
 const SubscriptionUsageCard = () => {
+  const { canPublic } = usePlanScope();
   const { effectiveUserId } = useEffectiveUser();
   const [sub, setSub] = useState<SubRow | null>(null);
   const [plan, setPlan] = useState<PlanRow | null>(null);
@@ -55,22 +64,20 @@ const SubscriptionUsageCard = () => {
   }, [effectiveUserId]);
 
   if (loading) {
-    return <div className="bg-card rounded-2xl p-5 border border-border/50 animate-pulse h-40" />;
+    return <div className="h-40 animate-pulse rounded-2xl bg-card shadow-soft" />;
   }
 
   if (!sub) {
     return (
-      <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl p-5 border border-primary/20">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-bold text-foreground">لا يوجد اشتراك نشط</h3>
-            <p className="text-muted-foreground text-xs">اشترك في باقة لتتمكن من إنشاء فعاليات</p>
-          </div>
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-card p-6 shadow-soft">
+        <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+          <Sparkles className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-bold leading-6">لا يوجد اشتراك نشط</h3>
+          <p className="text-[13px] leading-5 text-muted-foreground">اشترك في باقة لتتمكن من إنشاء {canPublic ? "فعاليات" : "مناسبات"}</p>
         </div>
-        <Button asChild className="rounded-full w-full sm:w-auto" size="sm">
+        <Button asChild size="sm" className="w-full sm:w-auto">
           <Link to="/dashboard/subscription">عرض الباقات</Link>
         </Button>
       </div>
@@ -89,61 +96,60 @@ const SubscriptionUsageCard = () => {
   const isExhausted = quota > 0 && remaining === 0;
   const warning = isExpired || isExhausted || (daysLeft !== null && daysLeft <= 7);
 
+  const barTone = pct >= 90 ? "bg-[#C0392B]" : pct >= 70 ? "bg-[#CC8E3D]" : "bg-primary";
+  const expirySoon = daysLeft !== null && daysLeft <= 7;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl p-5 border ${warning ? "border-destructive/30 bg-destructive/5" : "border-border/50 bg-card"}`}
-    >
-      <div className="flex items-start justify-between mb-4 gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${warning ? "bg-destructive/15 text-destructive" : "bg-primary/10 text-primary"}`}>
-            {warning ? <AlertTriangle className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-bold text-foreground truncate">{plan?.name_ar || "باقتك"}</h3>
-            <p className="text-muted-foreground text-xs">
-              {isExpired ? "انتهت الصلاحية" : `${remaining} فعالية متبقية من ${quota}`}
-            </p>
-          </div>
+    <div className="rounded-2xl bg-card p-6 shadow-soft">
+      <div className="flex items-center gap-3">
+        <span className={`grid h-9 w-9 flex-none place-items-center rounded-[10px] ${warning ? "bg-[#FBECEA] text-[#B42F24]" : "bg-secondary text-primary"}`}>
+          {warning ? <AlertTriangle className="h-[18px] w-[18px]" /> : <Sparkles className="h-[18px] w-[18px]" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[15px] font-bold leading-6">{plan?.name_ar || "باقتك"}</h3>
+          <p className="text-[13px] leading-5 text-muted-foreground">
+            {isExpired ? "انتهت الصلاحية" : `${remainingLabel(remaining, canPublic)} من ${formatNumber(quota)}`}
+          </p>
         </div>
-        <Button asChild size="sm" variant={warning ? "default" : "outline"} className="rounded-full flex-shrink-0">
+        <Button asChild size="sm" variant={warning ? "default" : "outline"} className="flex-none">
           <Link to="/dashboard/subscription">{warning ? "ترقية" : "إدارة"}</Link>
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="mt-5 space-y-3">
         <div>
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              الفعاليات المستخدمة
+          <div className="mb-1.5 flex items-center justify-between gap-3 text-xs leading-[18px]">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" />
+              {canPublic ? "الفعاليات المستخدمة" : "المناسبات المستخدمة"}
             </span>
-            <span className="font-semibold text-foreground">{used} / {quota || "∞"}</span>
+            <span className="font-semibold">{formatNumber(used)} من {quota ? formatNumber(quota) : "∞"}</span>
           </div>
-          <Progress value={pct} className={`h-2 ${pct >= 90 ? "[&>div]:bg-destructive" : pct >= 70 ? "[&>div]:bg-amber-500" : ""}`} />
+          <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+            <div className={`h-full rounded-full ${barTone}`} style={{ width: `${pct}%` }} />
+          </div>
         </div>
 
         {expiresAt && (
-          <div className="flex items-center justify-between text-xs pt-1">
-            <span className="text-muted-foreground flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between gap-3 text-xs leading-[18px]">
+            <span className="flex flex-none items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
               تنتهي في
             </span>
-            <span className={`font-semibold ${isExpired ? "text-destructive" : daysLeft !== null && daysLeft <= 7 ? "text-amber-600" : "text-foreground"}`}>
-              {expiresAt.toLocaleDateString("ar-SA", { year: "numeric", month: "short", day: "numeric" })}
-              {!isExpired && daysLeft !== null && ` (${daysLeft} يوم)`}
+            <span className={`text-end font-semibold ${isExpired ? "text-[#B42F24]" : expirySoon ? "text-[#9A5F12]" : ""}`}>
+              {formatDate(expiresAt)}
+              {!isExpired && daysLeft !== null && `، ${daysLeftLabel(sub.expires_at as string)}`}
             </span>
           </div>
         )}
 
         {isExhausted && !isExpired && (
-          <p className="text-destructive text-xs font-semibold pt-1">
-            لقد استنفدت رصيدك من الفعاليات. يرجى الترقية لإنشاء فعاليات جديدة.
+          <p className="text-xs font-semibold leading-[18px] text-[#B42F24]">
+            {canPublic ? "لقد استنفدت رصيدك من الفعاليات. يرجى الترقية لإنشاء فعاليات جديدة." : "لقد استنفدت رصيدك من المناسبات. يرجى الترقية لإنشاء مناسبات جديدة."}
           </p>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

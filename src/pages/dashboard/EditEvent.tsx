@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowRight, Save, Eye, Trash2, AlertCircle, Upload, Loader2, Send as SendIcon, Lock } from "lucide-react";
+import { AlertCircle, ArrowRight, Check, Circle, Eye, Lock, Save, Send as SendIcon, Trash2, Upload } from "lucide-react";
 import { computeEventReadiness, READINESS_THRESHOLD } from "@/lib/eventHealth";
+import { formatPercent } from "@/lib/format";
+
+const CATEGORIES = [
+  { value: "conference", label: "مؤتمر" },
+  { value: "workshop", label: "ورشة عمل" },
+  { value: "seminar", label: "ندوة" },
+  { value: "meetup", label: "لقاء" },
+  { value: "other", label: "أخرى" },
+];
 
 const EditEvent = () => {
   const { eventId } = useParams();
@@ -83,7 +96,7 @@ const EditEvent = () => {
     if (!eventId || !organization) return;
     if (mode === "submit" && !readiness.ready) {
       toast.error(
-        `لا يمكن الإرسال — اكتمال البيانات ${readiness.score}% (المطلوب ${READINESS_THRESHOLD}%).\nالناقص: ${readiness.missing.map(m => m.missingLabel).join("، ")}`
+        `لا يمكن الإرسال — اكتمال البيانات ${formatPercent(readiness.score)} (المطلوب ${formatPercent(READINESS_THRESHOLD)}).\nالناقص: ${readiness.missing.map(m => m.missingLabel).join("، ")}`
       );
       return;
     }
@@ -149,173 +162,202 @@ const EditEvent = () => {
     navigate("/dashboard/events");
   };
 
+  const header = (actions?: React.ReactNode) => (
+    <div className="space-y-2">
+      <Link to="/dashboard/events" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+        <ArrowRight className="h-4 w-4" /> العودة لفعالياتي
+      </Link>
+      <PageHeader title="تعديل الفعالية" description="عدّل بيانات الفعالية، احذفها، أو اعرضها كما يراها الجمهور" actions={actions} />
+    </div>
+  );
+
   if (loading) {
-    return <DashboardLayout><div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div></DashboardLayout>;
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          {header()}
+          <div className="grid items-start gap-6 xl:grid-cols-3">
+            <div className="h-[520px] animate-pulse rounded-2xl bg-card shadow-soft xl:col-span-2" />
+            <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div>
-            <Button variant="ghost" size="sm" asChild className="mb-2 -mr-2">
-              <Link to="/dashboard/events"><ArrowRight className="w-4 h-4" /> العودة لفعالياتي</Link>
+      <div className="space-y-6">
+        {header(
+          <>
+            <Button variant="outline" asChild>
+              <Link to={`/events/${eventId}`} target="_blank"><Eye className="h-4 w-4" /> عرض</Link>
             </Button>
-            <h1 className="font-bold text-2xl text-foreground">تعديل الفعالية</h1>
-            <p className="text-muted-foreground text-sm">عدّل بيانات الفعالية، احذفها، أو اعرضها كما يراها الجمهور</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-full gap-2" asChild>
-              <Link to={`/events/${eventId}`} target="_blank"><Eye className="w-4 h-4" /> عرض</Link>
+            <Button variant="outline" className="text-destructive hover:text-destructive" onClick={handleDelete}>
+              <Trash2 className="h-4 w-4" /> حذف
             </Button>
-            <Button variant="destructive" className="rounded-full gap-2" onClick={handleDelete}>
-              <Trash2 className="w-4 h-4" /> حذف
-            </Button>
-          </div>
-        </div>
+          </>,
+        )}
 
         {eventType === "public" && currentStatus !== "draft" && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 rounded-2xl bg-[#FDF3E3] p-4 text-[#9A5F12]">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-none" />
             <div className="text-sm">
-              <p className="font-semibold text-amber-800 dark:text-amber-200">تنبيه: حفظ التعديلات يعيدها مسودة</p>
-              <p className="text-amber-700 dark:text-amber-300/90 text-xs mt-0.5">
+              <p className="font-bold">تنبيه: حفظ التعديلات يعيدها مسودة</p>
+              <p className="mt-0.5 text-[13px] leading-5">
                 حفظ تعديلات على فعالية عامة منشورة يعيدها "مسودة" غير معروضة للجمهور حتى ترسلها للمراجعة وتُعتمد مجدداً.
               </p>
             </div>
-          </motion.div>
+          </div>
         )}
 
-        <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-5">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>عنوان الفعالية (عربي) *</Label>
-              <Input value={titleAr} onChange={e => setTitleAr(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>عنوان الفعالية (إنجليزي)</Label>
-              <Input value={titleEn} onChange={e => setTitleEn(e.target.value)} dir="ltr" />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>التصنيف</Label>
-              <select value={category} onChange={e => setCategory(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm">
-                <option value="conference">مؤتمر</option>
-                <option value="workshop">ورشة عمل</option>
-                <option value="seminar">ندوة</option>
-                <option value="meetup">لقاء</option>
-                <option value="other">أخرى</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>نوع الفعالية</Label>
-              <div className="flex gap-3">
-                {(["public", "private"] as const).map(t => (
-                  <button key={t} type="button" onClick={() => setEventType(t)}
-                    className={`flex-1 h-10 rounded-xl text-sm font-semibold border-2 transition-all ${eventType === t ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground"}`}>
-                    {t === "public" ? "عامة" : "خاصة"}
-                  </button>
-                ))}
+        <div className="grid items-start gap-6 xl:grid-cols-3">
+          <Panel title="المعلومات الأساسية" className="xl:col-span-2" bodyClassName="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>عنوان الفعالية (عربي) *</Label>
+                <Input value={titleAr} onChange={e => setTitleAr(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>عنوان الفعالية (إنجليزي)</Label>
+                <Input value={titleEn} onChange={e => setTitleEn(e.target.value)} dir="ltr" />
               </div>
             </div>
-          </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>تاريخ البداية *</Label>
-              <Input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} dir="ltr" />
-            </div>
-            <div className="space-y-2">
-              <Label>تاريخ النهاية</Label>
-              <Input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} dir="ltr" />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="online" checked={isOnline} onChange={e => setIsOnline(e.target.checked)} className="rounded" />
-            <Label htmlFor="online" className="cursor-pointer">فعالية أونلاين</Label>
-          </div>
-
-          {!isOnline && (
-            <div className="space-y-2">
-              <Label>اسم المكان</Label>
-              <Input value={venueName} onChange={e => setVenueName(e.target.value)} placeholder="مثال: قاعة الأمير سلطان" />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label>الحد الأقصى للحضور</Label>
-            <Input type="number" value={maxAttendees} onChange={e => setMaxAttendees(e.target.value)} dir="ltr" placeholder="100" />
-          </div>
-
-          <div className="space-y-2">
-            <Label>الوصف</Label>
-            <Textarea value={descriptionAr} onChange={e => setDescriptionAr(e.target.value)} rows={5} placeholder="وصف مختصر عن الفعالية..." />
-          </div>
-
-          <div className="space-y-2">
-            <Label>صورة الغلاف</Label>
-            {coverUrl && !coverFile && (
-              <div className="relative w-full max-w-md">
-                <img src={coverUrl} alt="cover" className="w-full rounded-xl border border-border/50" />
-                <button
-                  type="button"
-                  onClick={() => setCoverUrl(null)}
-                  className="absolute top-2 end-2 bg-destructive text-destructive-foreground rounded-full p-2 shadow-lg hover:opacity-90 transition"
-                  title="حذف صورة الغلاف"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>التصنيف</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-            <div className="flex items-center gap-2 flex-wrap">
-              <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-border cursor-pointer hover:bg-muted/30 w-fit">
-                <Upload className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{coverFile ? coverFile.name : "اختر صورة جديدة"}</span>
+              <div className="space-y-2">
+                <Label>نوع الفعالية</Label>
+                <Tabs value={eventType} onValueChange={(v) => setEventType(v as "public" | "private")}>
+                  <TabsList className="grid h-10 w-full grid-cols-2">
+                    <TabsTrigger value="public">عامة</TabsTrigger>
+                    <TabsTrigger value="private">خاصة</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>تاريخ البداية *</Label>
+                <Input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} dir="ltr" />
+              </div>
+              <div className="space-y-2">
+                <Label>تاريخ النهاية</Label>
+                <Input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} dir="ltr" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <Switch id="online" checked={isOnline} onCheckedChange={setIsOnline} />
+              <Label htmlFor="online" className="cursor-pointer">فعالية أونلاين</Label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {!isOnline && (
+                <div className="space-y-2">
+                  <Label>اسم المكان</Label>
+                  <Input value={venueName} onChange={e => setVenueName(e.target.value)} placeholder="مثال: قاعة الأمير سلطان" />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>الحد الأقصى للحضور</Label>
+                <Input type="number" value={maxAttendees} onChange={e => setMaxAttendees(e.target.value)} dir="ltr" placeholder="100" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>الوصف</Label>
+              <Textarea value={descriptionAr} onChange={e => setDescriptionAr(e.target.value)} rows={5} placeholder="وصف مختصر عن الفعالية..." />
+            </div>
+          </Panel>
+
+          <div className="space-y-6">
+            <Panel title="صورة الغلاف" bodyClassName="space-y-3">
+              {coverUrl && !coverFile && (
+                <div className="relative">
+                  <img src={coverUrl} alt="cover" className="w-full rounded-xl" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="absolute end-2 top-2 h-9 w-9 text-destructive hover:text-destructive"
+                    onClick={() => setCoverUrl(null)}
+                    title="حذف صورة الغلاف"
+                    aria-label="حذف صورة الغلاف"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              <label className="block cursor-pointer rounded-xl border border-dashed border-input bg-card p-6 text-center transition-colors hover:bg-secondary/50">
+                <span className="mx-auto mb-2.5 grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary"><Upload className="h-[18px] w-[18px]" /></span>
+                <span className="block truncate text-sm font-medium">{coverFile ? coverFile.name : "اختر صورة جديدة"}</span>
                 <input type="file" accept="image/*" className="hidden" onChange={e => setCoverFile(e.target.files?.[0] || null)} />
               </label>
               {coverFile && (
-                <Button type="button" variant="ghost" size="sm" className="text-destructive rounded-full" onClick={() => setCoverFile(null)}>
-                  <Trash2 className="w-3.5 h-3.5 ml-1" /> إلغاء الصورة المختارة
+                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCoverFile(null)}>
+                  <Trash2 className="h-3.5 w-3.5" /> إلغاء الصورة المختارة
                 </Button>
               )}
-            </div>
-            {!coverUrl && !coverFile && (
-              <p className="text-[11px] text-muted-foreground">لا توجد صورة غلاف — احفظ التعديلات لتأكيد الحذف، أو اختر صورة جديدة.</p>
+              {!coverUrl && !coverFile && (
+                <p className="text-xs leading-5 text-muted-foreground">لا توجد صورة غلاف — احفظ التعديلات لتأكيد الحذف، أو اختر صورة جديدة.</p>
+              )}
+            </Panel>
+
+            {eventType === "public" && (
+              <Panel title="اكتمال البيانات" actions={<span className="text-sm font-bold leading-6">{readiness.score}%</span>}>
+                <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+                  <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${readiness.score}%` }} />
+                </div>
+                <ul className="space-y-2 text-[13px] leading-5">
+                  {readiness.items.map((item) => (
+                    <li key={item.key} className={`flex items-center gap-2 ${item.done ? "" : "text-muted-foreground"}`}>
+                      {item.done ? <Check className="h-4 w-4 flex-none text-primary" strokeWidth={2.6} /> : <Circle className="h-4 w-4 flex-none opacity-40" />}
+                      {item.label}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
             )}
           </div>
         </div>
 
-        <div className="sticky bottom-4 bg-card border border-border/50 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-lg flex-wrap">
-          <p className="text-xs text-muted-foreground flex-1 min-w-[180px]">
+        <div className="z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-4 shadow-soft sm:sticky sm:bottom-4">
+          <p className="min-w-0 flex-1 basis-64 text-xs leading-5 text-muted-foreground">
             {eventType === "public"
-              ? `"حفظ" يبقيها مسودة تعدّلها متى شئت — و"إرسال للمراجعة" يقدمها لإدارة نكفيك تيكت (اكتمال البيانات: ${readiness.score}%)`
+              ? `"حفظ" يبقيها مسودة تعدّلها متى شئت — و"إرسال للمراجعة" يقدمها لإدارة نكفيك تيكت (اكتمال البيانات: ${formatPercent(readiness.score)})`
               : "ستُحفظ التعديلات مباشرة."}
           </p>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              onClick={() => handleSave("save")}
-              disabled={saving}
-              variant={eventType === "public" ? "outline" : "default"}
-              className="rounded-full gap-2"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
-            </Button>
+          <div className="flex w-full flex-wrap gap-2.5 sm:w-auto">
             {eventType === "public" && (
               <Button
                 onClick={() => handleSave("submit")}
                 disabled={saving || !readiness.ready}
-                className="rounded-full gap-2 disabled:opacity-60"
-                title={readiness.ready ? undefined : `أكمل البيانات أولاً — الاكتمال ${readiness.score}% والمطلوب ${READINESS_THRESHOLD}%: ${readiness.missing.map(m => m.missingLabel).join("، ")}`}
+                className="flex-1 sm:flex-none"
+                title={readiness.ready ? undefined : `أكمل البيانات أولاً — الاكتمال ${formatPercent(readiness.score)} والمطلوب ${formatPercent(READINESS_THRESHOLD)}: ${readiness.missing.map(m => m.missingLabel).join("، ")}`}
               >
-                {readiness.ready ? <SendIcon className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                {readiness.ready ? <SendIcon className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                 حفظ وإرسال للمراجعة
               </Button>
             )}
+            <Button
+              onClick={() => handleSave("save")}
+              disabled={saving}
+              variant={eventType === "public" ? "outline" : "default"}
+              className="flex-1 sm:flex-none"
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+            </Button>
           </div>
         </div>
       </div>

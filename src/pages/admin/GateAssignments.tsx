@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate } from "@/lib/format";
 import { toast } from "sonner";
-import { DoorOpen, Save, Users, Loader2 } from "lucide-react";
+import { DoorOpen, Loader2 } from "lucide-react";
 
 // تعيين موظف لكل بوابة — صلاحية إدارية حصراً.
 // المنظم ينشئ البوابات ويسميها فقط؛ التعيين يتم من هنا.
@@ -29,6 +37,9 @@ interface StaffOption {
   name: string;
   role: string;
 }
+
+// عنصر Select لا يقبل قيمة فارغة، فنستخدم قيمة بديلة تعني "بدون اختيار"
+const NONE = "none";
 
 const GateAssignments = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -108,81 +119,84 @@ const GateAssignments = () => {
     toast.success(userId ? "تم تعيين الموظف على البوابة" : "أُلغي تعيين الموظف");
   };
 
+  const selected = events.find(e => e.id === selectedEvent);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="font-bold text-2xl text-foreground flex items-center gap-2">
-            <DoorOpen className="w-6 h-6 text-primary" /> تعيين البوابات
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            عيّن موظفاً لكل بوابة — الموظف المعيَّن يرى بوابته فقط عند تسجيل الدخول ولا يصل لغيرها
-          </p>
-        </div>
+        <PageHeader title="تعيين البوابات" description="عيّن موظفاً لكل بوابة، الموظف المعيَّن يرى بوابته فقط عند تسجيل الدخول ولا يصل لغيرها" />
 
-        <div className="bg-card rounded-2xl border border-border/50 p-4">
-          <label className="text-xs text-muted-foreground block mb-1">اختر الفعالية</label>
-          <select
-            value={selectedEvent}
-            onChange={(e) => loadEvent(e.target.value)}
-            className="w-full max-w-md h-10 rounded-lg border border-border bg-background px-3 text-sm"
-          >
-            <option value="">— اختر فعالية —</option>
-            {events.map(e => (
-              <option key={e.id} value={e.id}>
-                {e.title_ar} — {e.organizations?.name || ""} ({new Date(e.start_date).toLocaleDateString("ar-SA", { dateStyle: "short" })})
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap gap-2.5">
+          <Select value={selectedEvent || NONE} onValueChange={(v) => loadEvent(v === NONE ? "" : v)}>
+            <SelectTrigger aria-label="اختر الفعالية" className="h-10 w-full max-w-lg gap-2 font-medium"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>اختر فعالية</SelectItem>
+              {events.map(e => (
+                <SelectItem key={e.id} value={e.id}>
+                  {[e.title_ar, e.organizations?.name, formatDate(e.start_date)].filter(Boolean).join("، ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
-        ) : selectedEvent && gates.length === 0 ? (
-          <div className="bg-card rounded-2xl border p-10 text-center text-muted-foreground text-sm">
-            لا توجد بوابات لهذه الفعالية — ينشئها المنظم من صفحة بوابات الفعالية أولاً
+          <div className="h-64 animate-pulse rounded-2xl bg-card shadow-soft" />
+        ) : !selectedEvent ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState icon={DoorOpen} title="اختر فعالية لعرض بواباتها" description="تظهر هنا بوابات الفعالية والموظف المعيَّن لكل بوابة" />
           </div>
-        ) : gates.length > 0 && (
-          <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-xs">
-                <tr>
-                  <th className="text-right p-3">البوابة</th>
-                  <th className="text-right p-3">الحالة</th>
-                  <th className="text-right p-3">الموظف المعيَّن</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
+        ) : gates.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={DoorOpen}
+              title="لا توجد بوابات لهذه الفعالية"
+              description="ينشئها المنظم من صفحة بوابات الفعالية أولاً"
+              action={<Button asChild size="sm" variant="outline"><Link to="/admin/events">عرض جميع الفعاليات</Link></Button>}
+            />
+          </div>
+        ) : (
+          <Panel
+            title={selected?.title_ar}
+            description={selected ? [selected.organizations?.name, formatDate(selected.start_date)].filter(Boolean).join("، ") : undefined}
+            flush
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">البوابة</TableHead>
+                  <TableHead className="hidden sm:table-cell">الحالة</TableHead>
+                  <TableHead className="pe-6 sm:w-80">الموظف المعيَّن</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {gates.map(g => (
-                  <tr key={g.id} className="hover:bg-muted/20">
-                    <td className="p-3 font-bold">{g.name_ar}</td>
-                    <td className="p-3">
-                      <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${g.is_active ? "bg-green-500/10 text-green-700" : "bg-muted text-muted-foreground"}`}>
-                        {g.is_active ? "مفعّلة" : "موقوفة"}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                        <select
-                          value={g.assigned_user_id || ""}
-                          onChange={(e) => assign(g, e.target.value)}
-                          disabled={savingId === g.id}
-                          className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold min-w-[220px] disabled:opacity-60"
-                        >
-                          <option value="">— بدون تعيين —</option>
-                          {staff.map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                        {savingId === g.id && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                  <TableRow key={g.id}>
+                    <TableCell className="whitespace-nowrap ps-6">
+                      <p className="font-semibold leading-[22px]">{g.name_ar}</p>
+                      {/* على الهاتف تبقى الحالة تحت الاسم حتى يظهر اختيار الموظف كاملاً */}
+                      <StatusBadge tone={g.is_active ? "success" : "neutral"} className="mt-1 sm:hidden">{g.is_active ? "مفعّلة" : "موقوفة"}</StatusBadge>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <StatusBadge tone={g.is_active ? "success" : "neutral"}>{g.is_active ? "مفعّلة" : "موقوفة"}</StatusBadge>
+                    </TableCell>
+                    <TableCell className="pe-6">
+                      <div className="flex w-44 items-center gap-2 sm:w-72">
+                        <Select value={g.assigned_user_id || NONE} onValueChange={(v) => assign(g, v === NONE ? "" : v)} disabled={savingId === g.id}>
+                          <SelectTrigger aria-label={`الموظف المعيَّن على ${g.name_ar}`} className="h-9 gap-2 font-medium"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>بدون تعيين</SelectItem>
+                            {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        {savingId === g.id && <Loader2 className="h-4 w-4 flex-none animate-spin text-primary" />}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </AdminLayout>

@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
+import Panel from "@/components/app/Panel";
+import StatusBadge from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Send, MessageSquare, Phone, Users, ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { ExternalLink, Link2, MessageSquare, Plus, Send, Server, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatDate, formatNumber, formatTime } from "@/lib/format";
 import { toast } from "sonner";
 
 interface EventOption {
@@ -27,6 +29,24 @@ const variableChips = [
   { label: "الوقت", value: "{{الوقت}}" },
   { label: "المكان", value: "{{المكان}}" },
 ];
+
+const METHODS = {
+  nakfeek: { label: "نكفيك", icon: MessageSquare },
+  rest_api: { label: "REST API خارجي", icon: Server },
+  qr_gateway: { label: "QR Gateway", icon: Server },
+  deeplink: { label: "هيبرلينك (يدوي)", icon: Link2 },
+};
+
+// قيم المعاينة فقط، ولا تدخل في الرسالة المرسلة
+const SAMPLE_DATE = new Date(2026, 4, 15, 19, 0);
+
+// صياغة العدد بالعربية: مستلم واحد، مستلمان، 5 مستلمين، 12 مستلماً
+const recipientsLabel = (n: number) => {
+  if (n === 0) return "0 مستلم";
+  if (n === 1) return "مستلم واحد";
+  if (n === 2) return "مستلمان";
+  return n <= 10 ? `${n} مستلمين` : `${formatNumber(n)} مستلماً`;
+};
 
 const SendNotification = () => {
   const { user, organization } = useAuth();
@@ -123,8 +143,8 @@ const SendNotification = () => {
     return message
       .replace(/\{\{اسم_الضيف\}\}/g, "محمد أحمد")
       .replace(/\{\{اسم_الفعالية\}\}/g, selectedEvent?.title_ar || "اسم الفعالية")
-      .replace(/\{\{التاريخ\}\}/g, "١٥ مايو ٢٠٢٦")
-      .replace(/\{\{الوقت\}\}/g, "٠٧:٠٠ م")
+      .replace(/\{\{التاريخ\}\}/g, formatDate(SAMPLE_DATE))
+      .replace(/\{\{الوقت\}\}/g, formatTime(SAMPLE_DATE))
       .replace(/\{\{المكان\}\}/g, "فندق الفيصلية");
   };
 
@@ -188,36 +208,19 @@ const SendNotification = () => {
     setSendProgress(prev => ({ ...prev, success, failed }));
 
     if (failed === 0) {
-      toast.success(`تم الإرسال: ${success} رسالة بنجاح ✅`);
+      toast.success(`تم الإرسال بنجاح: ${formatNumber(success)}`);
     } else {
       toast.warning(`تم الإرسال: ${success} نجح، ${failed} فشل`);
     }
   };
 
   const recipientsList = getRecipientsToSend();
+  const method = METHODS[connectionType as keyof typeof METHODS] ?? METHODS.deeplink;
 
   return (
-    <div className="space-y-6">
-      {/* Connection method */}
-      <div className="bg-card rounded-2xl border border-border/50 p-4">
-        <p className="text-sm text-muted-foreground">
-          طريقة الإرسال:{" "}
-          <span className="font-semibold text-foreground">
-            {connectionType === "nakfeek" ? "نكفيك" :
-             connectionType === "rest_api" ? "REST API خارجي" :
-             connectionType === "qr_gateway" ? "QR Gateway" :
-             "هيبرلينك (يدوي)"}
-          </span>
-        </p>
-      </div>
-
-      {/* Select Event */}
-      <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-5">
-        <h3 className="font-bold text-foreground flex items-center gap-2">
-          <Send className="w-4 h-4 text-primary" />
-          إرسال إشعارات واتساب
-        </h3>
-
+    <div className="grid gap-6 xl:grid-cols-3">
+      <Panel className="xl:col-span-2" title="إرسال إشعارات واتساب" bodyClassName="space-y-5">
+        {/* Select Event */}
         <div className="space-y-2">
           <Label>اختر الفعالية</Label>
           <Select value={selectedEventId} onValueChange={setSelectedEventId}>
@@ -233,14 +236,14 @@ const SendNotification = () => {
         {/* Recipient mode */}
         <div className="space-y-2">
           <Label>المستلمون</Label>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2.5">
             {[
               { key: "all", label: "جميع المسجلين" },
               { key: "confirmed", label: "المؤكدون فقط" },
               { key: "pending", label: "لم يؤكدوا" },
               { key: "custom", label: "أرقام مخصصة" },
             ].map(m => (
-              <Button key={m.key} variant={recipientMode === m.key ? "default" : "outline"} size="sm" className="rounded-full" onClick={() => setRecipientMode(m.key)}>
+              <Button key={m.key} variant={recipientMode === m.key ? "soft" : "outline"} size="sm" aria-pressed={recipientMode === m.key} onClick={() => setRecipientMode(m.key)}>
                 {m.label}
               </Button>
             ))}
@@ -252,10 +255,11 @@ const SendNotification = () => {
               onChange={e => setCustomPhones(e.target.value)}
               rows={3}
               dir="ltr"
+              className="placeholder:text-end"
             />
           ) : (
-            <p className="text-xs text-muted-foreground">
-              <Users className="w-3.5 h-3.5 inline" /> {recipientsList.length} مستلم
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5" /> {recipientsLabel(recipientsList.length)}
             </p>
           )}
         </div>
@@ -263,37 +267,43 @@ const SendNotification = () => {
         {/* Message composer */}
         <div className="space-y-2">
           <Label>نص الرسالة</Label>
-          <div className="flex gap-1.5 flex-wrap mb-2">
+          <div className="flex flex-wrap gap-1.5">
             {variableChips.map(chip => (
-              <button key={chip.value} type="button" onClick={() => insertChip(chip.value)} className="text-xs bg-primary/10 text-primary rounded-full px-2.5 py-1 hover:bg-primary/20 transition-colors font-semibold">
-                + {chip.label}
-              </button>
+              <Button key={chip.value} type="button" variant="soft" size="sm" className="h-8 gap-1 px-2.5 text-xs [&_svg]:size-3.5" onClick={() => insertChip(chip.value)}>
+                <Plus /> {chip.label}
+              </Button>
             ))}
           </div>
           <Textarea
             placeholder="اكتب رسالتك هنا... استخدم المتغيرات أعلاه"
             value={message}
             onChange={e => setMessage(e.target.value)}
-            rows={5}
+            rows={6}
           />
+        </div>
+      </Panel>
+
+      <Panel title="طريقة الإرسال" bodyClassName="flex flex-col gap-4">
+        {/* Connection method */}
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary"><method.icon className="h-[17px] w-[17px]" /></span>
+          <p className="min-w-0 truncate text-sm font-semibold leading-[22px]">{method.label}</p>
         </div>
 
         {/* Preview */}
-        {message && (
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">معاينة الرسالة</Label>
-            <div className="bg-muted/50 rounded-xl p-4 text-sm text-foreground whitespace-pre-wrap border border-border/30">
-              {getPreviewMessage()}
-            </div>
+        <div className={`flex-1 flex-col gap-2 ${message ? "flex" : "hidden xl:flex"}`}>
+          <p className="text-xs font-medium text-muted-foreground">معاينة الرسالة</p>
+          <div className="flex-1 whitespace-pre-wrap break-words rounded-xl bg-muted/50 p-4 text-sm leading-6">
+            {message ? getPreviewMessage() : <span className="text-muted-foreground">اكتب رسالتك هنا...</span>}
           </div>
-        )}
+        </div>
 
         {/* Progress */}
         {sending && (
-          <div className="space-y-3 bg-muted/30 rounded-xl p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-foreground font-semibold">جارٍ الإرسال...</span>
-              <span className="text-muted-foreground">{sendProgress.current}/{sendProgress.total}</span>
+          <div className="space-y-3 rounded-xl bg-muted/50 p-4">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-semibold">جارٍ الإرسال...</span>
+              <span className="text-xs text-muted-foreground">{formatNumber(sendProgress.current)} من {formatNumber(sendProgress.total)}</span>
             </div>
             <Progress value={(sendProgress.current / sendProgress.total) * 100} className="h-2" />
           </div>
@@ -301,24 +311,22 @@ const SendNotification = () => {
 
         {/* Summary */}
         {showSummary && !sending && (
-          <div className="bg-muted/30 rounded-xl p-4 space-y-2">
-            <h4 className="font-semibold text-foreground text-sm">ملخص الإرسال</h4>
-            <div className="flex gap-4 text-sm">
-              <span className="flex items-center gap-1 text-teal"><CheckCircle className="w-4 h-4" /> نجح: {sendProgress.success}</span>
-              {sendProgress.failed > 0 && (
-                <span className="flex items-center gap-1 text-destructive"><XCircle className="w-4 h-4" /> فشل: {sendProgress.failed}</span>
-              )}
+          <div className="space-y-2 rounded-xl bg-muted/50 p-4">
+            <p className="text-sm font-semibold">ملخص الإرسال</p>
+            <div className="flex flex-wrap gap-2">
+              <StatusBadge tone="success">نجح: {formatNumber(sendProgress.success)}</StatusBadge>
+              {sendProgress.failed > 0 && <StatusBadge tone="danger">فشل: {formatNumber(sendProgress.failed)}</StatusBadge>}
             </div>
           </div>
         )}
 
         {/* Send button */}
-        <Button className="rounded-full" onClick={handleSend} disabled={sending || recipientsList.length === 0}>
+        <Button className="w-full" onClick={handleSend} disabled={sending || recipientsList.length === 0}>
           {connectionType === "deeplink" ? <ExternalLink className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-          {sending ? `جارٍ الإرسال... ${sendProgress.current}/${sendProgress.total}` :
-           `${connectionType === "deeplink" ? "فتح واتساب" : "إرسال"} (${recipientsList.length} مستلم)`}
+          {sending ? `جارٍ الإرسال... ${formatNumber(sendProgress.current)} من ${formatNumber(sendProgress.total)}` :
+           `${connectionType === "deeplink" ? "فتح واتساب" : "إرسال"} (${recipientsLabel(recipientsList.length)})`}
         </Button>
-      </div>
+      </Panel>
     </div>
   );
 };

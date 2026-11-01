@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { classifyAttendee, ATTENDEE_CLASS_META } from "@/lib/attendeeClass";
+import { classifyAttendee, ATTENDEE_CLASS_META, type AttendeeClass } from "@/lib/attendeeClass";
 import { computeStay, formatDuration } from "@/lib/attendance";
-import { ArrowRight, ClipboardList, Download, Search, Users } from "lucide-react";
+import { formatDateShort, formatNumber, formatTime } from "@/lib/format";
+import { ArrowRight, Download, DoorOpen, LogIn, LogOut, Search, Users } from "lucide-react";
 import { toast } from "sonner";
 
 // قائمة الحضور — تُعبأ تلقائياً من عمليات المسح على البوابات:
@@ -20,8 +29,15 @@ interface Row {
   exit: string | null;
 }
 
-const fmtTime = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" }) : null;
+const fmtTime = (iso: string | null) => (iso ? `${formatDateShort(iso)}، ${formatTime(iso)}` : null);
+
+const TIER_TONES: Record<AttendeeClass, StatusTone> = {
+  vvip: "warning",
+  vip: "primary",
+  speaker: "primary",
+  organizer: "neutral",
+  regular: "neutral",
+};
 
 interface ScanRow { registration_id: string | null; scan_type: string; scanned_at: string; event_day_id?: string | null; }
 interface BaseRow { regId: string; name: string; tier: ReturnType<typeof classifyAttendee>; ticketName: string; fallbackEntry: string | null; }
@@ -138,130 +154,115 @@ const EventAttendance = () => {
     toast.success("تم تصدير القائمة");
   };
 
+  const tagline = "تُعبأ تلقائياً من عمليات المسح على البوابات (الدخول من بوابات الدخول والخروج من بوابات الخروج)";
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <Button variant="ghost" size="sm" asChild className="mb-2 -mr-2">
-              <Link to="/dashboard/events"><ArrowRight className="w-4 h-4" /> العودة لفعالياتي</Link>
-            </Button>
-            <h1 className="font-bold text-2xl text-foreground flex items-center gap-2">
-              <ClipboardList className="w-6 h-6 text-primary" /> قائمة الحضور
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {eventTitle} — تُعبأ تلقائياً من عمليات المسح على البوابات (الدخول من بوابات الدخول والخروج من بوابات الخروج)
-            </p>
-          </div>
-          <Button variant="outline" className="rounded-full" onClick={exportCSV} disabled={rows.length === 0}>
-            <Download className="w-4 h-4" /> تصدير CSV
-          </Button>
-        </div>
-
-        {/* ملخص */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "إجمالي المسجلين", v: stats.total, cls: "text-foreground" },
-            { label: "دخلوا الفعالية", v: stats.entered, cls: "text-green-600" },
-            { label: "بالداخل الآن", v: stats.inside, cls: "text-primary" },
-            { label: "غادروا", v: stats.left, cls: "text-amber-600" },
-          ].map(c => (
-            <div key={c.label} className="bg-card border rounded-2xl p-4 text-center">
-              <div className={`font-extrabold text-2xl ${c.cls}`}>{c.v.toLocaleString("ar-SA")}</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">{c.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {eventDays.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-muted-foreground font-semibold">عرض حسب اليوم:</span>
-            <button
-              type="button"
-              onClick={() => setDayFilter("all")}
-              className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${dayFilter === "all" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
-            >
-              كامل الفعالية
-            </button>
-            {eventDays.map(d => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => setDayFilter(d.id)}
-                className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${dayFilter === d.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}
-              >
-                {d.title || `اليوم ${d.day_number}`}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="relative max-w-sm">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="ابحث بالاسم أو التذكرة..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 pr-10 pl-4 rounded-xl bg-card text-sm border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
+        <div className="space-y-2">
+          <Link to="/dashboard/events" className="inline-flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+            <ArrowRight className="h-4 w-4" /> العودة لفعالياتي
+          </Link>
+          <PageHeader
+            title="قائمة الحضور"
+            description={eventTitle ? `${eventTitle}، ${tagline}` : tagline}
+            actions={
+              <Button variant="outline" onClick={exportCSV} disabled={rows.length === 0}>
+                <Download className="h-4 w-4" /> تصدير CSV
+              </Button>
+            }
           />
         </div>
 
+        {/* ملخص */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
+          <StatCard label="إجمالي المسجلين" value={loading ? "…" : formatNumber(stats.total)} icon={Users} />
+          <StatCard label="دخلوا الفعالية" value={loading ? "…" : formatNumber(stats.entered)} icon={LogIn} />
+          <StatCard label="بالداخل الآن" value={loading ? "…" : formatNumber(stats.inside)} icon={DoorOpen} />
+          <StatCard label="غادروا" value={loading ? "…" : formatNumber(stats.left)} icon={LogOut} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="ابحث بالاسم أو التذكرة..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="ps-9"
+            />
+          </div>
+          {eventDays.length > 0 && (
+            <Select value={dayFilter} onValueChange={setDayFilter}>
+              <SelectTrigger aria-label="عرض حسب اليوم" className="h-10 w-auto min-w-[150px] gap-2 font-medium"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كامل الفعالية</SelectItem>
+                {eventDays.map(d => <SelectItem key={d.id} value={d.id}>{d.title || `اليوم ${d.day_number}`}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
         {loading ? (
-          <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="animate-pulse bg-card rounded-xl h-14 border" />)}</div>
+          <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />
         ) : filtered.length === 0 ? (
-          <div className="bg-card border rounded-2xl p-12 text-center">
-            <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-muted-foreground text-sm">لا يوجد مسجلون{search ? " مطابقون للبحث" : " بعد"}</p>
+          <div className="rounded-2xl bg-card shadow-soft">
+            {search ? (
+              <EmptyState
+                icon={Search}
+                title="لا يوجد مسجلون مطابقون للبحث"
+                action={<Button variant="outline" size="sm" onClick={() => setSearch("")}>مسح البحث</Button>}
+              />
+            ) : (
+              <EmptyState
+                icon={Users}
+                title="لا يوجد مسجلون بعد"
+                action={<Button asChild variant="soft" size="sm"><Link to="/dashboard/events">العودة لفعالياتي</Link></Button>}
+              />
+            )}
           </div>
         ) : (
-          <div className="bg-card rounded-2xl border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-xs">
-                  <tr>
-                    <th className="text-right p-3">الاسم</th>
-                    <th className="text-right p-3">التصنيف</th>
-                    <th className="text-right p-3">وقت الدخول</th>
-                    <th className="text-right p-3">وقت الخروج</th>
-                    <th className="text-right p-3">مدة البقاء</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                  {filtered.map(r => {
-                    const meta = ATTENDEE_CLASS_META[r.tier];
-                    const stay = computeStay(r.entry, r.exit);
-                    return (
-                      <tr key={r.regId} className="hover:bg-muted/20">
-                        <td className="p-3">
-                          <span className="font-bold">{r.name}</span>
-                          <span className="block text-[10px] text-muted-foreground">{r.ticketName}</span>
-                        </td>
-                        <td className="p-3">
-                          <span className={`text-[10px] font-extrabold rounded-full px-2.5 py-0.5 border ${meta.cls}`}>{meta.label}</span>
-                        </td>
-                        <td className="p-3 text-xs">
-                          {r.entry
-                            ? <span className="text-green-700 font-semibold">{fmtTime(r.entry)}</span>
-                            : <span className="text-muted-foreground">لم يدخل بعد</span>}
-                        </td>
-                        <td className="p-3 text-xs">
-                          {r.exit
-                            ? <span className="text-amber-700 font-semibold">{fmtTime(r.exit)}</span>
-                            : r.entry
-                            ? <span className="text-primary font-semibold">بالداخل</span>
-                            : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="p-3 text-xs font-bold">
-                          {stay ? formatDuration(stay) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <Panel flush title="المسجلون">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="ps-6">الاسم</TableHead>
+                  <TableHead>التصنيف</TableHead>
+                  <TableHead>وقت الدخول</TableHead>
+                  <TableHead>وقت الخروج</TableHead>
+                  <TableHead className="pe-6">مدة البقاء</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(r => {
+                  const meta = ATTENDEE_CLASS_META[r.tier];
+                  const stay = computeStay(r.entry, r.exit);
+                  return (
+                    <TableRow key={r.regId}>
+                      <TableCell className="whitespace-nowrap ps-6">
+                        <p className="font-semibold leading-[22px]">{r.name}</p>
+                        <p className="text-xs leading-[18px] text-muted-foreground">{r.ticketName}</p>
+                      </TableCell>
+                      <TableCell><StatusBadge tone={TIER_TONES[r.tier]}><bdi>{meta.label}</bdi></StatusBadge></TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {r.entry ? fmtTime(r.entry) : <span className="text-xs text-muted-foreground">لم يتم الدخول بعد</span>}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {r.exit
+                          ? fmtTime(r.exit)
+                          : r.entry
+                          ? <StatusBadge tone="success">بالداخل</StatusBadge>
+                          : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap pe-6 font-semibold">
+                        {stay ? formatDuration(stay) : <span className="font-normal text-muted-foreground">—</span>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Panel>
         )}
       </div>
     </DashboardLayout>

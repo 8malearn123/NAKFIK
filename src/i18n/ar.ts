@@ -38,7 +38,7 @@ export const ar = {
     paid: "مدفوع",
     online: "أونلاين",
     unspecified: "غير محدد",
-    backToHome: "← العودة للصفحة الرئيسية",
+    backToHome: "العودة للصفحة الرئيسية",
     sar: "ر.س",
     attendee: "حاضر",
     registered: "مسجّل",
@@ -76,6 +76,7 @@ export const ar = {
     emptyDesc: "ستظهر هنا الإشعارات الواردة",
     title: "الإشعارات الواردة",
     markAllRead: "تعيين الكل كمقروء",
+    unreadLabel: "غير مقروء",
   },
   notFound: {
     title: "الصفحة غير موجودة",

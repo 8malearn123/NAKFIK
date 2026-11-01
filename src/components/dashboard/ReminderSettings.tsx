@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Clock, Mail, MessageCircle, Smartphone, RefreshCw, Play } from "lucide-react";
+import { ArrowLeft, Check, Mail, MessageCircle, Smartphone, RefreshCw, Play } from "lucide-react";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import {
   Dialog,
   DialogContent,
@@ -53,9 +56,9 @@ const TIME_OPTIONS = [
 ];
 
 const CHANNEL_OPTIONS = [
-  { id: "whatsapp", label: "واتساب", Icon: MessageCircle, activeCls: "bg-green-600 text-white border-green-600" },
-  { id: "sms", label: "SMS", Icon: Smartphone, activeCls: "bg-blue-600 text-white border-blue-600" },
-  { id: "email", label: "بريد إلكتروني", Icon: Mail, activeCls: "bg-primary text-primary-foreground border-primary" },
+  { id: "whatsapp", label: "واتساب", Icon: MessageCircle },
+  { id: "sms", label: "SMS", Icon: Smartphone },
+  { id: "email", label: "بريد إلكتروني", Icon: Mail },
 ];
 
 interface Props {
@@ -76,12 +79,18 @@ interface ReminderRow {
   guest_name?: string;
 }
 
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  scheduled: { label: "مجدول", cls: "bg-blue-500/10 text-blue-700" },
-  sent: { label: "مُرسل ✓", cls: "bg-green-500/10 text-green-700" },
-  failed: { label: "فشل", cls: "bg-destructive/10 text-destructive" },
-  cancelled: { label: "ملغي", cls: "bg-muted text-muted-foreground" },
+const STATUS_META: Record<string, { label: string; tone: StatusTone }> = {
+  scheduled: { label: "مجدول", tone: "primary" },
+  sent: { label: "مُرسل", tone: "success" },
+  failed: { label: "فشل", tone: "danger" },
+  cancelled: { label: "ملغي", tone: "neutral" },
 };
+
+const chipCls = (active: boolean) =>
+  `inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+    active ? "bg-secondary text-primary ring-1 ring-inset ring-primary" : "bg-muted/50 hover:bg-muted"
+  }`;
+const NOTE_CLS = "rounded-xl p-3 text-xs leading-5";
 
 const ReminderSettings = ({ invitationId, invitationTitle, open, onOpenChange }: Props) => {
   const [config, setConfig] = useState<ReminderConfig>(defaultConfig);
@@ -154,23 +163,24 @@ const ReminderSettings = ({ invitationId, invitationTitle, open, onOpenChange }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir="rtl" className="max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bell className="w-5 h-5 text-primary" />
-            تذكيرات المدعوين
-          </DialogTitle>
-          <DialogDescription className="text-right">
+      <DialogContent
+        dir="rtl"
+        className="flex max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none"
+        onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).focus(); }}
+      >
+        <DialogHeader className="px-6 pb-4 pe-12 pt-6 text-start">
+          <DialogTitle>تذكيرات المدعوين</DialogTitle>
+          <DialogDescription>
             «{invitationTitle}» — يصل التذكير تلقائياً للمدعوين قبل موعد المناسبة
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5 py-1">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-6">
           {/* التفعيل */}
-          <div className="flex items-center justify-between bg-muted/40 rounded-xl px-3 py-2.5">
-            <div>
-              <p className="text-sm font-semibold text-foreground">تفعيل التذكيرات</p>
-              <p className="text-[11px] text-muted-foreground">إيقافها يلغي كل التذكيرات المجدولة</p>
+          <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/50 p-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold leading-[22px]">تفعيل التذكيرات</p>
+              <p className="text-xs leading-[18px] text-muted-foreground">إيقافها يلغي كل التذكيرات المجدولة</p>
             </div>
             <Switch
               checked={config.enabled}
@@ -179,103 +189,97 @@ const ReminderSettings = ({ invitationId, invitationTitle, open, onOpenChange }:
           </div>
 
           {/* وقت التذكير */}
-          <div className={config.enabled ? "" : "opacity-40 pointer-events-none"}>
-            <p className="text-xs text-muted-foreground font-semibold mb-2 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5" /> وقت التذكير (يمكن اختيار أكثر من وقت)
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {TIME_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setConfig((c) => ({ ...c, times: toggleIn(c.times, opt.id) }))}
-                  className={`text-xs font-bold rounded-full px-4 py-2 border transition-colors ${
-                    config.times.includes(opt.id)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background text-foreground border-border hover:border-primary/40"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          <div className={`space-y-2 ${config.enabled ? "" : "pointer-events-none opacity-40"}`}>
+            <Label>وقت التذكير (يمكن اختيار أكثر من وقت)</Label>
+            <div className="flex flex-wrap gap-2">
+              {TIME_OPTIONS.map((opt) => {
+                const active = config.times.includes(opt.id);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setConfig((c) => ({ ...c, times: toggleIn(c.times, opt.id) }))}
+                    className={chipCls(active)}
+                  >
+                    {active && <Check className="h-3.5 w-3.5" />}
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* طريقة الإرسال */}
-          <div className={config.enabled ? "" : "opacity-40 pointer-events-none"}>
-            <p className="text-xs text-muted-foreground font-semibold mb-2">
-              طريقة الإرسال (يمكن اختيار أكثر من طريقة)
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {CHANNEL_OPTIONS.map(({ id, label, Icon, activeCls }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setConfig((c) => ({ ...c, channels: toggleIn(c.channels, id) }))}
-                  className={`text-xs font-bold rounded-full px-4 py-2 border transition-colors inline-flex items-center gap-1.5 ${
-                    config.channels.includes(id)
-                      ? activeCls
-                      : "bg-background text-foreground border-border hover:border-primary/40"
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </button>
-              ))}
+          <div className={`space-y-2 ${config.enabled ? "" : "pointer-events-none opacity-40"}`}>
+            <Label>طريقة الإرسال (يمكن اختيار أكثر من طريقة)</Label>
+            <div className="flex flex-wrap gap-2">
+              {CHANNEL_OPTIONS.map(({ id, label, Icon }) => {
+                const active = config.channels.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setConfig((c) => ({ ...c, channels: toggleIn(c.channels, id) }))}
+                    className={chipCls(active)}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* نص التذكير */}
-          <div className={config.enabled ? "" : "opacity-40 pointer-events-none"}>
-            <p className="text-xs text-muted-foreground font-semibold mb-2">نص التذكير</p>
+          <div className={`space-y-2 ${config.enabled ? "" : "pointer-events-none opacity-40"}`}>
+            <Label>نص التذكير</Label>
             <Textarea
               value={config.message}
               onChange={(e) => setConfig((c) => ({ ...c, message: e.target.value }))}
               maxLength={300}
               rows={3}
-              className="rounded-xl text-sm"
             />
           </div>
 
           {/* حالة التذكيرات المجدولة الفعلية — من قاعدة البيانات */}
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-primary" /> التذكيرات المجدولة فعلياً ({rows.length})
-              </p>
-              <div className="flex gap-1">
-                <Button type="button" size="sm" variant="ghost" className="h-7 text-[11px]" onClick={loadRows}>
-                  <RefreshCw className="w-3 h-3 ml-1" /> تحديث
+          <div className="space-y-3 border-t border-border pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-[15px] font-bold leading-6">التذكيرات المجدولة فعلياً ({formatNumber(rows.length)})</h3>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="ghost" onClick={loadRows}>
+                  <RefreshCw className="h-4 w-4" /> تحديث
                 </Button>
-                <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={runNow} disabled={processing}>
-                  <Play className="w-3 h-3 ml-1" /> {processing ? "جارٍ..." : "معالجة الآن"}
+                <Button type="button" size="sm" variant="outline" onClick={runNow} disabled={processing}>
+                  <Play className="h-4 w-4" /> {processing ? "جارٍ..." : "معالجة الآن"}
                 </Button>
               </div>
             </div>
 
             {!remindersReady ? (
-              <p className="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 leading-relaxed">
-                ⚠️ نظام الجدولة الفعلي غير مفعّل بعد — شغّل ملف <b>nakfik_reminders.sql</b> في Supabase.
+              <p className={`${NOTE_CLS} bg-[#FDF3E3] text-[#9A5F12]`}>
+                نظام الجدولة الفعلي غير مفعّل بعد — شغّل ملف <b>nakfik_reminders.sql</b> في Supabase.
                 بدونه يبقى التذكير قيمة محفوظة بلا إرسال فعلي.
               </p>
             ) : rows.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground bg-muted/40 rounded-xl p-3 leading-relaxed">
-                لا توجد تذكيرات مجدولة — حدد "تذكير المستفيد قبل الموعد" (1-12 ساعة) من تعديل الدعوة ← تبويب إضافات،
-                وستُجدول التذكيرات تلقائياً لكل المدعوين.
+              <p className={`${NOTE_CLS} bg-muted/50 text-muted-foreground`}>
+                لا توجد تذكيرات مجدولة — حدد "تذكير المستفيد قبل الموعد" (1-12 ساعة) من تعديل الدعوة
+                <ArrowLeft className="mx-1 inline h-3 w-3" />
+                تبويب إضافات، وستُجدول التذكيرات تلقائياً لكل المدعوين.
               </p>
             ) : (
-              <div className="space-y-1.5 max-h-44 overflow-y-auto">
+              <div className="max-h-56 divide-y divide-border overflow-y-auto rounded-xl bg-muted/50">
                 {rows.map((r) => (
-                  <div key={r.id} className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-1.5 text-[11px]">
-                    <span className="flex-1 truncate font-semibold">{r.guest_name || "مدعو"}</span>
-                    <span className="text-muted-foreground" dir="ltr">
-                      {new Date(r.status === "sent" && r.sent_at ? r.sent_at : r.scheduled_at).toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 font-bold ${STATUS_META[r.status]?.cls || ""}`}
-                      title={r.status === "failed" ? "لا توجد قناة إرسال: المدعو بلا حساب مسجل، والبريد/واتساب يتطلبان ربط تكامل" : r.status === "sent" ? "أُرسل إشعاراً داخل المنصة" : undefined}
-                    >
-                      {STATUS_META[r.status]?.label || r.status}
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold leading-[22px]">{r.guest_name || "مدعو"}</p>
+                      <p className="truncate text-xs leading-[18px] text-muted-foreground">
+                        {formatDateTime(r.status === "sent" && r.sent_at ? r.sent_at : r.scheduled_at)}
+                      </p>
+                    </div>
+                    <span title={r.status === "failed" ? "لا توجد قناة إرسال: المدعو بلا حساب مسجل، والبريد/واتساب يتطلبان ربط تكامل" : r.status === "sent" ? "أُرسل إشعاراً داخل المنصة" : undefined}>
+                      <StatusBadge tone={STATUS_META[r.status]?.tone}>{STATUS_META[r.status]?.label || r.status}</StatusBadge>
                     </span>
                   </div>
                 ))}
@@ -283,20 +287,20 @@ const ReminderSettings = ({ invitationId, invitationTitle, open, onOpenChange }:
             )}
 
             {/* توضيح صريح لقنوات الإرسال — لا نعتبر التذكير منفذاً بمجرد ظهوره */}
-            <p className="text-[11px] leading-relaxed bg-blue-50 border border-blue-200 text-blue-900 rounded-xl p-3 mt-2">
-              <b>قناة الإرسال الفعلية حالياً:</b> إشعار داخل منصة نكفيك يصل تلقائياً للمدعو الذي يملك حساباً
+            <p className={`${NOTE_CLS} bg-muted/50 text-muted-foreground`}>
+              <b className="font-semibold text-foreground">قناة الإرسال الفعلية حالياً:</b> إشعار داخل منصة نكفيك يصل تلقائياً للمدعو الذي يملك حساباً
               مسجلاً بنفس بريده أو جواله (يعالجها النظام كل 5 دقائق)، إضافة إلى تنبيه التذكير الذي يظهر في صفحة
-              دعوته. <b>أما الإرسال عبر واتساب / SMS / البريد فيتطلب ربط تكامل خارجي</b> (مثل WhatsApp Business API
+              دعوته. <b className="font-semibold text-foreground">أما الإرسال عبر واتساب / SMS / البريد فيتطلب ربط تكامل خارجي</b> (مثل WhatsApp Business API
               أو Resend) — وحتى يتم الربط، تُعلَّم تذكيرات المدعوين بلا حساب بحالة "فشل" مع السبب، ولا تُعتبر مرسلة.
             </p>
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button className="rounded-full flex-1" onClick={save}>
+        <DialogFooter className="flex-row gap-2 border-t border-border px-6 py-4">
+          <Button className="flex-1 sm:flex-none" onClick={save}>
             حفظ الإعدادات
           </Button>
-          <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             إلغاء
           </Button>
         </DialogFooter>

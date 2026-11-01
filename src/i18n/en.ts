@@ -38,7 +38,7 @@ export const en = {
     paid: "Paid",
     online: "Online",
     unspecified: "Unspecified",
-    backToHome: "← Back to Home",
+    backToHome: "Back to Home",
     sar: "SAR",
     attendee: "attendee",
     registered: "registered",
@@ -76,6 +76,7 @@ export const en = {
     emptyDesc: "Incoming notifications will appear here",
     title: "Inbox",
     markAllRead: "Mark all as read",
+    unreadLabel: "unread",
   },
   notFound: {
     title: "Page Not Found",

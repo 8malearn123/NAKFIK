@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
@@ -16,8 +19,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatDate, formatNumber } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { CalendarCheck, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 
 const empty = {
   name: "", description: "", category: "", image_url: "",
@@ -28,10 +33,21 @@ const empty = {
 const bookingLabels: Record<string, string> = {
   new: "جديد", contacted: "تم التواصل", confirmed: "مؤكد", completed: "مكتمل", cancelled: "ملغي",
 };
+const bookingTones: Record<string, StatusTone> = {
+  new: "warning", contacted: "primary", confirmed: "success", completed: "neutral", cancelled: "danger",
+};
+
+// تمييز العدد بصيغته الصحيحة: 3 ضيوف، 40 ضيفاً، 100 ضيف
+const guestsLabel = (n: number) => {
+  if (n === 2) return "ضيفان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "ضيوف" : tail >= 11 ? "ضيفاً" : "ضيف"}`;
+};
 
 const AdminFeaturedServices = () => {
   const [services, setServices] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(empty);
@@ -43,6 +59,7 @@ const AdminFeaturedServices = () => {
     ]);
     setServices(s.data || []);
     setBookings(b.data || []);
+    setLoading(false);
   };
 
   useEffect(() => { document.title = "خدمات نكفيك | الأدمن"; load(); }, []);
@@ -96,97 +113,171 @@ const AdminFeaturedServices = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <h1 className="font-display text-2xl text-primary">خدمات نكفيك والحجوزات</h1>
+        <PageHeader
+          title="خدمات نكفيك والحجوزات"
+          actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> إضافة خدمة</Button>}
+        />
 
         <Tabs defaultValue="services">
           <TabsList>
             <TabsTrigger value="services">الخدمات المعروضة</TabsTrigger>
-            <TabsTrigger value="bookings">الحجوزات ({bookings.length})</TabsTrigger>
+            <TabsTrigger value="bookings" className="gap-1.5">
+              الحجوزات
+              <span className="text-xs font-normal text-muted-foreground">{formatNumber(bookings.length)}</span>
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="services" className="space-y-4">
-            <div className="flex justify-end">
-              <Button onClick={openNew}><Plus className="w-4 h-4 ml-1" /> إضافة خدمة</Button>
-            </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.length === 0 && <p className="col-span-full text-center text-muted-foreground p-8">لا يوجد خدمات</p>}
-              {services.map((s) => (
-                <div key={s.id} className="bg-card border rounded-2xl overflow-hidden">
-                  {s.image_url && <img src={s.image_url} alt={s.name} className="w-full h-32 object-cover" />}
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="font-bold">{s.name}</h3>
-                        {s.category && <p className="text-xs text-muted-foreground">{s.category}</p>}
+          <TabsContent value="services" className="mt-6">
+            {loading ? (
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+              </div>
+            ) : services.length === 0 ? (
+              <div className="rounded-2xl bg-card shadow-soft">
+                <EmptyState
+                  icon={Sparkles}
+                  title="لا توجد خدمات"
+                  action={<Button variant="soft" size="sm" onClick={openNew}><Plus className="h-4 w-4" /> إضافة خدمة</Button>}
+                />
+              </div>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {services.map((s) => (
+                  <article key={s.id} className="flex flex-col overflow-hidden rounded-2xl bg-card shadow-soft">
+                    {s.image_url && <img src={s.image_url} alt={s.name} className="h-32 w-full object-cover" />}
+                    <div className="flex flex-1 flex-col gap-3 p-5">
+                      <div className="flex items-center gap-3">
+                        {!s.image_url && (
+                          <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                            <Sparkles className="h-[18px] w-[18px]" />
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-base font-bold leading-6">{s.name}</h3>
+                          {s.category && <p className="truncate text-xs leading-[18px] text-muted-foreground">{s.category}</p>}
+                        </div>
+                        <Switch checked={s.is_active} onCheckedChange={() => toggle(s)} aria-label={`تفعيل ${s.name}`} />
                       </div>
-                      <Switch checked={s.is_active} onCheckedChange={() => toggle(s)} />
+                      {s.description && <p className="line-clamp-2 text-[13px] leading-5 text-muted-foreground">{s.description}</p>}
+                      <div className="mt-auto space-y-4">
+                        {(s.starting_price || s.is_featured) && (
+                          <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-2">
+                            <span className="text-[13px] font-semibold">
+                              {s.starting_price ? `يبدأ من ${formatNumber(s.starting_price)} ر.س` : ""}
+                            </span>
+                            {s.is_featured && <StatusBadge tone="primary">مميزة</StatusBadge>}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="soft" className="flex-1" onClick={() => openEdit(s)}>
+                            <Pencil className="h-[15px] w-[15px]" /> تعديل
+                          </Button>
+                          <Button size="icon" variant="outline" aria-label="حذف" className="h-9 w-9 flex-none text-destructive hover:text-destructive" onClick={() => remove(s.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    {s.starting_price && <Badge variant="secondary">يبدأ من {s.starting_price} ر.س</Badge>}
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(s)}><Edit className="w-3 h-3" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => remove(s.id)}><Trash2 className="w-3 h-3 text-destructive" /></Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="bookings" className="space-y-3">
-            {bookings.length === 0 && <p className="text-center text-muted-foreground p-8">لا توجد حجوزات</p>}
-            {bookings.map((b) => (
-              <div key={b.id} className="bg-card border rounded-2xl p-4 space-y-2">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <h3 className="font-bold">{b.featured_services?.name}</h3>
-                    <p className="text-sm">{b.customer_name} • <span dir="ltr">{b.customer_phone}</span></p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(b.created_at).toLocaleDateString("ar-SA")}
-                      {b.event_date && ` • فعالية: ${new Date(b.event_date).toLocaleDateString("ar-SA")}`}
-                      {b.city && ` • ${b.city}`}
-                      {b.attendees_count && ` • ${b.attendees_count} ضيف`}
-                    </p>
-                  </div>
-                  <Badge>{bookingLabels[b.status]}</Badge>
-                </div>
-                {b.notes && <p className="text-sm">{b.notes}</p>}
-                <Select value={b.status} onValueChange={(v) => updateBooking(b.id, v)}>
-                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(bookingLabels).map(s => <SelectItem key={s} value={s}>{bookingLabels[s]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+          <TabsContent value="bookings" className="mt-6">
+            {bookings.length === 0 ? (
+              <div className="rounded-2xl bg-card shadow-soft">
+                <EmptyState icon={CalendarCheck} title="لا توجد حجوزات" />
               </div>
-            ))}
+            ) : (
+              <Panel flush>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">الخدمة</TableHead>
+                      <TableHead>العميل</TableHead>
+                      <TableHead>الفعالية</TableHead>
+                      <TableHead className="pe-6">الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bookings.map((b) => {
+                      const details = [
+                        b.event_date && formatDate(b.event_date),
+                        b.city,
+                        b.attendees_count && guestsLabel(b.attendees_count),
+                      ].filter(Boolean).join("، ");
+                      return (
+                        <TableRow key={b.id}>
+                          <TableCell className="ps-6">
+                            <p className="whitespace-nowrap font-semibold leading-[22px]">{b.featured_services?.name}</p>
+                            <p className="whitespace-nowrap text-xs leading-[18px] text-muted-foreground">{formatDate(b.created_at)}</p>
+                          </TableCell>
+                          <TableCell>
+                            <p className="whitespace-nowrap leading-[22px]">{b.customer_name}</p>
+                            <p className="whitespace-nowrap text-xs leading-[18px] text-muted-foreground"><bdi dir="ltr">{b.customer_phone}</bdi></p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="w-60 sm:w-auto">
+                              <p className="leading-[22px]">{details || "—"}</p>
+                              {b.notes && <p className="text-xs leading-[18px] text-muted-foreground">{b.notes}</p>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="pe-6">
+                            <Select value={b.status} onValueChange={(v) => updateBooking(b.id, v)}>
+                              <SelectTrigger aria-label="الحالة" className="-ms-1.5 h-9 w-auto gap-1.5 border-0 bg-transparent px-1.5 hover:bg-muted">
+                                <SelectValue>
+                                  <StatusBadge tone={bookingTones[b.status] || "neutral"}>{bookingLabels[b.status] || b.status}</StatusBadge>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.keys(bookingLabels).map(s => <SelectItem key={s} value={s}>{bookingLabels[s]}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Panel>
+            )}
           </TabsContent>
         </Tabs>
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editingId ? "تعديل خدمة" : "إضافة خدمة"}</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>اسم الخدمة *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div><Label>الفئة</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="مثال: تنظيم فعاليات" /></div>
-              <div><Label>الوصف</Label><Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div><Label>رابط الصورة</Label><Input dir="ltr" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label>السعر يبدأ من (ر.س)</Label><Input type="number" value={form.starting_price} onChange={(e) => setForm({ ...form, starting_price: e.target.value })} /></div>
-                <div><Label>المدة</Label><Input value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="مثال: يوم واحد" /></div>
+          <DialogContent dir="rtl" className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto">
+            <DialogHeader className="pe-6 text-start"><DialogTitle>{editingId ? "تعديل خدمة" : "إضافة خدمة"}</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>اسم الخدمة *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                <div className="space-y-2"><Label>الفئة</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="مثال: تنظيم فعاليات" /></div>
               </div>
-              <div>
+              <div className="space-y-2"><Label>الوصف</Label><Textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+              <div className="space-y-2"><Label>رابط الصورة</Label><Input dir="ltr" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>السعر يبدأ من (ر.س)</Label><Input type="number" value={form.starting_price} onChange={(e) => setForm({ ...form, starting_price: e.target.value })} /></div>
+                <div className="space-y-2"><Label>المدة</Label><Input value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })} placeholder="مثال: يوم واحد" /></div>
+              </div>
+              <div className="space-y-2">
                 <Label>المميزات (سطر لكل ميزة)</Label>
                 <Textarea rows={4} value={form.features} onChange={(e) => setForm({ ...form, features: e.target.value })} />
               </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
-                <Label>مفعّلة</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-3">
+                  <Label>مفعّلة</Label>
+                  <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} aria-label="مفعّلة" />
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-3">
+                  <Label>مميزة (تظهر في الأعلى)</Label>
+                  <Switch checked={form.is_featured} onCheckedChange={(v) => setForm({ ...form, is_featured: v })} aria-label="مميزة" />
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={form.is_featured} onCheckedChange={(v) => setForm({ ...form, is_featured: v })} />
-                <Label>مميزة (تظهر في الأعلى)</Label>
-              </div>
-              <Button onClick={save} className="w-full">حفظ</Button>
             </div>
+            <DialogFooter className="flex-col sm:flex-row">
+              <Button onClick={save}>حفظ</Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

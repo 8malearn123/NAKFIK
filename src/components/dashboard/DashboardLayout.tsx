@@ -1,75 +1,64 @@
-import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { Award, BarChart3, Bell, Calendar, ClipboardCheck, CreditCard, Database, LayoutDashboard, Mail, PlusCircle, ScanLine, Settings, ShoppingBag, Tag, Users, Wallet } from "lucide-react";
+import AppShell, { type ShellLink, type ShellSection } from "@/components/app/AppShell";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLanguage } from "@/contexts/LanguageContext";
-import logo from "@/assets/logo.png";
-import {
-  Home,
-  LayoutDashboard,
-  Calendar,
-  PlusCircle,
-  Users,
-  BarChart3,
-  Bell,
-  Settings,
-  LogOut,
-  ChevronRight,
-  ChevronLeft,
-  Menu,
-  
-  ScanLine,
-  Wallet,
-  CreditCard,
-  
-  ShoppingBag,
-  Tag,
-  Mail,
-  Database,
-  Award,
-  ClipboardCheck,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
+import { useEffectiveUser } from "@/hooks/useEffectiveUser";
 import { usePlanScope } from "@/hooks/usePlanScope";
 
-type NavItem = {
-  icon: typeof LayoutDashboard;
-  label: string;
-  path: string;
-  // ميزة معطّلة مؤقتاً — تظهر بشارة "قريباً" وغير قابلة للنقر
-  soon?: boolean;
-  // العنصر يظهر فقط إذا كانت باقة المنظم تشمل هذا النطاق
-  scope?: "public" | "private";
-};
-type NavSection = {
-  section?: string;
-  cta?: { icon: typeof LayoutDashboard; label: string; path: string; scope?: "public" | "private" };
-  items: NavItem[];
-};
+type ScopedLink = ShellLink & { scope?: "public" | "private" };
 
-const navSections: NavSection[] = [
+const REVIEW = "status=pending_review";
+
+const NAV: { label?: string; items: ScopedLink[] }[] = [
+  { items: [{ icon: LayoutDashboard, label: "لوحة التحكم", path: "/dashboard" }] },
   {
-    items: [{ icon: LayoutDashboard, label: "لوحة التحكم", path: "/dashboard" }],
-  },
-  {
-    section: "الفعاليات",
-    cta: { icon: PlusCircle, label: "إنشاء فعالية", path: "/dashboard/events/create", scope: "public" },
+    label: "الدعوات",
     items: [
-      { icon: Calendar, label: "جميع الفعاليات", path: "/dashboard/events", scope: "public" },
-      { icon: ClipboardCheck, label: "مراجعة الفعاليات", path: "/dashboard/events?status=pending_review", scope: "public" },
+      { icon: Mail, label: "الدعوات الخاصة", path: "/dashboard/invitations", scope: "private" },
+      { icon: Database, label: "قواعد بيانات المدعوين", path: "/dashboard/guest-lists", scope: "private" },
     ],
   },
   {
+    label: "الفعاليات",
+    items: [
+      { icon: PlusCircle, label: "إنشاء فعالية", path: "/dashboard/events/create", scope: "public" },
+      {
+        icon: Calendar,
+        label: "جميع الفعاليات",
+        path: "/dashboard/events",
+        scope: "public",
+        isActive: (p, s) => p === "/dashboard/events" && !s.includes(REVIEW),
+      },
+      {
+        icon: ClipboardCheck,
+        label: "مراجعة الفعاليات",
+        path: `/dashboard/events?${REVIEW}`,
+        scope: "public",
+        isActive: (p, s) => p === "/dashboard/events" && s.includes(REVIEW),
+      },
+    ],
+  },
+  {
+    label: "التشغيل",
     items: [
       { icon: ScanLine, label: "تسجيل الحضور", path: "/dashboard/check-in" },
       { icon: Users, label: "إدارة الفريق", path: "/dashboard/team" },
       { icon: BarChart3, label: "التقارير", path: "/dashboard/reports" },
       { icon: Wallet, label: "الأرباح والتسويات", path: "/dashboard/earnings", scope: "public" },
-      { icon: CreditCard, label: "الاشتراك", path: "/dashboard/subscription" },
+    ],
+  },
+  {
+    label: "الخدمات",
+    items: [
       { icon: ShoppingBag, label: "سوق الخدمات", path: "/dashboard/services" },
       { icon: Tag, label: "خصومات الشركاء", path: "/dashboard/discounts" },
-      { icon: Mail, label: "الدعوات الخاصة", path: "/dashboard/invitations", scope: "private" },
-      { icon: Database, label: "قواعد بيانات المدعوين", path: "/dashboard/guest-lists", scope: "private" },
+    ],
+  },
+  {
+    label: "الحساب",
+    items: [
+      { icon: CreditCard, label: "الاشتراك", path: "/dashboard/subscription" },
       { icon: Award, label: "الشهادات", path: "/dashboard/certificates", soon: true },
       { icon: Bell, label: "الإشعارات", path: "/dashboard/notifications" },
       { icon: Settings, label: "الإعدادات", path: "/dashboard/settings" },
@@ -82,190 +71,32 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, profile } = useAuth();
-  const { t } = useLanguage();
+  const { signOut, profile, organization } = useAuth();
+  const { stopImpersonation } = useImpersonation();
+  const { effectiveProfile, effectiveOrganization } = useEffectiveUser();
   const { canPublic, canPrivate } = usePlanScope();
 
   // إخفاء العناصر خارج نطاق الباقة نهائياً (وليس تعطيلها فقط)
-  const scopeAllows = (scope?: "public" | "private") =>
-    !scope || (scope === "public" ? canPublic : canPrivate);
-  const visibleSections = navSections
-    .map((sec) => ({
-      ...sec,
-      cta: sec.cta && scopeAllows(sec.cta.scope) ? sec.cta : undefined,
-      items: sec.items.filter((i) => scopeAllows(i.scope)),
-    }))
-    .filter((sec) => sec.cta || sec.items.length > 0);
+  const scopeAllows = (scope?: "public" | "private") => !scope || (scope === "public" ? canPublic : canPrivate);
+  const sections: ShellSection[] = NAV.map((s) => ({ label: s.label, entries: s.items.filter((i) => scopeAllows(i.scope)) })).filter((s) => s.entries.length > 0);
 
   const handleSignOut = async () => {
+    stopImpersonation();
     await signOut();
     navigate("/login");
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 font-cairo flex">
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 bg-foreground/30 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          "fixed top-0 right-0 h-full z-50 bg-purple-deep text-primary-foreground flex flex-col transition-all duration-300",
-          collapsed ? "w-20" : "w-64",
-          mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-        )}
-      >
-        {/* الشعار يرجع للصفحة الرئيسية */}
-        <Link to="/" title="العودة إلى الصفحة الرئيسية" className="flex items-center gap-3 p-4 border-b border-primary-foreground/10 hover:bg-primary-foreground/5 transition-colors">
-          <img src={logo} alt="نكفيك تيكت" className="h-10 w-10 object-contain flex-shrink-0" />
-          {!collapsed && <span className="font-bold text-lg">نكفيك تيكت</span>}
-        </Link>
-
-        {/* Nav */}
-        <nav className="flex-1 py-4 space-y-4 px-3 overflow-y-auto">
-          {visibleSections.map((sec, idx) => {
-            const isReviewPath = (path: string) =>
-              path.includes("status=pending_review") &&
-              location.pathname === "/dashboard/events" &&
-              location.search.includes("status=pending_review");
-            const isActiveItem = (path: string) => {
-              if (path.includes("?")) return isReviewPath(path);
-              if (path === "/dashboard/events")
-                return location.pathname === "/dashboard/events" && !location.search.includes("status=pending_review");
-              return location.pathname === path;
-            };
-            return (
-              <div key={idx} className="space-y-1">
-                {sec.section && !collapsed && (
-                  <div className="flex items-center justify-between px-3 pt-2 pb-1">
-                    <span className="text-[11px] uppercase tracking-wider text-primary-foreground/40 font-semibold">
-                      {sec.section}
-                    </span>
-                  </div>
-                )}
-                {sec.cta && (
-                  <Link
-                    to={sec.cta.path}
-                    onClick={() => setMobileOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200",
-                      "bg-gold/90 text-purple-deep hover:bg-gold shadow-sm",
-                      collapsed && "justify-center"
-                    )}
-                  >
-                    <sec.cta.icon className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span>{sec.cta.label}</span>}
-                  </Link>
-                )}
-                {sec.items.map((item) => {
-                  const isActive = isActiveItem(item.path);
-                  if (item.soon) {
-                    return (
-                      <div
-                        key={item.path}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-primary-foreground/30 cursor-not-allowed select-none"
-                        title="غير متاحة حالياً"
-                      >
-                        <item.icon className="w-5 h-5 flex-shrink-0" />
-                        {!collapsed && (
-                          <>
-                            <span>{item.label}</span>
-                            <span className="mr-auto text-[10px] font-bold bg-primary-foreground/10 text-primary-foreground/50 rounded-full px-2 py-0.5">
-                              قريباً
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    );
-                  }
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200",
-                        isActive
-                          ? "bg-primary-foreground/15 text-primary-foreground font-semibold"
-                          : "text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      )}
-                    >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
-                      {!collapsed && <span>{item.label}</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Bottom */}
-        <div className="p-3 border-t border-primary-foreground/10 space-y-1">
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-all w-full"
-          >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span>تسجيل الخروج</span>}
-          </button>
-        </div>
-
-        {/* Collapse toggle - desktop only */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden lg:flex absolute -left-3 top-20 w-6 h-6 rounded-full bg-primary text-primary-foreground items-center justify-center shadow-md hover:scale-110 transition-transform"
-        >
-          {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
-        </button>
-      </aside>
-
-      {/* Main content */}
-      <main
-        className={cn(
-          "flex-1 transition-all duration-300",
-          collapsed ? "lg:mr-20" : "lg:mr-64"
-        )}
-      >
-        {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 h-16 flex items-center px-4 lg:px-6 gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </Button>
-
-          <div className="flex-1" />
-
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" asChild title="الصفحة الرئيسية">
-              <Link to="/"><Home className="w-5 h-5" /></Link>
-            </Button>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-0.5 -left-0.5 w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-[10px] flex items-center justify-center font-bold">3</span>
-            </Button>
-            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-              {profile?.full_name?.charAt(0) || "م"}
-            </div>
-          </div>
-        </header>
-
-        {/* Page content */}
-        <div dir="rtl" className="p-4 lg:p-6">
-          {children}
-        </div>
-      </main>
-    </div>
+    <AppShell
+      sections={sections}
+      userName={effectiveProfile?.full_name || profile?.full_name || "منظم"}
+      userSubtitle={effectiveOrganization?.name || organization?.name || "حساب منظم"}
+      notificationsPath="/dashboard/notifications"
+      onSignOut={handleSignOut}
+    >
+      {children}
+    </AppShell>
   );
 };
 

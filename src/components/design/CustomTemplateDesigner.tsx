@@ -2,14 +2,16 @@ import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+import StatusBadge from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
+import { formatNumber, formatPercent } from "@/lib/format";
 import { toast } from "sonner";
 import {
-  Upload, ImageIcon, Loader2, AlignCenter, AlignLeft, AlignRight,
-  Move, Type, X, Plus, Trash2, Copy,
+  Upload, Loader2, AlignCenter, AlignLeft, AlignRight,
+  Move, X, Plus, Trash2, Copy,
 } from "lucide-react";
 
 export type FieldKey = "guest_name" | "guest_phone" | "guest_email" | "static";
@@ -209,14 +211,14 @@ export default function CustomTemplateDesigner({
             className="hidden"
             onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
           />
-          <div className="border-2 border-dashed border-primary/40 rounded-2xl p-8 text-center cursor-pointer hover:bg-primary/5 transition bg-gradient-to-br from-primary/5 to-transparent">
+          <div className="cursor-pointer rounded-xl border border-dashed border-input bg-muted/50 p-8 text-center transition-colors hover:bg-muted">
             {uploading ? (
-              <Loader2 className="w-10 h-10 mx-auto animate-spin text-primary" />
+              <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
             ) : (
               <>
-                <Upload className="w-10 h-10 mx-auto text-primary mb-3" />
-                <p className="font-bold text-sm">ارفع تصميم الدعوة الخاص فيك</p>
-                <p className="text-xs text-muted-foreground mt-1">PNG / JPG — حتى 8 ميجا — يفضّل عمودي عالي الدقة</p>
+                <span className="mx-auto grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary"><Upload className="h-[17px] w-[17px]" /></span>
+                <p className="mt-3 text-sm font-semibold">ارفع تصميم الدعوة الخاص فيك</p>
+                <p className="mt-0.5 text-xs leading-[18px] text-muted-foreground">PNG / JPG — حتى 8 ميجا — يفضّل عمودي عالي الدقة</p>
               </>
             )}
           </div>
@@ -224,7 +226,7 @@ export default function CustomTemplateDesigner({
       ) : (
         <>
           {/* Stage */}
-          <div className="rounded-2xl overflow-hidden border-2 border-border bg-muted/30 relative select-none">
+          <div className="relative select-none overflow-hidden rounded-xl bg-muted/50">
             <div
               ref={stageRef}
               className="relative w-full mx-auto"
@@ -286,7 +288,7 @@ export default function CustomTemplateDesigner({
                     </div>
                     {isSel && (
                       <div
-                        className="absolute w-4 h-4 rounded-full bg-primary border-2 border-white shadow-lg pointer-events-none"
+                        className="pointer-events-none absolute h-4 w-4 rounded-full border-2 border-white bg-primary"
                         style={{
                           left: `${f.xPct}%`,
                           top: `${f.yPct}%`,
@@ -299,51 +301,51 @@ export default function CustomTemplateDesigner({
                 );
               })}
             </div>
-            <div className="bg-foreground/5 border-t border-border px-3 py-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
-              <Move className="w-3 h-3" /> اختر حقلاً ثم اسحب لتحديد موضعه على التصميم
+            <div className="flex items-center gap-1.5 px-3 py-2.5 text-xs leading-[18px] text-muted-foreground">
+              <Move className="h-3.5 w-3.5 flex-none" /> اختر حقلاً ثم اسحب لتحديد موضعه على التصميم
             </div>
           </div>
 
           {/* Field tabs */}
-          <div className="rounded-xl border-2 border-border p-2 bg-card">
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-xs font-bold">الحقول على التصميم ({fields.length})</Label>
+          <div className="space-y-3 rounded-xl bg-muted/50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold leading-[22px]">الحقول على التصميم ({formatNumber(fields.length)})</h3>
               <div className="flex gap-1">
-                <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={duplicateSelected}>
-                  <Copy className="w-3 h-3 ml-1" /> نسخ
+                <Button type="button" size="sm" variant="ghost" onClick={duplicateSelected}>
+                  <Copy className="h-4 w-4" /> نسخ
                 </Button>
-                <Button type="button" size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={removeSelected}>
-                  <Trash2 className="w-3 h-3 ml-1" /> حذف
+                <Button type="button" size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={removeSelected}>
+                  <Trash2 className="h-4 w-4" /> حذف
                 </Button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5 mb-2">
+            <div className="flex flex-wrap gap-2">
               {fields.map((f) => (
                 <button
                   key={f.id}
                   type="button"
+                  aria-pressed={f.id === selectedId}
                   onClick={() => setSelectedId(f.id)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] border transition ${
+                  className={`h-8 rounded-lg px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                     f.id === selectedId
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border hover:border-primary/50"
+                      ? "bg-secondary text-primary ring-1 ring-inset ring-primary"
+                      : "bg-card hover:bg-secondary"
                   }`}
                 >
                   {f.field === "static" ? (f.staticText || "نص ثابت") : FIELD_LABELS[f.field]}
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-2">
               {(["guest_name", "guest_phone", "guest_email", "static"] as FieldKey[]).map((k) => (
                 <Button
                   key={k}
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 text-[11px]"
                   onClick={() => addField(k)}
                 >
-                  <Plus className="w-3 h-3 ml-1" /> {FIELD_LABELS[k]}
+                  <Plus className="h-4 w-4" /> {FIELD_LABELS[k]}
                 </Button>
               ))}
             </div>
@@ -351,170 +353,161 @@ export default function CustomTemplateDesigner({
 
           {/* Selected field controls */}
           {selected && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 flex items-center justify-between bg-primary/10 rounded-xl px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="default" className="text-[10px]">المحدد</Badge>
-                  <span className="text-xs font-bold">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted/50 p-3 sm:col-span-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <StatusBadge tone="primary">المحدد</StatusBadge>
+                  <span className="truncate text-sm font-semibold">
                     {selected.field === "static" ? (selected.staticText || "نص ثابت") : FIELD_LABELS[selected.field]}
                   </span>
                 </div>
-                <select
-                  value={selected.field}
-                  onChange={(e) => updateSelected({ field: e.target.value as FieldKey })}
-                  className="h-7 rounded-md border border-input bg-background px-2 text-xs"
-                >
-                  {(["guest_name", "guest_phone", "guest_email", "static"] as FieldKey[]).map((k) => (
-                    <option key={k} value={k}>{FIELD_LABELS[k]}</option>
-                  ))}
-                </select>
+                <Select value={selected.field} onValueChange={(v) => updateSelected({ field: v as FieldKey })}>
+                  <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(["guest_name", "guest_phone", "guest_email", "static"] as FieldKey[]).map((k) => (
+                      <SelectItem key={k} value={k}>{FIELD_LABELS[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {selected.field === "static" && (
-                <div className="col-span-2">
-                  <Label className="text-xs">النص الثابت</Label>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>النص الثابت</Label>
                   <Input
                     value={selected.staticText || ""}
                     onChange={(e) => updateSelected({ staticText: e.target.value })}
                     placeholder="مثلاً: قاعة الماسة"
-                    className="h-9 mt-1"
                   />
                 </div>
               )}
 
-              <div className="col-span-2">
-                <Label className="text-xs flex items-center gap-1.5 mb-1.5">
-                  <Type className="w-3.5 h-3.5" /> الخط
-                </Label>
-                <select
-                  value={selected.fontFamily}
-                  onChange={(e) => updateSelected({ fontFamily: e.target.value })}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {FONT_CHOICES.map((f) => (
-                    <option key={f.v} value={f.v} style={{ fontFamily: f.v }}>{f.l}</option>
-                  ))}
-                </select>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>الخط</Label>
+                <Select value={selected.fontFamily} onValueChange={(v) => updateSelected({ fontFamily: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FONT_CHOICES.map((f) => (
+                      <SelectItem key={f.v} value={f.v} style={{ fontFamily: f.v }}>{f.l}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div>
-                <Label className="text-xs">حجم الخط: {selected.fontSize}px</Label>
+              <SliderField label="حجم الخط" value={`${formatNumber(selected.fontSize ?? 0)}px`}>
                 <Slider
+                  dir="rtl"
                   value={[selected.fontSize]} min={12} max={80} step={1}
                   onValueChange={([v]) => updateSelected({ fontSize: v })}
-                  className="mt-2"
                 />
-              </div>
+              </SliderField>
 
-              <div>
-                <Label className="text-xs">سُمك الخط: {selected.fontWeight}</Label>
+              <SliderField label="سُمك الخط" value={formatNumber(selected.fontWeight ?? 0)}>
                 <Slider
+                  dir="rtl"
                   value={[selected.fontWeight]} min={300} max={900} step={100}
                   onValueChange={([v]) => updateSelected({ fontWeight: v })}
-                  className="mt-2"
                 />
-              </div>
+              </SliderField>
 
-              <div>
-                <Label className="text-xs">عرض المربع: {selected.widthPct}%</Label>
+              <SliderField label="عرض المربع" value={formatPercent(selected.widthPct)}>
                 <Slider
+                  dir="rtl"
                   value={[selected.widthPct]} min={20} max={100} step={1}
                   onValueChange={([v]) => updateSelected({ widthPct: v })}
-                  className="mt-2"
                 />
-              </div>
+              </SliderField>
 
-              <div>
-                <Label className="text-xs">تباعد الحروف: {selected.letterSpacing}px</Label>
+              <SliderField label="تباعد الحروف" value={`${formatNumber(selected.letterSpacing ?? 0)}px`}>
                 <Slider
+                  dir="rtl"
                   value={[selected.letterSpacing]} min={-2} max={10} step={0.5}
                   onValueChange={([v]) => updateSelected({ letterSpacing: v })}
-                  className="mt-2"
                 />
-              </div>
+              </SliderField>
 
-              <div>
-                <Label className="text-xs">اللون</Label>
-                <div className="flex gap-2 mt-1">
+              <div className="space-y-1.5">
+                <Label>اللون</Label>
+                <div className="flex gap-2">
                   <Input
                     type="color"
                     value={selected.color}
                     onChange={(e) => updateSelected({ color: e.target.value })}
-                    className="h-9 w-14 p-1 cursor-pointer"
+                    className="h-10 w-14 flex-none cursor-pointer p-1"
                   />
                   <Input
+                    dir="ltr"
                     value={selected.color}
                     onChange={(e) => updateSelected({ color: e.target.value })}
-                    className="h-9 flex-1 font-mono text-xs"
                   />
                 </div>
               </div>
 
-              <div className="col-span-2">
-                <Label className="text-xs">خلفية النص — تغطي ما تحتها من التصميم (مثلاً لتصحيح تاريخ مطبوع في الصورة)</Label>
-                <div className="flex gap-2 mt-1 items-center">
-                  <Input
-                    type="color"
-                    value={selected.bgColor || "#1d1849"}
-                    onChange={(e) => updateSelected({ bgColor: e.target.value })}
-                    className="h-9 w-14 p-1 cursor-pointer"
-                  />
-                  <Input
-                    value={selected.bgColor || ""}
-                    onChange={(e) => updateSelected({ bgColor: e.target.value || null })}
-                    placeholder="بدون خلفية"
-                    className="h-9 flex-1 font-mono text-xs"
-                  />
-                  {selected.bgColor && (
-                    <Button type="button" size="sm" variant="ghost" className="h-9 text-xs" onClick={() => updateSelected({ bgColor: null })}>
-                      إزالة
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs mb-1.5 block">المحاذاة</Label>
-                <div className="flex gap-1">
+              <div className="space-y-1.5">
+                <Label>المحاذاة</Label>
+                <div className="flex gap-2">
                   {([
                     { v: "right", I: AlignRight },
                     { v: "center", I: AlignCenter },
                     { v: "left", I: AlignLeft },
                   ] as const).map(({ v, I }) => (
                     <Button
-                      key={v} type="button" size="sm"
-                      variant={selected.textAlign === v ? "default" : "outline"}
-                      className="flex-1 h-9"
+                      key={v} type="button"
+                      aria-pressed={selected.textAlign === v}
+                      variant={selected.textAlign === v ? "soft" : "outline"}
+                      className="flex-1 px-0"
                       onClick={() => updateSelected({ textAlign: v })}
                     >
-                      <I className="w-4 h-4" />
+                      <I className="h-4 w-4" />
                     </Button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <Label className="text-xs">بادئة</Label>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>خلفية النص</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={selected.bgColor || "#1d1849"}
+                    onChange={(e) => updateSelected({ bgColor: e.target.value })}
+                    className="h-10 w-14 flex-none cursor-pointer p-1"
+                  />
+                  <Input
+                    dir="ltr"
+                    value={selected.bgColor || ""}
+                    onChange={(e) => updateSelected({ bgColor: e.target.value || null })}
+                    placeholder="بدون خلفية"
+                  />
+                  {selected.bgColor && (
+                    <Button type="button" variant="ghost" onClick={() => updateSelected({ bgColor: null })}>
+                      إزالة
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs leading-[18px] text-muted-foreground">تغطي ما تحتها من التصميم (مثلاً لتصحيح تاريخ مطبوع في الصورة)</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>بادئة</Label>
                 <Input
                   value={selected.prefix}
                   onChange={(e) => updateSelected({ prefix: e.target.value })}
                   placeholder="الأستاذ /"
-                  className="h-9 mt-1"
                 />
               </div>
 
-              <div>
-                <Label className="text-xs">لاحقة</Label>
+              <div className="space-y-1.5">
+                <Label>لاحقة</Label>
                 <Input
                   value={selected.suffix}
                   onChange={(e) => updateSelected({ suffix: e.target.value })}
                   placeholder="حفظه الله"
-                  className="h-9 mt-1"
                 />
               </div>
 
-              <div className="col-span-2 flex items-center justify-between bg-muted/40 rounded-xl px-3 py-2">
-                <Label className="text-xs">ظل خفيف (يحسّن القراءة على الخلفيات)</Label>
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-muted/50 p-4 sm:col-span-2">
+                <Label className="leading-5">ظل خفيف (يحسّن القراءة على الخلفيات)</Label>
                 <Switch
                   checked={selected.shadow}
                   onCheckedChange={(v) => updateSelected({ shadow: v })}
@@ -523,29 +516,41 @@ export default function CustomTemplateDesigner({
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button
-              type="button" size="sm" variant="ghost"
-              className="text-destructive hover:text-destructive"
-              onClick={() => onTemplateChange(null)}
-            >
-              <X className="w-3.5 h-3.5 ml-1" /> إزالة التصميم
-            </Button>
+          <div className="flex items-center gap-2 border-t border-border pt-4">
             <label className="flex-1">
               <input
                 type="file" accept="image/*" className="hidden"
                 onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
               />
-              <Button type="button" variant="outline" size="sm" className="w-full" disabled={uploading} asChild>
+              <Button type="button" variant="outline" className="w-full" disabled={uploading} asChild>
                 <span>
-                  {uploading ? <Loader2 className="w-3.5 h-3.5 ml-1 animate-spin" /> : <Upload className="w-3.5 h-3.5 ml-1" />}
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   استبدال التصميم
                 </span>
               </Button>
             </label>
+            <Button
+              type="button" variant="ghost"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onTemplateChange(null)}
+            >
+              <X className="h-4 w-4" /> إزالة التصميم
+            </Button>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SliderField({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        <bdi dir="ltr" className="text-xs text-muted-foreground">{value}</bdi>
+      </div>
+      {children}
     </div>
   );
 }

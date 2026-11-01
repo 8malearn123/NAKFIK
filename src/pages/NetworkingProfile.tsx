@@ -2,18 +2,20 @@ import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatNumber } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/landing/Navbar";
+import Footer from "@/components/landing/Footer";
 import { toast } from "sonner";
 import {
   Loader2, Download, Maximize2, Linkedin, Mail, Phone, Globe, Twitter,
@@ -173,130 +175,134 @@ export default function NetworkingProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex min-h-screen flex-col bg-background font-cairo">
+        <Navbar />
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">
+          <div className="space-y-6">
+            <PageHeader title={t("pgNetworking.profile.title")} description={t("pgNetworking.profile.subtitle")} />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="h-[520px] animate-pulse rounded-2xl bg-card shadow-soft" />
+              <div className="h-[520px] animate-pulse rounded-2xl bg-card shadow-soft" />
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background font-cairo">
       <Navbar />
-      <div className="container mx-auto pt-24 pb-12 px-4 max-w-6xl">
-        <h1 className="text-3xl font-bold font-cairo mb-2">{t("pgNetworking.profile.title")}</h1>
-        <p className="text-muted-foreground mb-8">
-          {t("pgNetworking.profile.subtitle")}
-        </p>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">
+        <div className="space-y-6">
+          <PageHeader title={t("pgNetworking.profile.title")} description={t("pgNetworking.profile.subtitle")} />
 
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-cairo">{t("pgNetworking.profile.infoTitle")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>{t("pgNetworking.profile.jobTitle")}</Label>
-                  <Input value={data.job_title} onChange={(e) => setData({ ...data, job_title: e.target.value })} />
-                </div>
-                <div>
-                  <Label>{t("pgNetworking.profile.company")}</Label>
-                  <Input value={data.company} onChange={(e) => setData({ ...data, company: e.target.value })} />
-                </div>
-              </div>
-
-              <div>
-                <Label>{t("pgNetworking.profile.bioLabel")} ({data.bio.length}/150)</Label>
-                <Textarea
-                  value={data.bio}
-                  maxLength={150}
-                  rows={2}
-                  placeholder={t("pgNetworking.profile.bioPlaceholder")}
-                  onChange={(e) => setData({ ...data, bio: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <Label className="mb-2 block">{t("pgNetworking.profile.expertiseLabel")} {t("pgNetworking.profile.enterHint")}</Label>
-                <Input
-                  value={expertiseInput}
-                  onChange={(e) => setExpertiseInput(e.target.value)}
-                  onKeyDown={(e) => onTagKey(e, addExpertise)}
-                  onBlur={addExpertise}
-                  placeholder={t("pgNetworking.profile.expertisePlaceholder")}
-                />
-                {data.expertise.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {data.expertise.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="gap-1 pe-2">
-                        {tag}
-                        <button onClick={() => removeTag("expertise", tag)} className="hover:text-destructive">
-                          <XIcon className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
+          <div className="grid items-start gap-6 lg:grid-cols-2">
+            {/* Form */}
+            <div className="min-w-0 space-y-6">
+              <Panel title={t("pgNetworking.profile.infoTitle")} bodyClassName="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>{t("pgNetworking.profile.jobTitle")}</Label>
+                    <Input value={data.job_title} onChange={(e) => setData({ ...data, job_title: e.target.value })} />
                   </div>
-                )}
-              </div>
-
-              <div>
-                <Label className="mb-2 block">{t("pgNetworking.profile.lookingForLabel")} {t("pgNetworking.profile.enterHint")}</Label>
-                <Input
-                  value={lookingForInput}
-                  onChange={(e) => setLookingForInput(e.target.value)}
-                  onKeyDown={(e) => onTagKey(e, addLookingFor)}
-                  onBlur={addLookingFor}
-                  placeholder={t("pgNetworking.profile.lookingForPlaceholder")}
-                />
-                {data.looking_for.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {data.looking_for.map((tag) => (
-                      <Badge key={tag} className="gap-1 pe-2 bg-accent/20 text-accent-foreground hover:bg-accent/30">
-                        {tag}
-                        <button onClick={() => removeTag("looking_for", tag)} className="hover:text-destructive">
-                          <XIcon className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                  <div className="space-y-1.5">
+                    <Label>{t("pgNetworking.profile.company")}</Label>
+                    <Input value={data.company} onChange={(e) => setData({ ...data, company: e.target.value })} />
                   </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <Label className="block">{t("pgNetworking.profile.socialsLabel")}</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input value={data.linkedin_url} onChange={(e) => setData({ ...data, linkedin_url: e.target.value })} placeholder="LinkedIn URL" />
-                  <Input value={data.twitter_handle} onChange={(e) => setData({ ...data, twitter_handle: e.target.value })} placeholder={t("pgNetworking.profile.twitterPlaceholder")} />
-                  <Input value={data.snapchat_handle} onChange={(e) => setData({ ...data, snapchat_handle: e.target.value })} placeholder={t("pgNetworking.profile.snapchatPlaceholder")} />
-                  <Input value={data.instagram_handle} onChange={(e) => setData({ ...data, instagram_handle: e.target.value })} placeholder={t("pgNetworking.profile.instagramPlaceholder")} />
-                  <Input value={data.whatsapp} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder={t("pgNetworking.profile.whatsappPlaceholder")} />
-                  <Input value={data.email_public} type="email" onChange={(e) => setData({ ...data, email_public: e.target.value })} placeholder={t("pgNetworking.profile.emailPlaceholder")} />
-                  <Input className="col-span-2" value={data.website_url} onChange={(e) => setData({ ...data, website_url: e.target.value })} placeholder={t("pgNetworking.profile.websitePlaceholder")} />
                 </div>
-              </div>
 
-              <div>
-                <Label>{t("pgNetworking.profile.privacyLabel")}</Label>
+                <div className="space-y-1.5">
+                  <Label>{t("pgNetworking.profile.bioLabel")} ({formatNumber(data.bio.length)} {t("pgProfile.completion.of")} 150)</Label>
+                  <Textarea
+                    value={data.bio}
+                    maxLength={150}
+                    rows={2}
+                    placeholder={t("pgNetworking.profile.bioPlaceholder")}
+                    onChange={(e) => setData({ ...data, bio: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t("pgNetworking.profile.expertiseLabel")} {t("pgNetworking.profile.enterHint")}</Label>
+                  <Input
+                    value={expertiseInput}
+                    onChange={(e) => setExpertiseInput(e.target.value)}
+                    onKeyDown={(e) => onTagKey(e, addExpertise)}
+                    onBlur={addExpertise}
+                    placeholder={t("pgNetworking.profile.expertisePlaceholder")}
+                  />
+                  {data.expertise.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {data.expertise.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="gap-1 pe-2">
+                          {tag}
+                          <button type="button" onClick={() => removeTag("expertise", tag)} className="hover:text-destructive" aria-label={tag}>
+                            <XIcon className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>{t("pgNetworking.profile.lookingForLabel")} {t("pgNetworking.profile.enterHint")}</Label>
+                  <Input
+                    value={lookingForInput}
+                    onChange={(e) => setLookingForInput(e.target.value)}
+                    onKeyDown={(e) => onTagKey(e, addLookingFor)}
+                    onBlur={addLookingFor}
+                    placeholder={t("pgNetworking.profile.lookingForPlaceholder")}
+                  />
+                  {data.looking_for.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {data.looking_for.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="gap-1 pe-2">
+                          {tag}
+                          <button type="button" onClick={() => removeTag("looking_for", tag)} className="hover:text-destructive" aria-label={tag}>
+                            <XIcon className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Panel>
+
+              <Panel title={t("pgNetworking.profile.socialsLabel")}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input dir="ltr" value={data.linkedin_url} onChange={(e) => setData({ ...data, linkedin_url: e.target.value })} placeholder="LinkedIn URL" aria-label="LinkedIn URL" />
+                  <Input dir="ltr" value={data.twitter_handle} onChange={(e) => setData({ ...data, twitter_handle: e.target.value })} placeholder={t("pgNetworking.profile.twitterPlaceholder")} aria-label={t("pgNetworking.profile.twitterPlaceholder")} />
+                  <Input dir="ltr" value={data.snapchat_handle} onChange={(e) => setData({ ...data, snapchat_handle: e.target.value })} placeholder={t("pgNetworking.profile.snapchatPlaceholder")} aria-label={t("pgNetworking.profile.snapchatPlaceholder")} />
+                  <Input dir="ltr" value={data.instagram_handle} onChange={(e) => setData({ ...data, instagram_handle: e.target.value })} placeholder={t("pgNetworking.profile.instagramPlaceholder")} aria-label={t("pgNetworking.profile.instagramPlaceholder")} />
+                  <Input dir="ltr" value={data.whatsapp} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder={t("pgNetworking.profile.whatsappPlaceholder")} aria-label={t("pgNetworking.profile.whatsappPlaceholder")} />
+                  <Input dir="ltr" value={data.email_public} type="email" onChange={(e) => setData({ ...data, email_public: e.target.value })} placeholder={t("pgNetworking.profile.emailPlaceholder")} aria-label={t("pgNetworking.profile.emailPlaceholder")} />
+                  <Input dir="ltr" className="sm:col-span-2" value={data.website_url} onChange={(e) => setData({ ...data, website_url: e.target.value })} placeholder={t("pgNetworking.profile.websitePlaceholder")} aria-label={t("pgNetworking.profile.websitePlaceholder")} />
+                </div>
+              </Panel>
+
+              <Panel title={t("pgNetworking.profile.privacyLabel")}>
                 <Select value={data.privacy_level} onValueChange={(v) => setData({ ...data, privacy_level: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label={t("pgNetworking.profile.privacyLabel")}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="event_only">{t("pgNetworking.profile.privacyEventOnly")}</SelectItem>
                     <SelectItem value="nakfeek_users">{t("pgNetworking.profile.privacyNakfeekUsers")}</SelectItem>
                     <SelectItem value="public">{t("pgNetworking.profile.privacyPublic")}</SelectItem>
                   </SelectContent>
                 </Select>
+              </Panel>
+
+              <div className="flex justify-end">
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t("pgNetworking.profile.saveButton")}
+                </Button>
               </div>
+            </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving && <Loader2 className="w-4 h-4 ms-2 animate-spin" />}
-                {t("pgNetworking.profile.saveButton")}
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Live card preview */}
-          <div className="space-y-4 lg:sticky lg:top-24 self-start">
+            {/* Live card preview */}
+            <div className="min-w-0 space-y-6 lg:sticky lg:top-24">
             <div
               ref={cardRef}
               className="relative rounded-3xl overflow-hidden shadow-elegant border-2 border-primary/10 bg-gradient-to-br from-brand-purple via-brand-mauve to-brand-brick text-white p-6"
@@ -369,25 +375,29 @@ export default function NetworkingProfile() {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={downloadPng} disabled={downloading} className="flex-1">
-                {downloading ? <Loader2 className="w-4 h-4 ms-2 animate-spin" /> : <Download className="w-4 h-4 ms-2" />}
-                {t("pgNetworking.profile.downloadPng")}
-              </Button>
-              <Button variant="outline" asChild className="flex-1">
-                <Link to={`/connect/${data.connect_code}`} target="_blank">
-                  <Maximize2 className="w-4 h-4 ms-2" /> {t("pgNetworking.profile.fullScreen")}
-                </Link>
-              </Button>
-            </div>
+            <div className="space-y-3 rounded-2xl bg-card p-5 shadow-soft">
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={downloadPng} disabled={downloading} className="min-w-0 flex-1">
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  {t("pgNetworking.profile.downloadPng")}
+                </Button>
+                <Button variant="outline" asChild className="min-w-0 flex-1">
+                  <Link to={`/connect/${data.connect_code}`} target="_blank">
+                    <Maximize2 className="h-4 w-4" /> {t("pgNetworking.profile.fullScreen")}
+                  </Link>
+                </Button>
+              </div>
 
-            <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-1">{t("pgNetworking.profile.cardLink")}</p>
-              <code className="text-xs break-all" dir="ltr">{connectUrl}</code>
+              <div className="rounded-xl bg-muted/50 p-3 text-center">
+                <p className="mb-1 text-xs text-muted-foreground">{t("pgNetworking.profile.cardLink")}</p>
+                <bdi dir="ltr" className="block break-all text-xs font-medium">{connectUrl}</bdi>
+              </div>
+            </div>
             </div>
           </div>
         </div>
-      </div>
+      </main>
+      <Footer />
     </div>
   );
 }

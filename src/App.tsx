@@ -8,7 +8,9 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
 import ImpersonationBanner from "@/components/admin/ImpersonationBanner";
+import DemoModeBanner from "@/components/DemoModeBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SoftUiScope from "@/components/app/SoftUiScope";
 import Index from "./pages/Index";
 import EventsMarketplace from "./pages/EventsMarketplace";
 import Favorites from "./pages/Favorites";
@@ -60,6 +62,7 @@ import OrganizerSubscription from "./pages/dashboard/Subscription";
 import NetworkingProfile from "./pages/NetworkingProfile";
 import MyProfile from "./pages/MyProfile";
 import ConnectCard from "./pages/ConnectCard";
+import BrandGuidelines from "./pages/BrandGuidelines";
 import MyConnections from "./pages/MyConnections";
 import OrganizerProfile from "./pages/OrganizerProfile";
 import MyNotifications from "./pages/MyNotifications";
@@ -90,7 +93,9 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <SoftUiScope />
               <ImpersonationBanner />
+              <DemoModeBanner />
               <Routes>
                 {/* Public */}
                 <Route path="/" element={<Index />} />
@@ -109,6 +114,7 @@ const App = () => (
                 <Route path="/demo/payment" element={<PaymentCallback demo />} />
                 <Route path="/demo/gift/:token" element={<GiftClaim demo />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
+                <Route path="/brand" element={<BrandGuidelines />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/register-provider" element={<RegisterProvider />} />

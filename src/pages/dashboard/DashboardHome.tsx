@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Calendar, Users, Ticket, DollarSign, TrendingUp, ArrowUpLeft, Clock, AlertCircle, Mail } from "lucide-react";
+import { AlertCircle, Calendar, DollarSign, Mail, Ticket, UserCheck, Users, type LucideIcon } from "lucide-react";
 import { usePlanScope } from "@/hooks/usePlanScope";
 import { getMissingOrgFields, isOrgReady } from "@/lib/orgCompleteness";
 import { Link } from "react-router-dom";
@@ -11,17 +10,31 @@ import { supabase } from "@/integrations/supabase/client";
 import SubscriptionUsageCard from "@/components/dashboard/SubscriptionUsageCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import ActionItems from "@/components/dashboard/ActionItems";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
+import { daysLeftLabel, formatDate, formatNumber } from "@/lib/format";
 
-const statusLabels: Record<string, { label: string; className: string }> = {
-  active: { label: "نشطة", className: "bg-teal/10 text-teal" },
-  closed: { label: "مغلقة", className: "bg-muted text-muted-foreground" },
-  draft: { label: "مسودة", className: "bg-muted text-muted-foreground" },
-  pending_review: { label: "قيد المراجعة", className: "bg-amber-100 text-amber-700" },
-  published: { label: "منشورة", className: "bg-teal/10 text-teal" },
-  approved: { label: "معتمدة", className: "bg-teal/10 text-teal" },
-  rejected: { label: "مرفوضة", className: "bg-destructive/10 text-destructive" },
-  completed: { label: "منتهية", className: "bg-muted text-muted-foreground" },
-  cancelled: { label: "ملغاة", className: "bg-muted text-muted-foreground" },
+// تمييز العدد بصيغته الصحيحة: مسجّلان، 3 مسجّلين، 40 مسجّلاً
+const registrantsLabel = (n: number) => {
+  if (n === 1) return "مسجّل واحد";
+  if (n === 2) return "مسجّلان";
+  const tail = n % 100;
+  return `${formatNumber(n)} ${tail >= 3 && tail <= 10 ? "مسجّلين" : tail >= 11 ? "مسجّلاً" : "مسجّل"}`;
+};
+
+const statusLabels: Record<string, { label: string; tone: StatusTone }> = {
+  active: { label: "نشطة", tone: "success" },
+  closed: { label: "مغلقة", tone: "neutral" },
+  draft: { label: "مسودة", tone: "neutral" },
+  pending_review: { label: "قيد المراجعة", tone: "warning" },
+  published: { label: "منشورة", tone: "success" },
+  approved: { label: "معتمدة", tone: "success" },
+  rejected: { label: "مرفوضة", tone: "danger" },
+  completed: { label: "منتهية", tone: "neutral" },
+  cancelled: { label: "ملغاة", tone: "neutral" },
 };
 
 interface EventRow {
@@ -55,8 +68,7 @@ const DashboardHome = () => {
           .from("events")
           .select("id, title_ar, start_date, status, current_attendees_count")
           .eq("organization_id", organization.id)
-          .order("start_date", { ascending: true })
-          .limit(5);
+          .order("start_date", { ascending: true });
 
         const eventsList = (evts || []) as EventRow[];
         setEvents(eventsList);
@@ -82,8 +94,7 @@ const DashboardHome = () => {
         // أقرب المناسبات للعرض في القائمة
         const upcoming = [...invList]
           .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-          .filter((i) => i.status !== "cancelled")
-          .slice(0, 5);
+          .filter((i) => i.status !== "cancelled");
         setEvents(upcoming.map((i) => ({
           id: i.id,
           title_ar: i.title,
@@ -115,159 +126,119 @@ const DashboardHome = () => {
     load();
   }, [organization, canPublic]);
 
-  const statsCards = canPublic
+  // القائمة للقادم فقط؛ المنتهية تبقى في عدّاد الإجمالي
+  const upcomingEvents = events.filter((e) => new Date(e.start_date).getTime() >= Date.now()).slice(0, 5);
+
+  const statsCards: { icon: LucideIcon; label: string; value: string; unit?: string }[] = canPublic
     ? [
-        { icon: Calendar, label: "إجمالي الفعاليات", value: stats.totalEvents.toString(), color: "bg-primary/10 text-primary" },
-        { icon: Users, label: "إجمالي المسجلين", value: stats.totalRegistrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
-        { icon: Ticket, label: "التذاكر المباعة", value: stats.totalTicketsSold.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
-        { icon: DollarSign, label: "الإيرادات", value: `${stats.totalRevenue.toLocaleString("ar-SA")} ر.س`, color: "bg-gold/10 text-gold" },
+        { icon: Calendar, label: "إجمالي الفعاليات", value: formatNumber(stats.totalEvents) },
+        { icon: Users, label: "إجمالي المسجلين", value: formatNumber(stats.totalRegistrations) },
+        { icon: Ticket, label: "التذاكر المباعة", value: formatNumber(stats.totalTicketsSold) },
+        { icon: DollarSign, label: "الإيرادات", value: formatNumber(stats.totalRevenue), unit: "ر.س" },
       ]
     : [
         // المرحلة الأولى: نفس البطاقات بدلالات الدعوات الخاصة
-        { icon: Mail, label: "إجمالي المناسبات الخاصة", value: stats.totalEvents.toString(), color: "bg-primary/10 text-primary" },
-        { icon: Users, label: "إجمالي المدعوين", value: stats.totalRegistrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal" },
-        { icon: Ticket, label: "تأكيدات الحضور", value: stats.totalTicketsSold.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent" },
-        { icon: Users, label: "الحضور الفعلي (دخلوا)", value: stats.totalRevenue.toLocaleString("ar-SA"), color: "bg-gold/10 text-gold" },
+        { icon: Mail, label: "المناسبات الخاصة", value: formatNumber(stats.totalEvents) },
+        { icon: Users, label: "إجمالي المدعوين", value: formatNumber(stats.totalRegistrations) },
+        { icon: UserCheck, label: "تأكيدات الحضور", value: formatNumber(stats.totalTicketsSold) },
+        { icon: Ticket, label: "الحضور الفعلي", value: formatNumber(stats.totalRevenue) },
       ];
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">مرحباً، {profile?.full_name || "منظّم"} 👋</h1>
-            <p className="text-muted-foreground text-sm">إليك نظرة عامة على فعالياتك</p>
-          </div>
-          {canPublic ? (
-            <Button className="rounded-full" asChild disabled={!isOrgReady(organization as any)}>
-              <Link to={isOrgReady(organization as any) ? "/dashboard/events/create" : "/dashboard/settings"}>
-                <Calendar className="w-4 h-4" />
-                {isOrgReady(organization as any) ? "إنشاء فعالية جديدة" : "أكمل ملف المؤسسة"}
-              </Link>
-            </Button>
-          ) : (
-            // باقة الدعوات الخاصة — لا يظهر أي زر لإنشاء فعاليات عامة
-            <Button className="rounded-full" asChild>
-              <Link to="/dashboard/invitations">
-                <Mail className="w-4 h-4" /> دعوة خاصة جديدة
-              </Link>
-            </Button>
-          )}
-        </div>
+        <PageHeader
+          title={`مرحباً، ${profile?.full_name || "منظّم"}`}
+          description={canPublic ? "إليك نظرة عامة على فعالياتك" : "إليك نظرة عامة على مناسباتك"}
+          actions={
+            canPublic ? (
+              <Button asChild>
+                <Link to={isOrgReady(organization as any) ? "/dashboard/events/create" : "/dashboard/settings"}>
+                  <Calendar className="w-4 h-4" />
+                  {isOrgReady(organization as any) ? "إنشاء فعالية جديدة" : "أكمل ملف المؤسسة"}
+                </Link>
+              </Button>
+            ) : (
+              // باقة الدعوات الخاصة: لا يظهر أي زر لإنشاء فعاليات عامة
+              <Button asChild>
+                <Link to="/dashboard/invitations"><Mail className="w-4 h-4" /> دعوة خاصة جديدة</Link>
+              </Button>
+            )
+          }
+        />
 
-        {!isOrgReady(organization as any) && (
-          <div className="bg-brand-brick/5 border border-brand-brick/30 rounded-2xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-brand-brick mt-0.5 flex-shrink-0" />
+        {organization && !isOrgReady(organization as any) && (
+          <div className="flex items-start gap-3 rounded-2xl bg-[#FBECEA] p-4">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#B42F24]" />
             <div className="flex-1 text-sm">
-              <p className="font-bold text-foreground mb-1">ملف مؤسستك غير مكتمل</p>
-              <p className="text-muted-foreground mb-2">
+              <p className="mb-0.5 font-bold">ملف مؤسستك غير مكتمل</p>
+              <p className="text-muted-foreground">
                 {organization?.is_active === false
                   ? "حسابك قيد المراجعة من فريق نكفيك. أكمل بياناتك ليتم تفعيله رسمياً وتتمكن من إنشاء الفعاليات."
                   : `يجب إكمال ${getMissingOrgFields(organization as any).length} حقل قبل إنشاء أي فعالية رسمية.`}
               </p>
-              <Link to="/dashboard/settings" className="text-brand-brick font-bold underline">
-                إكمال البيانات الآن ←
-              </Link>
             </div>
+            <Button asChild variant="outline" size="sm"><Link to="/dashboard/settings">أكمل البيانات</Link></Button>
           </div>
         )}
 
-        {/* Subscription Usage — حصص الفعاليات العامة (المرحلة الثانية) */}
-        {canPublic && <SubscriptionUsageCard />}
-
-        {/* Stats */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statsCards.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className="bg-card rounded-2xl p-5 border border-border/50 hover:shadow-md transition-shadow"
-            >
-              <div className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center mb-3`}>
-                <stat.icon className="w-5 h-5" />
-              </div>
-              <div className="font-bold text-2xl text-foreground mb-1">{loading ? "..." : stat.value}</div>
-              <div className="text-muted-foreground text-xs">{stat.label}</div>
-            </motion.div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-4">
+          {statsCards.map((stat) => (
+            <StatCard key={stat.label} label={stat.label} value={loading ? "…" : stat.value} unit={loading ? undefined : stat.unit} icon={stat.icon} />
           ))}
         </div>
 
-        {/* Action Items — مهام الفعاليات العامة (المرحلة الثانية) */}
+        {/* حصص الباقة ومهام الفعاليات العامة (المرحلة الثانية) */}
+        {canPublic && <SubscriptionUsageCard />}
         {canPublic && <ActionItems />}
 
-        {/* Upcoming Events */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-card rounded-2xl p-5 border border-border/50"
+        <Panel
+          title={canPublic ? "الفعاليات القادمة" : "مناسباتك الخاصة القادمة"}
+          actions={<Link to={canPublic ? "/dashboard/events" : "/dashboard/invitations"} className="text-[13px] font-semibold leading-5 text-primary">عرض الكل</Link>}
         >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-foreground">{canPublic ? "الفعاليات القادمة" : "مناسباتك الخاصة القادمة"}</h3>
-            <Link to={canPublic ? "/dashboard/events" : "/dashboard/invitations"} className="text-primary text-xs font-semibold hover:underline">
-              عرض الكل
-            </Link>
-          </div>
-
           {loading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="animate-pulse bg-muted/50 rounded-xl h-16" />
-              ))}
+              {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/60" />)}
             </div>
-          ) : events.length > 0 ? (
-            <div className="space-y-3">
-              {events.map((event) => {
+          ) : upcomingEvents.length > 0 ? (
+            <div className="divide-y divide-border">
+              {upcomingEvents.map((event) => {
                 const status = statusLabels[event.status] || statusLabels.draft;
                 return (
-                  <div key={event.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Clock className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm text-foreground truncate">{event.title_ar}</h4>
-                      <p className="text-muted-foreground text-xs">
-                        {new Date(event.start_date).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}
+                  <div key={event.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <span className="grid h-10 w-10 flex-none place-items-center rounded-[10px] bg-secondary text-primary"><Calendar className="h-[18px] w-[18px]" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold leading-[22px]">{event.title_ar}</p>
+                      <p className="text-xs leading-[18px] text-muted-foreground">
+                        {formatDate(event.start_date)}، {daysLeftLabel(event.start_date)}
+                        {canPublic && `، ${registrantsLabel(event.current_attendees_count)}`}
                       </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${status.className}`}>
-                          {status.label}
-                        </span>
-                        {canPublic && (
-                          <span className="text-muted-foreground text-[10px]">{event.current_attendees_count} مسجّل</span>
-                        )}
-                      </div>
                     </div>
+                    <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-muted-foreground text-sm">{canPublic ? "لا توجد فعاليات بعد" : "لا توجد مناسبات خاصة بعد"}</p>
-              {canPublic ? (
-                <Button className="rounded-full mt-3" size="sm" asChild>
-                  <Link to="/dashboard/events/create">إنشاء فعالية</Link>
+            <EmptyState
+              icon={Calendar}
+              title={canPublic ? "لا توجد فعاليات بعد" : "لا توجد مناسبات خاصة بعد"}
+              action={
+                <Button asChild size="sm">
+                  <Link to={canPublic ? "/dashboard/events/create" : "/dashboard/invitations"}>{canPublic ? "إنشاء فعالية" : "أنشئ أول دعوة خاصة"}</Link>
                 </Button>
-              ) : (
-                <Button className="rounded-full mt-3" size="sm" asChild>
-                  <Link to="/dashboard/invitations">أنشئ أول دعوة خاصة</Link>
-                </Button>
-              )}
-            </div>
+              }
+            />
           )}
-        </motion.div>
+        </Panel>
 
-        {/* Recent Activity — نشاط تسجيلات الفعاليات العامة (المرحلة الثانية) */}
+        {/* نشاط تسجيلات الفعاليات العامة (المرحلة الثانية) */}
         {canPublic && <RecentActivity />}
 
         {!organization && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
-            <p className="text-amber-800 font-semibold">لم يتم العثور على منظمة مرتبطة بحسابك</p>
-            <p className="text-amber-600 text-sm mt-1">يرجى التواصل مع الدعم الفني</p>
+          <div className="rounded-2xl bg-[#FDF3E3] p-6 text-center">
+            <p className="font-semibold text-[#9A5F12]">لم يتم العثور على منظمة مرتبطة بحسابك</p>
+            <p className="mt-1 text-sm text-muted-foreground">يرجى التواصل مع الدعم الفني</p>
           </div>
         )}
       </div>

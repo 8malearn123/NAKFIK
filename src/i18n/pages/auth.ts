@@ -10,7 +10,7 @@ const ar = {
     passwordMismatch: "كلمتا المرور غير متطابقتين",
     passwordMinLength: "كلمة المرور يجب أن تكون 6 أحرف على الأقل",
     errorUnexpected: "حدث خطأ غير متوقع",
-    backHome: "← العودة للصفحة الرئيسية",
+    backHome: "العودة للصفحة الرئيسية",
   },
   login: {
     brandTitle: "مرحباً بعودتك!",
@@ -26,9 +26,11 @@ const ar = {
     toastWelcomeAdmin: "مرحباً مدير النظام!",
     toastSuccess: "تم تسجيل الدخول بنجاح!",
     demoTitle: "حسابات تجريبية (للاختبار)",
-    demoSuperAdmin: "🛡️ سوبر أدمن",
-    demoOrganizer: "🎪 منظّم فعاليات",
-    demoAttendee: "👤 حاضر",
+    demoSuperAdmin: "سوبر أدمن",
+    demoOrganizer: "منظّم شامل",
+    demoOrganizerPublic: "منظّم الفعاليات العامة",
+    demoOrganizerPrivate: "منظّم الفعاليات الخاصة",
+    demoAttendee: "حاضر",
   },
   register: {
     brandTitle: "انضم إلى نكفيك تيكت",
@@ -101,7 +103,7 @@ const ar = {
     invalidTitle: "رابط غير صالح",
     invalidDesc: "يبدو أن رابط إعادة التعيين غير صالح أو انتهت صلاحيته",
     requestNew: "طلب رابط جديد",
-    backToLogin: "← العودة لتسجيل الدخول",
+    backToLogin: "العودة لتسجيل الدخول",
   },
 };
 
@@ -114,7 +116,7 @@ const en: typeof ar = {
     passwordMismatch: "Passwords do not match",
     passwordMinLength: "Password must be at least 6 characters",
     errorUnexpected: "An unexpected error occurred",
-    backHome: "← Back to home page",
+    backHome: "Back to home page",
   },
   login: {
     brandTitle: "Welcome back!",
@@ -130,9 +132,11 @@ const en: typeof ar = {
     toastWelcomeAdmin: "Welcome, system administrator!",
     toastSuccess: "Signed in successfully!",
     demoTitle: "Demo accounts (for testing)",
-    demoSuperAdmin: "🛡️ Super Admin",
-    demoOrganizer: "🎪 Event Organizer",
-    demoAttendee: "👤 Attendee",
+    demoSuperAdmin: "Super Admin",
+    demoOrganizer: "Full Organizer",
+    demoOrganizerPublic: "Public Events Organizer",
+    demoOrganizerPrivate: "Private Events Organizer",
+    demoAttendee: "Attendee",
   },
   register: {
     brandTitle: "Join Nakfeek Ticket",
@@ -205,7 +209,7 @@ const en: typeof ar = {
     invalidTitle: "Invalid Link",
     invalidDesc: "The reset link appears to be invalid or has expired",
     requestNew: "Request a New Link",
-    backToLogin: "← Back to sign in",
+    backToLogin: "Back to sign in",
   },
 };
 

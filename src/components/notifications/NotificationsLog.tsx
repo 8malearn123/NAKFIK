@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Clock, MessageSquare } from "lucide-react";
+import EmptyState from "@/components/app/EmptyState";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { MessageSquare, Send } from "lucide-react";
+import { formatDateShort, formatNumber, formatTime } from "@/lib/format";
 
 interface Notification {
   id: string;
@@ -16,10 +21,10 @@ interface Notification {
   created_at: string;
 }
 
-const statusConfig = {
-  sent: { icon: CheckCircle, label: "تم الإرسال", color: "bg-emerald-500/10 text-emerald-600" },
-  failed: { icon: XCircle, label: "فشل", color: "bg-destructive/10 text-destructive" },
-  pending: { icon: Clock, label: "قيد الانتظار", color: "bg-amber-500/10 text-amber-600" },
+const statusConfig: Record<string, { label: string; tone: StatusTone }> = {
+  sent: { label: "تم الإرسال", tone: "success" },
+  failed: { label: "فشل", tone: "danger" },
+  pending: { label: "قيد الانتظار", tone: "warning" },
 };
 
 const typeLabels: Record<string, string> = {
@@ -28,7 +33,7 @@ const typeLabels: Record<string, string> = {
   custom_message: "رسالة مخصصة",
 };
 
-const NotificationsLog = () => {
+const NotificationsLog = ({ onCompose }: { onCompose?: () => void }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,69 +52,59 @@ const NotificationsLog = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-        <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
-        <p className="text-muted-foreground text-sm mt-3">جارٍ التحميل...</p>
-      </div>
-    );
+    return <div className="h-80 animate-pulse rounded-2xl bg-card shadow-soft" />;
   }
 
   if (notifications.length === 0) {
     return (
-      <div className="bg-card rounded-2xl border border-border/50 p-12 text-center">
-        <MessageSquare className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-        <h3 className="font-semibold text-foreground">لا توجد إشعارات بعد</h3>
-        <p className="text-sm text-muted-foreground mt-1">ستظهر هنا جميع الإشعارات المرسلة</p>
+      <div className="rounded-2xl bg-card shadow-soft">
+        <EmptyState
+          icon={MessageSquare}
+          title="لا توجد إشعارات بعد"
+          description="ستظهر هنا جميع الإشعارات المرسلة"
+          action={onCompose && <Button onClick={onCompose}><Send className="w-4 h-4" /> إرسال إشعار</Button>}
+        />
       </div>
     );
   }
 
   return (
-    <div className="bg-card rounded-2xl border border-border/50 p-6">
-      <h3 className="font-bold text-foreground flex items-center gap-2 mb-4">
-        <MessageSquare className="w-4 h-4 text-primary" />
-        سجل الإشعارات ({notifications.length})
-      </h3>
-      <div className="space-y-3">
-        {notifications.map((notif) => {
-          const statusInfo = statusConfig[notif.status as keyof typeof statusConfig] || statusConfig.pending;
-          const StatusIcon = statusInfo.icon;
-          return (
-            <div key={notif.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${statusInfo.color}`}>
-                  <StatusIcon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground text-sm">
-                    {notif.recipient_name || notif.recipient_phone}
+    <Panel
+      flush
+      title="سجل الإشعارات"
+      actions={<span className="grid h-[22px] min-w-[22px] flex-none place-items-center rounded-full bg-secondary px-1.5 text-xs font-semibold text-primary">{formatNumber(notifications.length)}</span>}
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="ps-6">المستلم</TableHead>
+            <TableHead>النوع</TableHead>
+            <TableHead>التاريخ</TableHead>
+            <TableHead className="pe-6">الحالة</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {notifications.map((notif) => {
+            const statusInfo = statusConfig[notif.status] || statusConfig.pending;
+            return (
+              <TableRow key={notif.id}>
+                <TableCell className="ps-6">
+                  <p className="whitespace-nowrap font-semibold leading-[22px]">
+                    {notif.recipient_name || <bdi dir="ltr">{notif.recipient_phone}</bdi>}
                   </p>
-                  <p className="text-xs text-muted-foreground" dir="ltr">
-                    {notif.recipient_phone}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-left">
-                <div className="text-left">
-                  <Badge variant="outline" className="text-xs mb-1">
-                    {typeLabels[notif.type] || notif.type}
-                  </Badge>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(notif.created_at).toLocaleDateString("ar-SA", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                  {notif.recipient_name && (
+                    <p className="whitespace-nowrap text-xs leading-[18px] text-muted-foreground"><bdi dir="ltr">{notif.recipient_phone}</bdi></p>
+                  )}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">{typeLabels[notif.type] || notif.type}</TableCell>
+                <TableCell className="whitespace-nowrap">{formatDateShort(notif.created_at)}، {formatTime(notif.created_at)}</TableCell>
+                <TableCell className="pe-6"><StatusBadge tone={statusInfo.tone}>{statusInfo.label}</StatusBadge></TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Panel>
   );
 };
 

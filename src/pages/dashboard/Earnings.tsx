@@ -1,12 +1,29 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { DollarSign, TrendingUp, Wallet, CreditCard, ArrowDownRight, Clock } from "lucide-react";
+import { AlertCircle, CreditCard, Plus, Receipt, TrendingUp, Wallet } from "lucide-react";
+import { formatDate, formatNumber } from "@/lib/format";
+
+// مبالغ مالية بكسورها كما هي، بلا تقريب إلى أقرب ريال
+const money = (value: unknown) => `${formatNumber(Number(value || 0))} ر.س`;
+
+const payoutStatus: Record<string, { label: string; tone: StatusTone }> = {
+  completed: { label: "مكتمل", tone: "success" },
+  pending: { label: "معلّق", tone: "warning" },
+  processing: { label: "جاري المعالجة", tone: "primary" },
+  failed: { label: "فشل", tone: "danger" },
+};
 
 const OrganizerEarnings = () => {
   const { user } = useAuth();
@@ -16,6 +33,7 @@ const OrganizerEarnings = () => {
   // البيانات البنكية المسجلة مسبقاً في ملف المنظمة — تُسحب تلقائياً عند طلب التسوية
   const [orgBank, setOrgBank] = useState<{ bank_name: string | null; iban: string | null; bank_account_holder: string | null } | null>(null);
   const [requesting, setRequesting] = useState(false);
+  const [tab, setTab] = useState("transactions");
 
   useEffect(() => {
     if (!user) return;
@@ -68,128 +86,164 @@ const OrganizerEarnings = () => {
     payout: "تسوية",
   };
 
-  if (loading) return <DashboardLayout><div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div></DashboardLayout>;
+  const header = <PageHeader title="الأرباح والتسويات" />;
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          {header}
+          <div className="grid gap-6 md:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-32 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+          <div className="h-72 animate-pulse rounded-2xl bg-card shadow-soft" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto space-y-6">
-        <h1 className="font-bold text-2xl text-foreground">الأرباح والتسويات</h1>
+      <div className="space-y-6">
+        {header}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: "إجمالي الأرباح", value: totalEarnings, icon: TrendingUp, color: "text-green-600", bg: "bg-green-100" },
-            { label: "الرصيد المتاح", value: pendingBalance, icon: Wallet, color: "text-primary", bg: "bg-primary/10" },
-            { label: "تم تحويله", value: totalPaid, icon: CreditCard, color: "text-teal", bg: "bg-teal/10" },
-          ].map(kpi => (
-            <div key={kpi.label} className="bg-card rounded-2xl border border-border/50 p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-8 h-8 rounded-lg ${kpi.bg} flex items-center justify-center`}>
-                  <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
-                </div>
-                <span className="text-xs text-muted-foreground">{kpi.label}</span>
-              </div>
-              <span className="text-2xl font-bold text-foreground">{kpi.value.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">ر.س</span></span>
-            </div>
-          ))}
+        <div className="grid gap-6 md:grid-cols-3">
+          <StatCard label="إجمالي الأرباح" value={formatNumber(totalEarnings)} unit="ر.س" icon={TrendingUp} />
+          <StatCard label="الرصيد المتاح" value={formatNumber(pendingBalance)} unit="ر.س" icon={Wallet} />
+          <StatCard label="تم تحويله" value={formatNumber(totalPaid)} unit="ر.س" icon={CreditCard} />
         </div>
 
-        <Tabs defaultValue="transactions" dir="rtl">
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="transactions">المعاملات</TabsTrigger>
             <TabsTrigger value="payouts">التسويات</TabsTrigger>
             <TabsTrigger value="request">طلب تسوية</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="transactions">
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-border/50 bg-muted/30">
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">التاريخ</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">النوع</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">المبلغ</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">العمولة</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الصافي</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الوصف</th>
-                </tr></thead>
-                <tbody>
-                  {transactions.map(t => (
-                    <tr key={t.id} className="border-b border-border/30">
-                      <td className="p-3 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString("ar-SA")}</td>
-                      <td className="p-3 text-xs font-semibold">{txTypeLabel[t.transaction_type] || t.transaction_type}</td>
-                      <td className="p-3 text-xs font-bold">{Number(t.amount).toLocaleString()} ر.س</td>
-                      <td className="p-3 text-xs text-destructive">{Number(t.commission_amount || 0).toLocaleString()} ر.س</td>
-                      <td className="p-3 text-xs font-bold text-green-600">{Number(t.net_amount || 0).toLocaleString()} ر.س</td>
-                      <td className="p-3 text-xs text-muted-foreground">{t.description_ar || "-"}</td>
-                    </tr>
-                  ))}
-                  {transactions.length === 0 && <tr><td colSpan={6} className="p-12 text-center text-muted-foreground">لا توجد معاملات بعد</td></tr>}
-                </tbody>
-              </table>
-            </div>
+          <TabsContent value="transactions" className="mt-0">
+            <Panel flush>
+              {transactions.length === 0 ? (
+                <EmptyState
+                  icon={Receipt}
+                  title="لا توجد معاملات بعد"
+                  action={<Button asChild size="sm"><Link to="/dashboard/events/create"><Plus className="h-4 w-4" /> إنشاء فعالية</Link></Button>}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">النوع</TableHead>
+                      <TableHead>التاريخ</TableHead>
+                      <TableHead>المبلغ</TableHead>
+                      <TableHead>العمولة</TableHead>
+                      <TableHead className="pe-6">الصافي</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.map(t => (
+                      <TableRow key={t.id}>
+                        <TableCell className="ps-6">
+                          <p className="whitespace-nowrap font-semibold leading-[22px]">{txTypeLabel[t.transaction_type] || t.transaction_type}</p>
+                          <p className="whitespace-nowrap text-xs leading-[18px] text-muted-foreground">{t.description_ar || "—"}</p>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDate(t.created_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{money(t.amount)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{money(t.commission_amount)}</TableCell>
+                        <TableCell className="whitespace-nowrap pe-6 font-semibold">{money(t.net_amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Panel>
           </TabsContent>
 
-          <TabsContent value="payouts">
-            <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-border/50 bg-muted/30">
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">التاريخ</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">المبلغ</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">البنك</th>
-                  <th className="text-right p-3 text-xs text-muted-foreground font-semibold">الحالة</th>
-                </tr></thead>
-                <tbody>
-                  {payouts.map(p => (
-                    <tr key={p.id} className="border-b border-border/30">
-                      <td className="p-3 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString("ar-SA")}</td>
-                      <td className="p-3 text-xs font-bold">{Number(p.amount).toLocaleString()} ر.س</td>
-                      <td className="p-3 text-xs">{p.bank_name || "-"}</td>
-                      <td className="p-3"><Badge variant={p.status === "completed" ? "default" : "secondary"} className="text-[10px]">{p.status === "completed" ? "مكتمل" : p.status === "pending" ? "معلّق" : p.status}</Badge></td>
-                    </tr>
-                  ))}
-                  {payouts.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-muted-foreground">لا توجد تسويات بعد</td></tr>}
-                </tbody>
-              </table>
-            </div>
+          <TabsContent value="payouts" className="mt-0">
+            <Panel flush>
+              {payouts.length === 0 ? (
+                <EmptyState
+                  icon={Wallet}
+                  title="لا توجد تسويات بعد"
+                  action={<Button size="sm" onClick={() => setTab("request")}>طلب تسوية</Button>}
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="ps-6">المبلغ</TableHead>
+                      <TableHead>التاريخ</TableHead>
+                      <TableHead>البنك</TableHead>
+                      <TableHead className="pe-6">الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payouts.map(p => {
+                      const status = payoutStatus[p.status] || { label: p.status, tone: "neutral" as StatusTone };
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="whitespace-nowrap ps-6 font-semibold">{money(p.amount)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatDate(p.created_at)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{p.bank_name || "—"}</TableCell>
+                          <TableCell className="pe-6"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </Panel>
           </TabsContent>
 
-          <TabsContent value="request">
-            <div className="bg-card rounded-2xl border border-border/50 p-6 max-w-md space-y-4">
-              <h2 className="font-bold text-foreground">طلب تسوية جديدة</h2>
-              <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">الرصيد المتاح للتسوية</p>
-                <p className="text-3xl font-extrabold text-primary">{pendingBalance.toLocaleString()} <span className="text-sm font-normal">ر.س</span></p>
+          <TabsContent value="request" className="mt-0">
+            <Panel title="طلب تسوية جديدة" bodyClassName="space-y-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="flex flex-col justify-center rounded-xl bg-muted/50 p-5">
+                  <p className="text-sm font-medium text-muted-foreground">الرصيد المتاح للتسوية</p>
+                  <p className="mt-1.5 flex items-baseline gap-1">
+                    <span className="text-[32px] font-bold leading-10">{formatNumber(pendingBalance)}</span>
+                    <span className="text-sm font-semibold text-muted-foreground">ر.س</span>
+                  </p>
+                </div>
+
+                {bankComplete ? (
+                  <div className="rounded-xl bg-muted/50 p-5">
+                    <p className="mb-3 text-[13px] font-semibold leading-5">سيتم التحويل إلى حسابك البنكي المسجل في ملف المنظمة</p>
+                    <dl className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+                      <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">البنك</dt>
+                        <dd className="mt-0.5 truncate text-sm font-semibold">{orgBank!.bank_name}</dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">صاحب الحساب</dt>
+                        <dd className="mt-0.5 truncate text-sm font-semibold">{orgBank!.bank_account_holder}</dd>
+                      </div>
+                      <div className="min-w-0 sm:col-span-2">
+                        <dt className="text-xs text-muted-foreground"><bdi dir="ltr">IBAN</bdi></dt>
+                        <dd className="mt-0.5 break-all text-sm font-semibold"><bdi dir="ltr">{orgBank!.iban}</bdi></dd>
+                      </div>
+                    </dl>
+                    <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
+                      لتعديل البيانات البنكية: <Link to="/dashboard/settings" className="font-semibold text-primary">إعدادات المنظمة</Link>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 rounded-xl bg-[#FDF3E3] p-5 text-[13px] leading-6 text-[#9A5F12]">
+                    <AlertCircle className="mt-0.5 h-5 w-5 flex-none" />
+                    <p>
+                      لا توجد بيانات بنكية مسجلة في ملف منظمتك بعد.
+                      أضف اسم البنك والآيبان وصاحب الحساب من{" "}
+                      <Link to="/dashboard/settings" className="font-bold underline">إعدادات المنظمة</Link>{" "}
+                      ثم ارجع لطلب التسوية.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {bankComplete ? (
-                <div className="rounded-xl border p-4 space-y-1.5 text-sm">
-                  <p className="text-xs font-bold text-muted-foreground mb-2">
-                    سيتم التحويل إلى حسابك البنكي المسجل في ملف المنظمة:
-                  </p>
-                  <p><span className="text-muted-foreground text-xs">البنك:</span> <span className="font-bold">{orgBank!.bank_name}</span></p>
-                  <p><span className="text-muted-foreground text-xs">IBAN:</span> <span className="font-mono text-xs" dir="ltr">{orgBank!.iban}</span></p>
-                  <p><span className="text-muted-foreground text-xs">صاحب الحساب:</span> <span className="font-bold">{orgBank!.bank_account_holder}</span></p>
-                  <p className="text-[11px] text-muted-foreground pt-1 border-t mt-2">
-                    لتعديل البيانات البنكية: <a href="/dashboard/settings" className="text-primary underline">إعدادات المنظمة</a>
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-xl bg-amber-500/10 border border-amber-400/40 text-amber-800 p-4 text-xs leading-relaxed">
-                  ⚠️ لا توجد بيانات بنكية مسجلة في ملف منظمتك بعد.
-                  أضف اسم البنك والآيبان وصاحب الحساب من{" "}
-                  <a href="/dashboard/settings" className="font-bold underline">إعدادات المنظمة</a>{" "}
-                  ثم ارجع لطلب التسوية.
-                </div>
-              )}
-
-              <Button
-                className="w-full bg-primary hover:bg-primary/90"
-                onClick={requestPayout}
-                disabled={requesting || pendingBalance <= 0 || !bankComplete}
-              >
+              <Button onClick={requestPayout} disabled={requesting || pendingBalance <= 0 || !bankComplete}>
                 {requesting ? "جاري الإرسال..." : "طلب تسوية"}
               </Button>
-            </div>
+            </Panel>
           </TabsContent>
         </Tabs>
       </div>

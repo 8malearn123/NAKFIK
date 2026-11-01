@@ -1,29 +1,21 @@
 import Navbar from "@/components/landing/Navbar";
 import Footer from "@/components/landing/Footer";
 import InAppNotifications from "@/components/notifications/InAppNotifications";
-import { Bell } from "lucide-react";
+import PageHeader from "@/components/app/PageHeader";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const MyNotifications = () => {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen font-cairo">
+    <div className="flex min-h-screen flex-col bg-background font-cairo">
       <Navbar />
-      <section className="pt-24 pb-16 bg-background">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Bell className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-bold text-3xl text-foreground">{t("pgMyNotifications.title")}</h1>
-              <p className="text-muted-foreground text-sm mt-0.5">{t("pgMyNotifications.subtitle")}</p>
-            </div>
-          </div>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">
+        <div className="space-y-6">
+          <PageHeader title={t("pgMyNotifications.title")} description={t("pgMyNotifications.subtitle")} />
           <InAppNotifications />
         </div>
-      </section>
+      </main>
       <Footer />
     </div>
   );
