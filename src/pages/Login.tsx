@@ -166,30 +166,32 @@ const Login = () => {
             </Button>
           </form>
 
-          {/* Demo Accounts */}
-          <div className="mt-6 rounded-xl bg-muted/60 p-4">
-            <p className="mb-3 text-center text-xs font-semibold text-muted-foreground">{t("pgAuth.login.demoTitle")}</p>
-            <div className="space-y-2">
-              {[
-                { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
-                { label: t("pgAuth.login.demoOrganizerPublic"), email: "org-public@nakfeek.sa" },
-                { label: t("pgAuth.login.demoOrganizerPrivate"), email: "org-private@nakfeek.sa" },
-                { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
-                { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
-              ].map((demo) => (
-                <button
-                  key={demo.email}
-                  type="button"
-                  onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
-                  className="flex w-full items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-start text-xs transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className="truncate font-semibold">{demo.label}</span>
-                  <bdi dir="ltr" className="flex-none text-muted-foreground">{demo.email}</bdi>
-                </button>
-              ))}
+          {/* حسابات الديمو للتطوير المحلي فقط، حتى لا تظهر بيانات الدخول لزوار الموقع */}
+          {import.meta.env.DEV && (
+            <div className="mt-6 rounded-xl bg-muted/60 p-4">
+              <p className="mb-3 text-center text-xs font-semibold text-muted-foreground">{t("pgAuth.login.demoTitle")}</p>
+              <div className="space-y-2">
+                {[
+                  { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoOrganizerPublic"), email: "org-public@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoOrganizerPrivate"), email: "org-private@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
+                ].map((demo) => (
+                  <button
+                    key={demo.email}
+                    type="button"
+                    onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-start text-xs transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="truncate font-semibold">{demo.label}</span>
+                    <bdi dir="ltr" className="flex-none text-muted-foreground">{demo.email}</bdi>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-center text-xs text-muted-foreground" dir="ltr">Password: Demo@12345</p>
             </div>
-            <p className="mt-3 text-center text-xs text-muted-foreground" dir="ltr">Password: Demo@12345</p>
-          </div>
+          )}
 
           <div className="mt-6 text-center">
             <Link to="/" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
