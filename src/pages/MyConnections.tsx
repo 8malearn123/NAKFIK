@@ -3,10 +3,12 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatDate, formatNumber } from "@/lib/format";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
+import StatCard from "@/components/app/StatCard";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -15,8 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Navbar from "@/components/landing/Navbar";
+import Footer from "@/components/landing/Footer";
 import {
-  Loader2,
   Download,
   ExternalLink,
   Users,
@@ -50,6 +52,9 @@ interface ConnectionRow {
 export default function MyConnections({ embedded = false }: { embedded?: boolean }) {
   const { user } = useAuth();
   const { t, lang, dir } = useLanguage();
+  // داخل نافذة الملف الشخصي تصبح البطاقات أسطحاً متداخلة، فلا تحتاج ظلاً
+  const statCls = embedded ? "rounded-xl bg-muted/50 !shadow-none" : undefined;
+  const surfaceCls = embedded ? "rounded-xl bg-muted/50" : "rounded-2xl bg-card shadow-soft";
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ConnectionRow[]>([]);
   const [query, setQuery] = useState("");
@@ -144,7 +149,7 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
       [t("pgNetworking.connections.csvWhatsapp")]: r.contact.whatsapp,
       [t("pgNetworking.connections.csvEmail")]: r.contact.email_public,
       [t("pgNetworking.connections.csvEvent")]: r.event_title,
-      [t("pgNetworking.connections.csvDate")]: new Date(r.scanned_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US"),
+      [t("pgNetworking.connections.csvDate")]: formatDate(r.scanned_at, true, lang),
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -158,187 +163,185 @@ export default function MyConnections({ embedded = false }: { embedded?: boolean
     return `https://wa.me/${clean}`;
   };
 
-  return (
-    <div className={embedded ? "" : "min-h-screen bg-background"} dir={dir}>
-      {!embedded && <Navbar />}
-      <div className={embedded ? "" : "container mx-auto pt-24 pb-12 px-4 max-w-5xl"}>
-        {/* Hero */}
-        <div className="rounded-3xl bg-gradient-to-l from-primary via-brand-mauve to-brand-purple text-primary-foreground p-6 md:p-8 mb-6 shadow-elegant">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold font-cairo flex items-center gap-2">
-                <Users className="w-7 h-7" /> {t("pgNetworking.connections.title")}
-              </h1>
-              <p className="opacity-90 mt-1 text-sm">
-                {t("pgNetworking.connections.subtitle")}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/my/profile/networking">
-                  <QrCode className="w-4 h-4 ms-2" /> {t("pgNetworking.connections.myCard")}
-                </Link>
-              </Button>
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/my/notifications">
-                  <Bell className="w-4 h-4 ms-2" /> {t("pgNetworking.connections.notifications")}
-                </Link>
-              </Button>
-            </div>
-          </div>
+  const content = (
+    <div className="space-y-6">
+      <PageHeader
+        title={t("pgNetworking.connections.title")}
+        description={t("pgNetworking.connections.subtitle")}
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link to="/my/profile/networking">
+                <QrCode className="h-4 w-4" /> {t("pgNetworking.connections.myCard")}
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/my/notifications">
+                <Bell className="h-4 w-4" /> {t("pgNetworking.connections.notifications")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
-          <div className="grid grid-cols-3 gap-3 mt-6">
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
-              <p className="text-2xl font-bold">{rows.length}</p>
-              <p className="text-xs opacity-80">{t("pgNetworking.connections.statContacts")}</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
-              <p className="text-2xl font-bold">{events.length}</p>
-              <p className="text-xs opacity-80">{t("pgNetworking.connections.statEvents")}</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
-              <p className="text-2xl font-bold">{companies}</p>
-              <p className="text-xs opacity-80">{t("pgNetworking.connections.statCompanies")}</p>
-            </div>
-          </div>
+      <div className="grid gap-6 sm:grid-cols-3">
+        <StatCard className={statCls} label={t("pgNetworking.connections.statContacts")} value={formatNumber(rows.length)} icon={Users} />
+        <StatCard className={statCls} label={t("pgNetworking.connections.statEvents")} value={formatNumber(events.length)} icon={CalendarIcon} />
+        <StatCard className={statCls} label={t("pgNetworking.connections.statCompanies")} value={formatNumber(companies)} icon={Building2} />
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={t("pgNetworking.connections.searchPlaceholder")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="ps-3 pe-9"
+          />
         </div>
+        <Select value={eventFilter} onValueChange={setEventFilter}>
+          <SelectTrigger className="h-10 w-auto min-w-[150px] flex-1 gap-2 font-medium sm:flex-none">
+            <SelectValue placeholder={t("pgNetworking.connections.allEvents")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("pgNetworking.connections.allEvents")}</SelectItem>
+            {events.map(([id, name]) => (
+              <SelectItem key={id} value={id}>
+                {name}
+              </SelectItem>
+            ))}
+            <SelectItem value="none">{t("pgNetworking.connections.noEvent")}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v: any) => setSort(v)}>
+          <SelectTrigger className="h-10 w-auto min-w-[130px] flex-1 gap-2 font-medium sm:flex-none">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="recent">{t("pgNetworking.connections.sortRecent")}</SelectItem>
+            <SelectItem value="name">{t("pgNetworking.connections.sortName")}</SelectItem>
+            <SelectItem value="company">{t("pgNetworking.connections.sortCompany")}</SelectItem>
+          </SelectContent>
+        </Select>
+        {filtered.length > 0 && (
+          <Button onClick={exportCsv} variant="outline" className="w-full sm:w-auto">
+            <Download className="h-4 w-4" /> {t("pgNetworking.connections.exportExcel")}
+          </Button>
+        )}
+      </div>
 
-        {/* Toolbar */}
-        <Card className="p-4 mb-6 flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={t("pgNetworking.connections.searchPlaceholder")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="ps-3 pe-9"
-            />
-          </div>
-          <Select value={eventFilter} onValueChange={setEventFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={t("pgNetworking.connections.allEvents")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("pgNetworking.connections.allEvents")}</SelectItem>
-              {events.map(([id, name]) => (
-                <SelectItem key={id} value={id}>
-                  {name}
-                </SelectItem>
-              ))}
-              <SelectItem value="none">{t("pgNetworking.connections.noEvent")}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={sort} onValueChange={(v: any) => setSort(v)}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recent">{t("pgNetworking.connections.sortRecent")}</SelectItem>
-              <SelectItem value="name">{t("pgNetworking.connections.sortName")}</SelectItem>
-              <SelectItem value="company">{t("pgNetworking.connections.sortCompany")}</SelectItem>
-            </SelectContent>
-          </Select>
-          {filtered.length > 0 && (
-            <Button onClick={exportCsv} variant="outline" size="sm">
-              <Download className="w-4 h-4 ms-2" /> {t("pgNetworking.connections.exportExcel")}
-            </Button>
-          )}
-        </Card>
-
-        {/* List */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin" />
-          </div>
-        ) : rows.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground mb-4">{t("pgNetworking.connections.emptyState")}</p>
-            <Button asChild>
-              <Link to="/events">{t("pgNetworking.connections.browseEvents")}</Link>
-            </Button>
-          </Card>
-        ) : filtered.length === 0 ? (
-          <Card className="p-12 text-center text-muted-foreground">
-            {t("pgNetworking.connections.noResults")}
-          </Card>
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {filtered.map((r) => {
-              const wa = waLink(r.contact.whatsapp);
-              return (
-                <Card
-                  key={r.id}
-                  className="p-4 hover:shadow-elegant transition-all border-s-4 border-s-primary/40"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-brand-mauve flex items-center justify-center font-bold text-primary-foreground overflow-hidden shrink-0">
-                      {r.contact.avatar_url ? (
-                        <img
-                          src={r.contact.avatar_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        r.contact.full_name?.[0] || "?"
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{r.contact.full_name || t("pgNetworking.connections.noName")}</p>
-                      {r.contact.job_title && (
-                        <p className="text-sm text-muted-foreground truncate">
-                          {r.contact.job_title}
-                        </p>
-                      )}
+      {/* List */}
+      {loading ? (
+        <div className="grid gap-6 sm:grid-cols-2">
+          {[1, 2].map((i) => <div key={i} className="h-48 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className={surfaceCls}>
+          <EmptyState
+            icon={Users}
+            title={t("pgNetworking.connections.emptyState")}
+            action={<Button asChild><Link to="/events">{t("pgNetworking.connections.browseEvents")}</Link></Button>}
+          />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className={surfaceCls}>
+          <EmptyState
+            icon={Search}
+            title={t("pgNetworking.connections.noResults")}
+            action={<Button variant="outline" size="sm" onClick={() => { setQuery(""); setEventFilter("all"); }}>{lang === "ar" ? "إعادة تعيين" : "Reset"}</Button>}
+          />
+        </div>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2">
+          {filtered.map((r) => {
+            const wa = waLink(r.contact.whatsapp);
+            return (
+              <article key={r.id} className={`flex flex-col p-5 ${surfaceCls}`}>
+                <div className="flex items-start gap-3">
+                  <div className="grid h-12 w-12 flex-none place-items-center overflow-hidden rounded-full bg-secondary font-bold text-primary">
+                    {r.contact.avatar_url ? (
+                      <img
+                        src={r.contact.avatar_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      r.contact.full_name?.[0] || "?"
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-bold leading-6">{r.contact.full_name || t("pgNetworking.connections.noName")}</p>
+                    {r.contact.job_title && (
+                      <p className="truncate text-[13px] leading-5 text-muted-foreground">
+                        {r.contact.job_title}
+                      </p>
+                    )}
+                    <div className="mt-2 space-y-1 text-[13px] leading-5 text-muted-foreground">
                       {r.contact.company && (
-                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mt-0.5">
-                          <Building2 className="w-3 h-3" /> {r.contact.company}
+                        <p className="flex items-center gap-2">
+                          <Building2 className="h-[15px] w-[15px] flex-none opacity-70" />
+                          <span className="truncate">{r.contact.company}</span>
                         </p>
                       )}
                       {r.event_title && (
-                        <Badge variant="secondary" className="mt-2 text-[10px] gap-1">
-                          <CalendarIcon className="w-3 h-3" />
-                          {r.event_title}
-                        </Badge>
+                        <p className="flex items-center gap-2">
+                          <CalendarIcon className="h-[15px] w-[15px] flex-none opacity-70" />
+                          <span className="truncate">{r.event_title}</span>
+                        </p>
                       )}
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t">
+                {(wa || r.contact.email_public || r.contact.connect_code) && (
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {wa && (
-                      <Button size="sm" variant="outline" className="h-8 px-2" asChild>
+                      <Button size="sm" variant="outline" asChild>
                         <a href={wa} target="_blank" rel="noreferrer">
-                          <MessageCircle className="w-3.5 h-3.5 ms-1 text-brand-teal" />
+                          <MessageCircle className="h-[15px] w-[15px]" />
                           {t("pgNetworking.connections.whatsapp")}
                         </a>
                       </Button>
                     )}
                     {r.contact.email_public && (
-                      <Button size="sm" variant="outline" className="h-8 px-2" asChild>
+                      <Button size="sm" variant="outline" asChild>
                         <a href={`mailto:${r.contact.email_public}`}>
-                          <Mail className="w-3.5 h-3.5 ms-1" />
+                          <Mail className="h-[15px] w-[15px]" />
                           {t("pgNetworking.connections.email")}
                         </a>
                       </Button>
                     )}
                     {r.contact.connect_code && (
-                      <Button size="sm" variant="outline" className="h-8 px-2" asChild>
+                      <Button size="sm" variant="outline" asChild>
                         <Link
                           to={`/connect/${r.contact.connect_code}`}
                           target="_blank"
                         >
-                          <ExternalLink className="w-3.5 h-3.5 ms-1" />
+                          <ExternalLink className="h-[15px] w-[15px]" />
                           {t("pgNetworking.connections.card")}
                         </Link>
                       </Button>
                     )}
                   </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  // داخل نافذة منبثقة (من صفحة الملف الشخصي) بدون شريط التنقل والتذييل
+  if (embedded) return <div dir={dir}>{content}</div>;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-background font-cairo" dir={dir}>
+      <Navbar />
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-24">{content}</main>
+      <Footer />
     </div>
   );
 }

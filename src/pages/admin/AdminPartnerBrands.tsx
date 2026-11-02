@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AdminLayout from "@/components/admin/AdminLayout";
+import EmptyState from "@/components/app/EmptyState";
+import PageHeader from "@/components/app/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,10 +12,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { formatNumber, formatPercent } from "@/lib/format";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit } from "lucide-react";
+import { Pencil, Plus, Tag, Trash2 } from "lucide-react";
 
 interface Brand {
   id: string; name: string; logo_url: string | null; description: string | null;
@@ -31,6 +34,7 @@ const empty = {
 
 const AdminPartnerBrands = () => {
   const [items, setItems] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(empty);
@@ -38,6 +42,7 @@ const AdminPartnerBrands = () => {
   const load = async () => {
     const { data } = await supabase.from("partner_brands").select("*").order("display_order");
     setItems((data as any) || []);
+    setLoading(false);
   };
   useEffect(() => { document.title = "شركاء الخصومات | الأدمن"; load(); }, []);
 
@@ -87,53 +92,78 @@ const AdminPartnerBrands = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl text-primary">شركاء الخصومات</h1>
-          <Button onClick={openNew}><Plus className="w-4 h-4 ml-1" /> إضافة شريك</Button>
-        </div>
+        <PageHeader
+          title="شركاء الخصومات"
+          actions={<Button onClick={openNew}><Plus className="h-4 w-4" /> إضافة شريك</Button>}
+        />
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.length === 0 && <p className="col-span-full text-center text-muted-foreground p-8">لا يوجد شركاء بعد</p>}
-          {items.map((b) => (
-            <div key={b.id} className="bg-card border rounded-2xl p-4 space-y-2">
-              <div className="flex items-center gap-3">
-                {b.logo_url && <img src={b.logo_url} alt={b.name} className="w-12 h-12 rounded-lg object-cover" />}
-                <div className="flex-1">
-                  <h3 className="font-bold">{b.name}</h3>
-                  {b.category && <p className="text-xs text-muted-foreground">{b.category}</p>}
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-60 animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-2xl bg-card shadow-soft">
+            <EmptyState
+              icon={Tag}
+              title="لا يوجد شركاء بعد"
+              action={<Button variant="soft" size="sm" onClick={openNew}><Plus className="h-4 w-4" /> إضافة شريك</Button>}
+            />
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {items.map((b) => (
+              <article key={b.id} className="flex min-w-0 flex-col gap-3 rounded-2xl bg-card p-5 shadow-soft">
+                <div className="flex items-center gap-3">
+                  {b.logo_url ? (
+                    <img src={b.logo_url} alt={b.name} className="h-9 w-9 flex-none rounded-[10px] object-cover" />
+                  ) : (
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                      <Tag className="h-[18px] w-[18px]" />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-base font-bold leading-6">{b.name}</h3>
+                    {b.category && <p className="truncate text-xs leading-[18px] text-muted-foreground">{b.category}</p>}
+                  </div>
+                  <Switch checked={b.is_active} onCheckedChange={() => toggle(b)} aria-label={`تفعيل ${b.name}`} />
                 </div>
-                <Switch checked={b.is_active} onCheckedChange={() => toggle(b)} />
-              </div>
-              {b.description && <p className="text-sm text-muted-foreground line-clamp-2">{b.description}</p>}
-              <div className="bg-muted rounded-lg p-2 text-center">
-                <span className="font-mono font-bold text-primary">{b.discount_code}</span>
-                <span className="text-xs text-muted-foreground mr-2">
-                  {b.discount_type === "percent" ? `${b.discount_value}%` : `${b.discount_value} ر.س`}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => openEdit(b)}><Edit className="w-3 h-3" /></Button>
-                <Button variant="ghost" size="sm" onClick={() => remove(b.id)}>
-                  <Trash2 className="w-3 h-3 text-destructive" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
+                {b.description && <p className="line-clamp-2 text-[13px] leading-5 text-muted-foreground">{b.description}</p>}
+                <div className="mt-auto space-y-4">
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-2.5">
+                    <p className="min-w-0 truncate text-sm font-bold leading-[22px]"><bdi dir="ltr">{b.discount_code}</bdi></p>
+                    <span className="flex-none text-[13px] font-semibold text-muted-foreground">
+                      {b.discount_type === "percent" ? formatPercent(b.discount_value) : `${formatNumber(b.discount_value)} ر.س`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="soft" className="flex-1" onClick={() => openEdit(b)}>
+                      <Pencil className="h-[15px] w-[15px]" /> تعديل
+                    </Button>
+                    <Button size="icon" variant="outline" aria-label="حذف" className="h-9 w-9 flex-none text-destructive hover:text-destructive" onClick={() => remove(b.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
-            <DialogHeader>
+          <DialogContent className="max-h-[90vh] w-[calc(100%-1.5rem)] rounded-2xl max-w-lg overflow-y-auto" dir="rtl">
+            <DialogHeader className="pe-6 text-start">
               <DialogTitle>{editingId ? "تعديل شريك" : "إضافة شريك"}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
-              <div><Label>الاسم *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div><Label>الفئة</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="مثال: مطاعم، فنادق" /></div>
-              <div><Label>رابط الشعار</Label><Input dir="ltr" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} /></div>
-              <div><Label>الوصف</Label><Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label>كود الخصم *</Label><Input dir="ltr" value={form.discount_code} onChange={(e) => setForm({ ...form, discount_code: e.target.value.toUpperCase() })} /></div>
-                <div>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>الاسم *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                <div className="space-y-2"><Label>الفئة</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="مثال: مطاعم، فنادق" /></div>
+              </div>
+              <div className="space-y-2"><Label>رابط الشعار</Label><Input dir="ltr" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} /></div>
+              <div className="space-y-2"><Label>الوصف</Label><Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="col-span-2 space-y-2 sm:col-span-1"><Label>كود الخصم *</Label><Input dir="ltr" value={form.discount_code} onChange={(e) => setForm({ ...form, discount_code: e.target.value.toUpperCase() })} /></div>
+                <div className="space-y-2">
                   <Label>النوع</Label>
                   <Select value={form.discount_type} onValueChange={(v: any) => setForm({ ...form, discount_type: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -143,13 +173,18 @@ const AdminPartnerBrands = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>القيمة</Label><Input type="number" value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })} /></div>
+                <div className="space-y-2"><Label>القيمة</Label><Input type="number" value={form.discount_value} onChange={(e) => setForm({ ...form, discount_value: Number(e.target.value) })} /></div>
               </div>
-              <div><Label>الشروط</Label><Textarea rows={2} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} /></div>
-              <div><Label>رابط الموقع</Label><Input dir="ltr" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} /></div>
-              <div><Label>تاريخ الانتهاء</Label><Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} /></div>
-              <Button onClick={save} className="w-full">حفظ</Button>
+              <div className="space-y-2"><Label>الشروط</Label><Textarea rows={2} value={form.terms} onChange={(e) => setForm({ ...form, terms: e.target.value })} /></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2"><Label>رابط الموقع</Label><Input dir="ltr" value={form.website_url} onChange={(e) => setForm({ ...form, website_url: e.target.value })} /></div>
+                <div className="space-y-2"><Label>تاريخ الانتهاء</Label><Input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} /></div>
+              </div>
             </div>
+            <DialogFooter className="flex-col sm:flex-row">
+              <Button onClick={save}>حفظ</Button>
+              <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

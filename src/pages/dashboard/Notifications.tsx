@@ -1,66 +1,43 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import PageHeader from "@/components/app/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion } from "framer-motion";
-import { Bell, Send, History, Settings2 } from "lucide-react";
 import SendNotification from "@/components/notifications/SendNotification";
 import NotificationsLog from "@/components/notifications/NotificationsLog";
 import WhatsAppSettings from "@/components/notifications/WhatsAppSettings";
 import InAppNotifications from "@/components/notifications/InAppNotifications";
 
 const Notifications = () => {
+  const [tab, setTab] = useState("send");
+
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="font-bold text-2xl text-foreground">الإشعارات</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            إرسال وإدارة الإشعارات عبر واتساب والمنصة
-          </p>
-        </div>
+      <div className="space-y-6">
+        <PageHeader title="الإشعارات" description="إرسال وإدارة الإشعارات عبر واتساب والمنصة" />
 
-        <Tabs defaultValue="send" dir="rtl">
-          <TabsList className="mb-6 w-full justify-start">
-            <TabsTrigger value="send" className="gap-1.5">
-              <Send className="w-4 h-4" />
-              إرسال إشعار
-            </TabsTrigger>
-            <TabsTrigger value="inbox" className="gap-1.5">
-              <Bell className="w-4 h-4" />
-              الوارد
-            </TabsTrigger>
-            <TabsTrigger value="log" className="gap-1.5">
-              <History className="w-4 h-4" />
-              السجل
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5">
-              <Settings2 className="w-4 h-4" />
-              إعدادات واتساب
-            </TabsTrigger>
+        <Tabs value={tab} onValueChange={setTab} dir="rtl">
+          {/* الشريط يمرر داخل مكانه على الجوال حتى لا تتمدد الصفحة أفقياً */}
+          <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsTrigger value="send" className="px-3 sm:px-4">إرسال إشعار</TabsTrigger>
+            <TabsTrigger value="inbox" className="px-3 sm:px-4">الوارد</TabsTrigger>
+            <TabsTrigger value="log" className="px-3 sm:px-4">السجل</TabsTrigger>
+            <TabsTrigger value="settings" className="px-3 sm:px-4">إعدادات واتساب</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="send">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <SendNotification />
-            </motion.div>
+          <TabsContent value="send" className="mt-6">
+            <SendNotification />
           </TabsContent>
 
-          <TabsContent value="inbox">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <InAppNotifications />
-            </motion.div>
+          <TabsContent value="inbox" className="mt-6">
+            <InAppNotifications />
           </TabsContent>
 
-          <TabsContent value="log">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <NotificationsLog />
-            </motion.div>
+          <TabsContent value="log" className="mt-6">
+            <NotificationsLog onCompose={() => setTab("send")} />
           </TabsContent>
 
-          <TabsContent value="settings">
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <WhatsAppSettings />
-            </motion.div>
+          <TabsContent value="settings" className="mt-6">
+            <WhatsAppSettings />
           </TabsContent>
         </Tabs>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import {
   Activity,
   CalendarPlus,
@@ -8,6 +8,9 @@ import {
   Ticket,
   UserCheck,
 } from "lucide-react";
+import EmptyState from "@/components/app/EmptyState";
+import Panel from "@/components/app/Panel";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffectiveUser } from "@/hooks/useEffectiveUser";
 import { formatRelativeTime } from "@/lib/relativeTime";
@@ -23,12 +26,12 @@ interface ActivityItem {
   desc: string;
 }
 
-const typeMeta: Record<ActivityType, { icon: typeof Activity; color: string; title: string }> = {
-  create: { icon: CalendarPlus, color: "bg-primary/10 text-primary", title: "إنشاء فعالية جديدة" },
-  update: { icon: Pencil, color: "bg-brand-brick/10 text-brand-brick", title: "تحديث فعالية" },
-  ticket: { icon: Ticket, color: "bg-accent/10 text-accent", title: "تسجيل جديد" },
-  checkin: { icon: UserCheck, color: "bg-teal/10 text-teal", title: "تسجيل حضور" },
-  invite: { icon: Send, color: "bg-primary/10 text-primary", title: "دعوة خاصة" },
+const typeMeta: Record<ActivityType, { icon: typeof Activity; title: string }> = {
+  create: { icon: CalendarPlus, title: "إنشاء فعالية جديدة" },
+  update: { icon: Pencil, title: "تحديث فعالية" },
+  ticket: { icon: Ticket, title: "تسجيل جديد" },
+  checkin: { icon: UserCheck, title: "تسجيل حضور" },
+  invite: { icon: Send, title: "دعوة خاصة" },
 };
 
 const RecentActivity = () => {
@@ -97,55 +100,37 @@ const RecentActivity = () => {
   const now = new Date();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4 }}
-      className="bg-card rounded-2xl p-5 border border-border/50"
-    >
-      <div className="flex items-center gap-2 mb-4">
-        <Activity className="w-4 h-4 text-primary" />
-        <h3 className="font-bold text-foreground">آخر الأنشطة</h3>
-      </div>
-
+    <Panel title="آخر الأنشطة">
       {loading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse bg-muted/50 rounded-xl h-14" />
-          ))}
+          {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/60" />)}
         </div>
       ) : items.length > 0 ? (
-        <div className="space-y-3">
+        <div className="divide-y divide-border">
           {items.map((item, i) => {
             const meta = typeMeta[item.type];
             return (
-              <div
-                key={i}
-                className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div
-                  className={`w-10 h-10 rounded-lg ${meta.color} flex items-center justify-center flex-shrink-0`}
-                >
-                  <meta.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-sm text-foreground">{meta.title}</h4>
-                  <p className="text-muted-foreground text-xs truncate">{item.desc}</p>
-                </div>
-                <span className="text-muted-foreground text-[10px] whitespace-nowrap mt-1">
-                  {formatRelativeTime(item.time, now)}
+              <div key={i} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <span className="grid h-9 w-9 flex-none place-items-center rounded-[10px] bg-secondary text-primary">
+                  <meta.icon className="h-[17px] w-[17px]" />
                 </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold leading-[22px]">{meta.title}</p>
+                  <p className="truncate text-xs leading-[18px] text-muted-foreground">{item.desc}</p>
+                </div>
+                <span className="flex-none text-xs leading-[18px] text-muted-foreground">{formatRelativeTime(item.time, now)}</span>
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="text-center py-8">
-          <Activity className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-          <p className="text-muted-foreground text-sm">لا توجد أنشطة بعد</p>
-        </div>
+        <EmptyState
+          icon={Activity}
+          title="لا توجد أنشطة بعد"
+          action={<Button asChild size="sm"><Link to="/dashboard/events/create">إنشاء فعالية</Link></Button>}
+        />
       )}
-    </motion.div>
+    </Panel>
   );
 };
 

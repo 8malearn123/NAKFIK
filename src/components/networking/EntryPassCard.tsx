@@ -3,6 +3,7 @@ import { CalendarDays, MapPin, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BrandLogo from "@/components/brand/BrandLogo";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { formatDateTime } from "@/lib/format";
 
 export interface EntryPass {
   event_title: string;
@@ -25,7 +26,7 @@ interface Props {
 const EntryPassCard = ({ fullName, pass, onShowAll }: Props) => {
   const { t, lang } = useLanguage();
   const date = pass
-    ? new Date(pass.start_date).toLocaleString(lang === "ar" ? "ar-SA" : "en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
+    ? formatDateTime(pass.start_date, lang)
     : "";
 
   return (

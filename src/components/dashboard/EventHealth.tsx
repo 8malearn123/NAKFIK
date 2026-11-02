@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { HeartPulse, Lightbulb, CheckCircle2, XCircle, Lock } from "lucide-react";
+import { Lightbulb, CheckCircle2, XCircle } from "lucide-react";
+import Panel from "@/components/app/Panel";
+import StatusBadge, { type StatusTone } from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   computeEventHealth, computeEventReadiness, healthMeta, READINESS_THRESHOLD,
-  type EventHealth as Health, type EventReadiness,
+  type EventHealth as Health, type EventReadiness, type HealthLevel,
 } from "@/lib/eventHealth";
+import { formatPercent } from "@/lib/format";
 import { getRatingSummary } from "@/lib/ratings";
 
 // بطاقة "صحة الفعالية" — درجة من 100 خاصة بالفعالية المعروضة.
 // تُعرض في صفحة تفاصيل الفعالية للمنظّم مالكها فقط.
+
+const LEVEL_STYLES: Record<HealthLevel, { tone: StatusTone; tile: string; bar: string }> = {
+  excellent: { tone: "success", tile: "bg-[#E8F5EE] text-[#0E7A4F]", bar: "bg-[#0E7A4F]" },
+  good: { tone: "warning", tile: "bg-[#FDF3E3] text-[#9A5F12]", bar: "bg-[#CC8E3D]" },
+  poor: { tone: "danger", tile: "bg-[#FBECEA] text-[#B42F24]", bar: "bg-[#C0392B]" },
+};
 
 const EventHealthCard = ({ eventId }: { eventId: string }) => {
   const [health, setHealth] = useState<Health | null>(null);
@@ -73,84 +81,56 @@ const EventHealthCard = ({ eventId }: { eventId: string }) => {
 
   if (!health) return null;
   const meta = healthMeta[health.level];
+  const level = LEVEL_STYLES[health.level];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card border rounded-2xl p-5"
-    >
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold text-lg flex items-center gap-2">
-          <HeartPulse className="w-5 h-5 text-primary" /> صحة الفعالية
-        </h2>
-        <span className="text-[11px] text-muted-foreground">درجة من 100 — يراها المنظم فقط</span>
-      </div>
-
+    <Panel title="صحة الفعالية" description="درجة من 100 — يراها المنظم فقط" bodyClassName="space-y-3">
       <Link
         to={`/dashboard/events/${eventId}/edit`}
-        className="block border rounded-xl p-3 hover:bg-muted/40 transition"
+        className="flex items-center gap-3 rounded-xl bg-muted/50 p-3 transition-colors hover:bg-muted"
       >
-        <div className="flex items-center gap-3">
-          {/* الدرجة */}
-          <div className={`w-12 h-12 rounded-full flex flex-col items-center justify-center flex-shrink-0 ${meta.bg}`}>
-            <span className={`text-sm font-extrabold leading-none ${meta.text}`}>{health.score}</span>
-            <span className={`text-[8px] font-bold ${meta.text}`}>/100</span>
+        <span className={`grid h-11 w-11 flex-none place-items-center rounded-[10px] text-base font-bold ${level.tile}`}>{health.score}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 truncate text-sm font-semibold leading-[22px]">{title}</span>
+            <StatusBadge tone={level.tone} className="ms-auto">{meta.label}</StatusBadge>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-sm truncate">{title}</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${meta.bg} ${meta.text}`}>
-                {meta.label}
-              </span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full mt-2 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${meta.bar}`}
-                style={{ width: `${health.score}%` }}
-              />
-            </div>
-            {health.suggestions.length > 0 && (
-              <p className="text-[11px] text-muted-foreground mt-1.5 flex items-start gap-1">
-                <Lightbulb className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-500" />
-                {health.suggestions.join(" · ")}
-              </p>
-            )}
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EFEDF2]">
+            <div className={`h-full rounded-full transition-all ${level.bar}`} style={{ width: `${health.score}%` }} />
           </div>
+          {health.suggestions.length > 0 && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-[18px] text-muted-foreground">
+              <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-none text-accent" />
+              {health.suggestions.join(" · ")}
+            </p>
+          )}
         </div>
       </Link>
 
       {/* قائمة الحقول الإلزامية — تحدد جاهزية الإرسال للمراجعة */}
       {readiness && (
-        <div className="mt-3 border rounded-xl p-3">
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <span className="text-xs font-bold">اكتمال البيانات الإلزامية: {readiness.score}%</span>
+        <div className="rounded-xl bg-muted/50 p-3">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold leading-5">اكتمال البيانات الإلزامية: {formatPercent(readiness.score)}</span>
             {isDraft && (
-              <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 inline-flex items-center gap-1 ${
-                readiness.ready ? "bg-green-500/10 text-green-700" : "bg-amber-100 text-amber-800"
-              }`}>
-                {readiness.ready
-                  ? <><CheckCircle2 className="w-3 h-3" /> جاهزة للإرسال للمراجعة</>
-                  : <><Lock className="w-3 h-3" /> الإرسال للمراجعة يتطلب {READINESS_THRESHOLD}%</>}
-              </span>
+              <StatusBadge tone={readiness.ready ? "success" : "warning"}>
+                {readiness.ready ? "جاهزة للإرسال للمراجعة" : `الإرسال للمراجعة يتطلب ${formatPercent(READINESS_THRESHOLD)}`}
+              </StatusBadge>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-3">
             {readiness.items.map((item) => (
-              <span
-                key={item.key}
-                className={`text-[11px] rounded-lg px-2 py-1 inline-flex items-center gap-1 ${
-                  item.done ? "bg-green-500/10 text-green-700" : "bg-destructive/10 text-destructive"
-                }`}
-              >
-                {item.done ? <CheckCircle2 className="w-3 h-3 flex-shrink-0" /> : <XCircle className="w-3 h-3 flex-shrink-0" />}
-                {item.done ? item.label : item.missingLabel}
+              <span key={item.key} className="flex min-w-0 items-center gap-1.5 text-xs leading-[18px]">
+                {item.done
+                  ? <CheckCircle2 className="h-3.5 w-3.5 flex-none text-[#0E7A4F]" />
+                  : <XCircle className="h-3.5 w-3.5 flex-none text-[#B42F24]" />}
+                <span className={item.done ? "text-muted-foreground" : "font-semibold text-[#B42F24]"}>{item.done ? item.label : item.missingLabel}</span>
               </span>
             ))}
           </div>
         </div>
       )}
-    </motion.div>
+    </Panel>
   );
 };
 

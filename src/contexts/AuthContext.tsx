@@ -69,6 +69,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  // صاحب البيانات المحمّلة: بعد الدخول يصل user قبل ملفه، فننتظر حتى لا يعيده ProtectedRoute للرئيسية
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -105,6 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       checkSuperAdmin(userId),
       p?.account_type === "organizer" ? fetchOrganization(userId) : Promise.resolve(),
     ]);
+    setLoadedUserId(userId);
   };
 
   const refreshProfile = async () => {
@@ -126,6 +129,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
           setOrganization(null);
           setIsSuperAdmin(false);
+          setLoadedUserId(null);
           setLoading(false);
         }
       }
@@ -150,10 +154,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setOrganization(null);
     setIsSuperAdmin(false);
+    setLoadedUserId(null);
   };
 
+  // تحديث التوكن والعودة للتبويب لنفس المستخدم لا يعيدان شاشة التحميل لأن المعرّف لم يتغير
+  const userDataPending = !!user && loadedUserId !== user.id;
+
   return (
-    <AuthContext.Provider value={{ user, session, profile, organization, loading, isSuperAdmin, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, organization, loading: loading || userDataPending, isSuperAdmin, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

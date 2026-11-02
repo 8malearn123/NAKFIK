@@ -35,7 +35,7 @@ const AttendeeCard = forwardRef<HTMLDivElement, { data: AttendeeCardData; classN
       <div
         ref={ref}
         dir={dir}
-        className={`relative w-[340px] rounded-[32px] overflow-hidden text-white font-cairo ${className}`}
+        className={`relative w-[340px] max-w-full rounded-[32px] overflow-hidden text-white font-cairo ${className}`}
         style={{
           background:
             `radial-gradient(120% 80% at 0% 0%, ${bgFrom}cc 0%, transparent 55%),` +

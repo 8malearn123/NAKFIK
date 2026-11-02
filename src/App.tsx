@@ -10,6 +10,7 @@ import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
 import ImpersonationBanner from "@/components/admin/ImpersonationBanner";
 import DemoModeBanner from "@/components/DemoModeBanner";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SoftUiScope from "@/components/app/SoftUiScope";
 import Index from "./pages/Index";
 import EventsMarketplace from "./pages/EventsMarketplace";
 import Favorites from "./pages/Favorites";
@@ -92,6 +93,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <SoftUiScope />
               <ImpersonationBanner />
               <DemoModeBanner />
               <Routes>

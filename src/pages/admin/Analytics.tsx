@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "@/components/admin/AdminLayout";
+import DonutChart from "@/components/app/DonutChart";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import TrendChart, { CHART_COLORS } from "@/components/app/TrendChart";
 import InvitationsReport from "@/components/reports/InvitationsReport";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
-import {
-  BarChart3, Users, Calendar, Ticket, TrendingUp, Eye,
-  UserPlus, CheckCircle, ArrowUpRight,
-} from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid } from "recharts";
+import { formatDateShort, formatNumber, formatPercent, percent } from "@/lib/format";
+import { Calendar, CheckCircle, Eye, Ticket, UserPlus, Users } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const COLORS = ["hsl(262,83%,58%)", "hsl(173,58%,39%)", "hsl(43,96%,56%)", "hsl(0,84%,60%)", "hsl(210,40%,50%)"];
+const CATEGORY_COLORS = [CHART_COLORS.primary, CHART_COLORS.gold, CHART_COLORS.mauve, CHART_COLORS.teal, CHART_COLORS.soft];
+const REGISTRATION_SERIES = [{ key: "value", label: "تسجيلات", color: CHART_COLORS.primary }];
+const CHART_TICK = { fontSize: 12, fill: "hsl(var(--muted-foreground))" };
+const NoData = () => <p className="py-12 text-center text-sm text-muted-foreground">لا توجد بيانات</p>;
 
 const Analytics = () => {
   const [stats, setStats] = useState({
@@ -63,8 +68,8 @@ const Analytics = () => {
 
       // Events by status
       const statusMap: Record<string, string> = {
-        draft: "مسودة", pending_review: "قيد المراجعة", approved: "معتمد",
-        published: "منشور", rejected: "مرفوض", cancelled: "ملغي", completed: "مكتمل",
+        draft: "مسودة", pending_review: "قيد المراجعة", approved: "معتمدة",
+        published: "منشورة", rejected: "مرفوضة", cancelled: "ملغاة", completed: "منتهية",
       };
       const statusCounts: Record<string, number> = {};
       (events || []).forEach(e => { statusCounts[e.status] = (statusCounts[e.status] || 0) + 1; });
@@ -96,7 +101,7 @@ const Analytics = () => {
         if (day && day in dayMap) dayMap[day]++;
       });
       setRecentRegistrations(Object.entries(dayMap).map(([k, v]) => ({
-        name: new Date(k).toLocaleDateString("ar-SA", { weekday: "short" }),
+        name: formatDateShort(k),
         value: v,
       })));
 
@@ -105,123 +110,108 @@ const Analytics = () => {
     load();
   }, []);
 
-  if (loading) return <AdminLayout><div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div></AdminLayout>;
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <PageHeader title="تحليلات المنصة" />
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-[130px] animate-pulse rounded-2xl bg-card shadow-soft" />)}
+          </div>
+          <div className="grid gap-6 xl:grid-cols-3">
+            <div className="h-[340px] animate-pulse rounded-2xl bg-card shadow-soft xl:col-span-2" />
+            <div className="h-[340px] animate-pulse rounded-2xl bg-card shadow-soft" />
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   const kpis = [
-    { label: "إجمالي الفعاليات", value: stats.totalEvents, icon: Calendar, color: "text-primary", bg: "bg-primary/10" },
-    { label: "فعاليات منشورة", value: stats.publishedEvents, icon: Eye, color: "text-green-600", bg: "bg-green-100" },
-    { label: "إجمالي التسجيلات", value: stats.totalRegistrations, icon: Ticket, color: "text-teal", bg: "bg-teal/10" },
-    { label: "تسجيل الحضور", value: stats.totalCheckedIn, icon: CheckCircle, color: "text-amber-600", bg: "bg-amber-100" },
-    { label: "إجمالي المستخدمين", value: stats.totalUsers, icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
-    { label: "المنظمين", value: stats.totalOrganizers, icon: UserPlus, color: "text-purple-600", bg: "bg-purple-100" },
+    { label: "إجمالي الفعاليات", value: stats.totalEvents, icon: Calendar },
+    { label: "فعاليات منشورة", value: stats.publishedEvents, icon: Eye },
+    { label: "إجمالي التسجيلات", value: stats.totalRegistrations, icon: Ticket },
+    { label: "تسجيل الحضور", value: stats.totalCheckedIn, icon: CheckCircle },
+    { label: "إجمالي المستخدمين", value: stats.totalUsers, icon: Users },
+    { label: "المنظمون", value: stats.totalOrganizers, icon: UserPlus },
   ];
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
-        <h1 className="font-bold text-2xl text-foreground">تحليلات المنصة</h1>
+      <div className="space-y-6">
+        <PageHeader title="تحليلات المنصة" />
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {kpis.map(kpi => (
-            <div key={kpi.label} className="bg-card rounded-2xl border border-border/50 p-4">
-              <div className={`w-8 h-8 rounded-lg ${kpi.bg} flex items-center justify-center mb-2`}>
-                <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
-              </div>
-              <span className="text-2xl font-bold text-foreground block">{kpi.value.toLocaleString("ar-SA")}</span>
-              <span className="text-[10px] text-muted-foreground">{kpi.label}</span>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-3">
+          {kpis.map((kpi) => <StatCard key={kpi.label} label={kpi.label} value={formatNumber(kpi.value)} icon={kpi.icon} />)}
         </div>
 
-        {/* Charts Row 1 */}
-        <div className="grid lg:grid-cols-2 gap-4">
-          {/* Monthly Events Trend */}
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h3 className="font-semibold text-foreground mb-4 text-sm">الفعاليات حسب الشهر</h3>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyEvents}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name="فعاليات" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+        <div className="grid gap-6 xl:grid-cols-3">
+          <Panel className="xl:col-span-2" title="التسجيلات" description="آخر 7 أيام">
+            <TrendChart data={recentRegistrations} xKey="name" series={REGISTRATION_SERIES} height={270} />
+          </Panel>
 
-          {/* Registration trend */}
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h3 className="font-semibold text-foreground mb-4 text-sm">التسجيلات (آخر 7 أيام)</h3>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={recentRegistrations}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }} />
-                  <Line type="monotone" dataKey="value" stroke="hsl(173,58%,39%)" strokeWidth={2.5} dot={{ r: 4 }} name="تسجيلات" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <Panel title="الفعاليات حسب التصنيف" bodyClassName="flex flex-col justify-center">
+            {eventsByCategory.length > 0 ? (
+              <DonutChart
+                center={formatNumber(stats.totalEvents)}
+                centerLabel="الفعاليات"
+                segments={eventsByCategory.map((c, i) => ({
+                  label: `${c.name}، ${formatPercent(percent(c.value, stats.totalEvents))}`,
+                  value: c.value,
+                  color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+                }))}
+              />
+            ) : <NoData />}
+          </Panel>
         </div>
 
-        {/* Charts Row 2 */}
-        <div className="grid lg:grid-cols-2 gap-4">
-          {/* Events by Category */}
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h3 className="font-semibold text-foreground mb-4 text-sm">الفعاليات حسب التصنيف</h3>
-            <div className="h-52 flex items-center justify-center">
-              {eventsByCategory.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={eventsByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} fontSize={11}>
-                      {eventsByCategory.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                  </PieChart>
+        <div className="grid gap-6 xl:grid-cols-3">
+          <Panel className="xl:col-span-2" title="الفعاليات حسب الشهر">
+            {monthlyEvents.length > 0 ? (
+              <div dir="ltr">
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={monthlyEvents} margin={{ top: 8, right: 4, bottom: 0, left: 8 }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 5" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} tick={CHART_TICK} tickMargin={10} />
+                    <YAxis orientation="right" tickLine={false} axisLine={false} tick={CHART_TICK} width={44} tickFormatter={formatNumber} allowDecimals={false} />
+                    <Tooltip cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }} contentStyle={{ direction: "rtl", borderRadius: 12, border: "none", boxShadow: "var(--shadow-soft-lg)", fontSize: 12 }} />
+                    <Bar dataKey="value" fill={CHART_COLORS.primary} radius={[6, 6, 0, 0]} maxBarSize={48} name="فعاليات" />
+                  </BarChart>
                 </ResponsiveContainer>
-              ) : (
-                <p className="text-muted-foreground text-sm">لا توجد بيانات</p>
-              )}
-            </div>
-          </div>
+              </div>
+            ) : <NoData />}
+          </Panel>
 
-          {/* Events by Status */}
-          <div className="bg-card rounded-2xl border border-border/50 p-5">
-            <h3 className="font-semibold text-foreground mb-4 text-sm">الفعاليات حسب الحالة</h3>
-            <div className="space-y-3">
-              {eventsByStatus.map((s, i) => {
-                const total = stats.totalEvents || 1;
-                const pct = Math.round((s.value / total) * 100);
-                return (
-                  <div key={s.name}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-medium text-foreground">{s.name}</span>
-                      <span className="text-muted-foreground">{s.value} ({pct}%)</span>
+          <Panel title="الفعاليات حسب الحالة">
+            {eventsByStatus.length > 0 ? (
+              <div className="space-y-4">
+                {eventsByStatus.map((s) => {
+                  const pct = percent(s.value, stats.totalEvents || 1);
+                  return (
+                    <div key={s.name}>
+                      <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                        <span className="truncate font-semibold">{s.name}</span>
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">{formatNumber(s.value)}، {formatPercent(pct)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
-                    </div>
-                  </div>
-                );
-              })}
-              {eventsByStatus.length === 0 && <p className="text-muted-foreground text-sm text-center py-8">لا توجد بيانات</p>}
-          </div>
+                  );
+                })}
+              </div>
+            ) : <NoData />}
+          </Panel>
         </div>
 
-        {/* Private invitations report (platform-wide) */}
-        <div className="space-y-3">
+        {/* إحصاءات الدعوات الخاصة على مستوى المنصة، بعرض الصفحة كاملاً */}
+        <section className="space-y-4">
           <div>
-            <h2 className="font-bold text-xl text-foreground">إحصاءات الدعوات الخاصة</h2>
-            <p className="text-sm text-muted-foreground">جميع الدعوات الخاصة عبر المنصة</p>
+            <h2 className="text-[15px] font-bold leading-6">إحصاءات الدعوات الخاصة</h2>
+            <p className="text-[13px] leading-5 text-muted-foreground">جميع الدعوات الخاصة عبر المنصة</p>
           </div>
           <InvitationsReport />
-        </div>
-      </div>
+        </section>
       </div>
     </AdminLayout>
   );

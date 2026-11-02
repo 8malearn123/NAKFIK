@@ -3,9 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { motion } from "framer-motion";
 import BrandLogo from "@/components/brand/BrandLogo";
-import { Mail, Lock } from "lucide-react";
+import { ArrowRight, Mail, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -88,12 +87,12 @@ const Login = () => {
     <div className="min-h-screen flex font-cairo">
       {/* Right side - Purple branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute top-20 left-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
-        <div className="absolute bottom-32 right-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
-        <div className="absolute -top-20 -right-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
+        <div className="absolute top-20 end-10 w-20 h-20 rounded-full bg-accent/20 animate-float" />
+        <div className="absolute bottom-32 start-20 w-14 h-14 rounded-full bg-teal/20 animate-float" style={{ animationDelay: "1s" }} />
+        <div className="absolute -top-20 -start-20 w-96 h-96 rounded-full bg-purple-glow/10 blur-3xl" />
         <div className="absolute inset-0 bg-brand-pattern opacity-40" />
-        <div className="brand-slash absolute top-[22%] -left-[15%] w-[75%] h-6 opacity-90" />
-        <div className="brand-slash absolute bottom-[18%] -right-[20%] w-[60%] h-3 opacity-40" />
+        <div className="brand-slash absolute top-[22%] -end-[15%] w-[75%] h-6 opacity-90" />
+        <div className="brand-slash absolute bottom-[18%] -start-[20%] w-[60%] h-3 opacity-40" />
 
         <div className="text-center relative z-10">
           <BrandLogo tone="white" alt={t("pgAuth.common.brandAlt")} className="h-28 mx-auto mb-10 drop-shadow-[0_10px_30px_rgba(0,0,0,0.25)]" />
@@ -106,11 +105,7 @@ const Login = () => {
 
       {/* Left side - Form */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="lg:hidden flex justify-center mb-8">
             <Link to="/">
               <BrandLogo alt={t("pgAuth.common.brandAlt")} className="h-16" />
@@ -131,14 +126,14 @@ const Login = () => {
             <div className="space-y-2">
               <Label htmlFor="email">{t("pgAuth.common.email")}</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Mail className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="example@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
+                  className="pe-10 rtl:ps-10"
                   dir="ltr"
                   required
                 />
@@ -166,42 +161,45 @@ const Login = () => {
               </div>
             </div>
 
-            <Button type="submit" className="w-full rounded-full" size="lg" disabled={loading}>
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? t("pgAuth.login.submitting") : t("pgAuth.login.submit")}
             </Button>
           </form>
 
-          {/* Demo Accounts */}
-          <div className="mt-6 p-4 rounded-xl border border-dashed border-primary/30 bg-primary/5">
-            <p className="text-xs text-muted-foreground mb-3 text-center font-semibold">{t("pgAuth.login.demoTitle")}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
-                { label: t("pgAuth.login.demoOrganizerPublic"), email: "org-public@nakfeek.sa" },
-                { label: t("pgAuth.login.demoOrganizerPrivate"), email: "org-private@nakfeek.sa" },
-                { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
-                { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
-              ].map((demo) => (
-                <button
-                  key={demo.email}
-                  type="button"
-                  onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
-                  className="text-xs px-3 py-2 rounded-lg border border-border bg-card hover:bg-accent/10 hover:border-primary/50 transition-all text-start truncate"
-                >
-                  <span className="block font-semibold">{demo.label}</span>
-                  <span className="text-muted-foreground text-[10px]" dir="ltr">{demo.email}</span>
-                </button>
-              ))}
+          {/* حسابات الديمو للتطوير المحلي فقط، حتى لا تظهر بيانات الدخول لزوار الموقع */}
+          {import.meta.env.DEV && (
+            <div className="mt-6 rounded-xl bg-muted/60 p-4">
+              <p className="mb-3 text-center text-xs font-semibold text-muted-foreground">{t("pgAuth.login.demoTitle")}</p>
+              <div className="space-y-2">
+                {[
+                  { label: t("pgAuth.login.demoSuperAdmin"), email: "admin@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoOrganizerPublic"), email: "org-public@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoOrganizerPrivate"), email: "org-private@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoOrganizer"), email: "org1@nakfeek.sa" },
+                  { label: t("pgAuth.login.demoAttendee"), email: "attendee1@nakfeek.sa" },
+                ].map((demo) => (
+                  <button
+                    key={demo.email}
+                    type="button"
+                    onClick={() => { setEmail(demo.email); setPassword("Demo@12345"); }}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg bg-card px-3 py-2 text-start text-xs transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="truncate font-semibold">{demo.label}</span>
+                    <bdi dir="ltr" className="flex-none text-muted-foreground">{demo.email}</bdi>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-center text-xs text-muted-foreground" dir="ltr">Password: Demo@12345</p>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-2 text-center" dir="ltr">Password: Demo@12345</p>
-          </div>
+          )}
 
-          <div className="mt-4 text-center">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <div className="mt-6 text-center">
+            <Link to="/" className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
+              <ArrowRight className="h-4 w-4 ltr:rotate-180" />
               {t("pgAuth.common.backHome")}
             </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

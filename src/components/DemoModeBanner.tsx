@@ -7,9 +7,9 @@ const DemoModeBanner = () => {
   const { user } = useAuth();
   if (!user || !isDemoMode()) return null;
   return (
-    <div className="fixed bottom-4 left-4 z-[60] flex items-center gap-2 rounded-full bg-accent text-accent-foreground px-4 py-2 text-xs font-bold shadow-gold font-cairo pointer-events-none" dir="rtl">
-      <FlaskConical className="w-4 h-4" />
-      وضع تجريبي — البيانات وهمية ومحفوظة في هذا المتصفح فقط
+    <div className="fixed bottom-3 end-3 z-[60] flex items-center gap-1.5 rounded-full bg-[#FDF3E3] text-[#9A5F12] px-3 py-1 text-xs font-semibold shadow-soft pointer-events-none" dir="rtl">
+      <FlaskConical className="w-3.5 h-3.5" />
+      وضع تجريبي: البيانات وهمية
     </div>
   );
 };

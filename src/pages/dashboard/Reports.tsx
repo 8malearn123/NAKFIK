@@ -5,17 +5,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, Users, Ticket, Calendar, TrendingUp, DollarSign, Download, PieChart as PieIcon, LineChart as LineIcon, Mail, SlidersHorizontal, X, FileText, FileSpreadsheet, FileDown, ChevronDown } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Users, Ticket, Calendar, TrendingDown, TrendingUp, DollarSign, Download, X, FileText, FileSpreadsheet, FileDown, ChevronDown } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import * as XLSX from "xlsx";
 import InvitationsReport from "@/components/reports/InvitationsReport";
 import PrivateReports from "@/components/reports/PrivateReports";
-import {
-  ResponsiveContainer, LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-} from "recharts";
+import DonutChart from "@/components/app/DonutChart";
+import PageHeader from "@/components/app/PageHeader";
+import Panel from "@/components/app/Panel";
+import StatCard from "@/components/app/StatCard";
+import TrendChart, { CHART_COLORS, ChartLegend } from "@/components/app/TrendChart";
+import { formatDateShort, formatDateTime, formatMonth, formatNumber, formatPercent, percent } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface EventRow {
@@ -81,7 +86,32 @@ const FILTER_STATUS: { key: "all" | EventTimeStatus; label: string }[] = [
   { key: "ended", label: "منتهية" },
 ];
 
-const COLORS = ["hsl(270 30% 52%)", "hsl(172 55% 40%)", "hsl(42 65% 55%)", "hsl(0 70% 60%)", "hsl(220 60% 55%)", "hsl(140 50% 50%)"];
+const COLORS = [CHART_COLORS.primary, CHART_COLORS.gold, CHART_COLORS.mauve, CHART_COLORS.teal, CHART_COLORS.soft, CHART_COLORS.danger];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  conference: "مؤتمر", workshop: "ورشة عمل", seminar: "ندوة", meetup: "لقاء", other: "أخرى",
+};
+
+const SALES_SERIES = [
+  { key: "registrations", label: "التسجيلات", color: CHART_COLORS.primary },
+  { key: "tickets", label: "التذاكر المباعة", color: CHART_COLORS.gold },
+];
+const REVENUE_SERIES = [{ key: "revenue", label: "الإيراد", color: CHART_COLORS.primary }];
+
+interface FilterSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  options: { value: string; label: string }[];
+  className?: string;
+}
+
+const FilterSelect = ({ value, onChange, label, options, className }: FilterSelectProps) => (
+  <Select value={value} onValueChange={onChange}>
+    <SelectTrigger aria-label={label} className={cn("h-10 w-[calc(50%-5px)] gap-2 font-medium sm:w-auto sm:min-w-[150px]", className)}><SelectValue /></SelectTrigger>
+    <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+  </Select>
+);
 
 // فترات تبويب "الاتجاهات"
 type SalesPeriod = "7d" | "30d" | "12m";
@@ -233,9 +263,9 @@ const Reports = () => {
   // توزيع مبيعات التذاكر حسب الفئة (VVIP / VIP / عادي)
   const ticketClassBreakdown = useMemo(() => {
     const meta: { key: TicketClass; name: string; color: string }[] = [
-      { key: "vvip", name: "VVIP", color: "hsl(42 65% 55%)" },
-      { key: "vip", name: "VIP", color: "hsl(270 30% 52%)" },
-      { key: "regular", name: "عادي", color: "hsl(172 55% 40%)" },
+      { key: "vvip", name: "VVIP", color: CHART_COLORS.gold },
+      { key: "vip", name: "VIP", color: CHART_COLORS.primary },
+      { key: "regular", name: "عادي", color: CHART_COLORS.mauve },
     ];
     const sold = fRegs.filter(r => r.payment_status === "paid" || Number(r.amount_paid || 0) > 0);
     const total = sold.length;
@@ -250,17 +280,11 @@ const Reports = () => {
     });
   }, [fRegs, ticketClasses]);
 
-  // شارة التغير: ↑ أخضر / ↓ أحمر / محايد
-  const DeltaBadge = ({ d }: { d: Delta }) => {
-    if (d.isNew)
-      return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">جديد</span>;
-    const cls = d.pct > 0 ? "bg-green-500/10 text-green-600" : d.pct < 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground";
-    const arrow = d.pct > 0 ? "↑" : d.pct < 0 ? "↓" : "—";
-    return (
-      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5 ${cls}`}>
-        {arrow} <span dir="ltr">{Math.abs(d.pct)}%</span>
-      </span>
-    );
+  // شارة التغير في بطاقة الإحصاء: جديد أو نسبة بالاتجاه، وبدون شارة عند عدم التغير
+  const deltaProps = (d: Delta) => {
+    if (d.isNew) return { delta: "جديد", note: "عن الفترة السابقة" };
+    if (d.pct === 0) return { note: "بلا تغيير عن الفترة السابقة" };
+    return { delta: `${d.pct > 0 ? "+" : ""}${d.pct}%`, deltaDown: d.pct < 0, note: "عن الفترة السابقة" };
   };
 
   // Time series — registrations per day (last 30 days)
@@ -270,7 +294,7 @@ const Reports = () => {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today); d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
-      map.set(key, { date: key.slice(5), registrations: 0, revenue: 0 });
+      map.set(key, { date: formatDateShort(d), registrations: 0, revenue: 0 });
     }
     fRegs.forEach(r => {
       const key = r.registered_at?.slice(0, 10);
@@ -288,7 +312,7 @@ const Reports = () => {
     return [...fEvents]
       .sort((a, b) => b.current_attendees_count - a.current_attendees_count)
       .slice(0, 7)
-      .map(e => ({ name: e.title_ar.slice(0, 20), attendees: e.current_attendees_count }));
+      .map(e => ({ name: e.title_ar, attendees: e.current_attendees_count }));
   }, [fEvents]);
 
   // Status breakdown
@@ -306,7 +330,7 @@ const Reports = () => {
   const categoryBreakdown = useMemo(() => {
     const counts: Record<string, number> = {};
     fEvents.forEach(e => { counts[e.category] = (counts[e.category] || 0) + 1; });
-    return Object.entries(counts).map(([k, v]) => ({ name: k, value: v }));
+    return Object.entries(counts).map(([k, v]) => ({ name: CATEGORY_LABELS[k] || k, value: v }));
   }, [fEvents]);
 
   // اتجاهات الفترة المختارة — التسجيلات والمبيعات المدفوعة مع مقارنة بالفترة السابقة
@@ -323,7 +347,7 @@ const Reports = () => {
       else d.setMonth(d.getMonth() - i, 1);
       const key = keyOf(d);
       buckets.set(key, {
-        label: daily ? key.slice(5) : `${key.slice(5, 7)}/${key.slice(2, 4)}`,
+        label: daily ? formatDateShort(d) : formatMonth(d),
         registrations: 0,
         tickets: 0,
         revenue: 0,
@@ -418,7 +442,7 @@ const Reports = () => {
     wb.Workbook = { Views: [{ RTL: true }] };
 
     const summary = [
-      { "البند": "تاريخ التقرير", "القيمة": new Date().toLocaleString("ar-SA") },
+      { "البند": "تاريخ التقرير", "القيمة": formatDateTime(new Date()) },
       ...filtersSummary().map((f, i) => ({ "البند": i === 0 ? "الفلاتر المطبقة" : "", "القيمة": f })),
       { "البند": "إجمالي الفعاليات", "القيمة": stats.events },
       { "البند": "إجمالي التسجيلات", "القيمة": stats.registrations },
@@ -440,13 +464,41 @@ const Reports = () => {
 
   const exportPDF = () => {
     // نافذة طباعة أنيقة تشمل الملخص والجداول ورسوم التبويب المفتوح — الحفظ كـ PDF من نافذة الطباعة
-    const charts = Array.from(document.querySelectorAll(".recharts-wrapper svg"))
+    const charts = Array.from(document.querySelectorAll(".recharts-wrapper svg, #public-reports svg[role='img']"))
       .map(svg => {
         const c = svg.cloneNode(true) as SVGElement;
-        c.setAttribute("width", "660");
+        const isDonut = svg.getAttribute("role") === "img";
+        // الحلقات مرسومة بحجمها الطبيعي، والرسوم الزمنية تمتد بعرض الصفحة
+        c.setAttribute("width", isDonut ? "220" : "660");
         c.removeAttribute("height");
+        // نص وسط الحلقة يعتمد على كلاسات Tailwind غير الموجودة في نافذة الطباعة
+        if (isDonut) {
+          const [value, label] = Array.from(c.querySelectorAll("text"));
+          value?.setAttribute("style", "font-size:26px;font-weight:700;fill:#1f1830");
+          label?.setAttribute("style", "font-size:12px;fill:#777");
+        }
         return c.outerHTML;
       });
+    // أشرطة تبويب الأداء ليست رسماً، فتُصدَّر جدولاً عند فتح التبويب
+    const topEventsTable = document.getElementById("report-top-events")
+      ? `<h2>أعلى الفعاليات حضوراً</h2><table><thead><tr><th>الفعالية</th><th>الحضور</th></tr></thead><tbody>${topEvents.map(e => `<tr><td>${e.name}</td><td>${formatNumber(e.attendees)}</td></tr>`).join("")}</tbody></table>`
+      : "";
+    // مفتاح كل حلقة عنصر HTML بجانب الرسم، فتُصدَّر أرقامها جدولاً تحت عنوان بطاقتها
+    const donutTables = Array.from(document.querySelectorAll("#public-reports svg[role='img']"))
+      .map(svg => {
+        const title = svg.closest("section")?.querySelector("h2")?.textContent || "";
+        const legend = Array.from(svg.nextElementSibling?.children || []).map(row => {
+          const value = row.querySelector("b")?.textContent || "";
+          return { label: (row.textContent || "").slice(0, -value.length), value };
+        });
+        return `<h2>${title}</h2><table><thead><tr><th>البند</th><th>العدد</th></tr></thead><tbody>${legend.map(l => `<tr><td>${l.label}</td><td>${l.value}</td></tr>`).join("")}</tbody></table>`;
+      })
+      .join("");
+    // أشرطة ردود الدعوات عناصر HTML أيضاً، فتُصدَّر جدولاً عند فتح تبويب الدعوات الخاصة
+    const invitationRows = Array.from(document.querySelectorAll<HTMLElement>("#report-invitation-bars [data-title]"));
+    const invitationsTable = invitationRows.length
+      ? `<h2>حالة الردود لكل دعوة</h2><table><thead><tr><th>الدعوة</th><th>مؤكدون</th><th>معتذرون</th><th>بانتظار الرد</th></tr></thead><tbody>${invitationRows.map(r => `<tr><td>${r.dataset.title}</td><td>${formatNumber(Number(r.dataset.confirmed))}</td><td>${formatNumber(Number(r.dataset.declined))}</td><td>${formatNumber(Number(r.dataset.pending))}</td></tr>`).join("")}</tbody></table>`
+      : "";
     const rows = buildEventRows();
     const head = Object.keys(rows[0] || { "الفعالية": "" });
     const w = window.open("", "_blank");
@@ -475,7 +527,7 @@ const Reports = () => {
 </style></head><body>
   <div class="head">
     <div class="brand">نكفيك تيكت — تقرير الفعاليات</div>
-    <div class="meta">${new Date().toLocaleString("ar-SA")}<br/>${organization?.name || ""}</div>
+    <div class="meta">${formatDateTime(new Date())}<br/>${organization?.name || ""}</div>
   </div>
   <div class="filters"><b>الفلاتر المطبقة:</b> ${filtersSummary().join(" · ")}</div>
   <div class="stats">
@@ -483,11 +535,14 @@ const Reports = () => {
     <div class="stat"><b>${stats.registrations}</b><span>التسجيلات</span></div>
     <div class="stat"><b>${stats.checkedIn}</b><span>حضور فعلي</span></div>
     <div class="stat"><b>${stats.attendanceRate}%</b><span>نسبة الحضور</span></div>
-    <div class="stat"><b>${stats.revenue.toLocaleString()}</b><span>الإيرادات (ر.س)</span></div>
+    <div class="stat"><b>${formatNumber(stats.revenue)}</b><span>الإيرادات (ر.س)</span></div>
   </div>
   <h2>تفاصيل الفعاليات</h2>
   <table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>
   <tbody>${rows.map(r => `<tr>${head.map(h => `<td>${(r as any)[h]}</td>`).join("")}</tr>`).join("")}</tbody></table>
+  ${topEventsTable}
+  ${invitationsTable}
+  ${donutTables}
   ${charts.length ? `<h2>الرسوم البيانية</h2>${charts.map(c => `<div class="chart">${c}</div>`).join("")}` : ""}
   <div class="foot">أُنشئ هذا التقرير آلياً من منصة نكفيك تيكت</div>
 <script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
@@ -497,11 +552,11 @@ const Reports = () => {
   };
 
   const cards = [
-    { icon: Calendar, label: "إجمالي الفعاليات", value: stats.events.toLocaleString("ar-SA"), color: "bg-primary/10 text-primary", delta: statDeltas.events },
-    { icon: Users, label: "إجمالي التسجيلات", value: stats.registrations.toLocaleString("ar-SA"), color: "bg-teal/10 text-teal", delta: statDeltas.registrations },
-    { icon: Ticket, label: "حضور فعلي", value: stats.checkedIn.toLocaleString("ar-SA"), color: "bg-accent/10 text-accent", delta: statDeltas.checkedIn },
-    { icon: TrendingUp, label: "نسبة الحضور", value: `${stats.attendanceRate}%`, color: "bg-emerald-100 text-emerald-700", delta: statDeltas.attendanceRate },
-    { icon: DollarSign, label: "الإيرادات (ر.س)", value: stats.revenue.toLocaleString("ar-SA"), color: "bg-purple-100 text-purple-700", delta: statDeltas.revenue },
+    { icon: Calendar, label: "إجمالي الفعاليات", value: formatNumber(stats.events), delta: statDeltas.events },
+    { icon: Users, label: "إجمالي التسجيلات", value: formatNumber(stats.registrations), delta: statDeltas.registrations },
+    { icon: Ticket, label: "حضور فعلي", value: formatNumber(stats.checkedIn), delta: statDeltas.checkedIn },
+    { icon: TrendingUp, label: "نسبة الحضور", value: `${stats.attendanceRate}%`, delta: statDeltas.attendanceRate },
+    { icon: DollarSign, label: "الإيرادات", value: formatNumber(stats.revenue), unit: "ر.س", delta: statDeltas.revenue },
   ];
 
   // المرحلة الأولى: التقارير تقتصر على الدعوات الخاصة — تقارير الفعاليات
@@ -514,318 +569,213 @@ const Reports = () => {
     );
   }
 
+  const noData = <p className="py-12 text-center text-sm text-muted-foreground">لا توجد بيانات ضمن الفلاتر المحددة</p>;
+  const maxAttendees = Math.max(0, ...topEvents.map(e => e.attendees));
+  const soldClasses = ticketClassBreakdown.filter(c => c.count > 0);
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="font-bold text-2xl text-foreground">التقارير والتحليلات</h1>
-            <p className="text-muted-foreground text-sm mt-1">رؤية شاملة لأداء فعالياتك</p>
-          </div>
-          <DropdownMenu dir="rtl">
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-full">
-                <Download className="w-4 h-4" /> تصدير التقرير <ChevronDown className="w-3.5 h-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={exportPDF} className="gap-2 cursor-pointer">
-                <FileText className="w-4 h-4 text-destructive" /> تصدير بصيغة PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportExcel} className="gap-2 cursor-pointer">
-                <FileSpreadsheet className="w-4 h-4 text-green-600" /> تصدير بصيغة Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportCSV} className="gap-2 cursor-pointer">
-                <FileDown className="w-4 h-4 text-primary" /> تصدير بصيغة CSV
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      <div id="public-reports" className="space-y-6">
+        <PageHeader
+          title="التقارير والتحليلات"
+          description="رؤية شاملة لأداء فعالياتك"
+          actions={
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline"><Download className="h-4 w-4" /> تصدير التقرير <ChevronDown className="h-3.5 w-3.5" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportPDF} className="cursor-pointer"><FileText className="h-4 w-4" /> تصدير بصيغة PDF</DropdownMenuItem>
+                <DropdownMenuItem onClick={exportExcel} className="cursor-pointer"><FileSpreadsheet className="h-4 w-4" /> تصدير بصيغة Excel</DropdownMenuItem>
+                <DropdownMenuItem onClick={exportCSV} className="cursor-pointer"><FileDown className="h-4 w-4" /> تصدير بصيغة CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          }
+        />
 
         {loading ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
+            {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-40 animate-pulse rounded-2xl bg-card shadow-soft" />)}
           </div>
         ) : (
           <>
             {/* الفلاتر — تُطبَّق على كل إحصائيات ورسوم الصفحة */}
-            <div className="bg-card rounded-2xl border border-border/50 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <SlidersHorizontal className="w-4 h-4 text-primary" />
-                <span className="font-bold text-sm">الفلاتر</span>
-                {filtersActive && (
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="text-[11px] font-bold text-destructive inline-flex items-center gap-0.5 hover:underline ms-auto"
-                  >
-                    <X className="w-3 h-3" /> إعادة تعيين
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                <div>
-                  <label className="text-[11px] text-muted-foreground block mb-1">الفعالية</label>
-                  <select
-                    value={filterEvent}
-                    onChange={(e) => setFilterEvent(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-                  >
-                    <option value="all">كل الفعاليات</option>
-                    {events.map(e => (
-                      <option key={e.id} value={e.id}>{e.title_ar}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-muted-foreground block mb-1">الفترة الزمنية</label>
-                  <select
-                    value={filterPeriod}
-                    onChange={(e) => setFilterPeriod(e.target.value as FilterPeriod)}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-                  >
-                    {FILTER_PERIODS.map(p => (
-                      <option key={p.key} value={p.key}>{p.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-muted-foreground block mb-1">نوع التذكرة</label>
-                  <select
-                    value={filterTicket}
-                    onChange={(e) => setFilterTicket(e.target.value as "all" | TicketClass)}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-                  >
-                    {FILTER_TICKETS.map(t => (
-                      <option key={t.key} value={t.key}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-muted-foreground block mb-1">حالة الفعالية</label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as "all" | EventTimeStatus)}
-                    className="w-full h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold"
-                  >
-                    {FILTER_STATUS.map(st => (
-                      <option key={st.key} value={st.key}>{st.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FilterSelect label="الفعالية" value={filterEvent} onChange={setFilterEvent} options={[{ value: "all", label: "كل الفعاليات" }, ...events.map(e => ({ value: e.id, label: e.title_ar }))]} />
+              <FilterSelect label="الفترة الزمنية" value={filterPeriod} onChange={v => setFilterPeriod(v as FilterPeriod)} options={FILTER_PERIODS.map(p => ({ value: p.key, label: p.label }))} />
+              <FilterSelect label="نوع التذكرة" value={filterTicket} onChange={v => setFilterTicket(v as "all" | TicketClass)} options={FILTER_TICKETS.map(t => ({ value: t.key, label: t.label }))} />
+              <FilterSelect label="حالة الفعالية" value={filterStatus} onChange={v => setFilterStatus(v as "all" | EventTimeStatus)} options={FILTER_STATUS.map(st => ({ value: st.key, label: st.label }))} />
+              {filtersActive && (
+                <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground"><X className="h-3.5 w-3.5" /> إعادة تعيين</Button>
+              )}
+              <p className="w-full text-xs leading-[18px] text-muted-foreground xl:ms-auto xl:w-auto">
+                مقارنة بالفترة السابقة ({FILTER_PERIODS.find(p => p.key === (filterPeriod === "all" ? "30d" : filterPeriod))?.label})
+              </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 xl:grid-cols-5 max-xl:[&>:last-child]:col-span-2">
               {cards.map(c => (
-                <div key={c.label} className="bg-card rounded-2xl border border-border/50 p-5">
-                  <div className={`w-10 h-10 rounded-xl ${c.color} flex items-center justify-center mb-3`}>
-                    <c.icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="font-bold text-2xl text-foreground">{c.value}</div>
-                    <DeltaBadge d={c.delta} />
-                  </div>
-                  <div className="text-muted-foreground text-xs mt-1">
-                    {c.label}
-                    <span className="block text-[10px] opacity-70">
-                      مقارنة بالفترة السابقة ({FILTER_PERIODS.find(p => p.key === (filterPeriod === "all" ? "30d" : filterPeriod))?.label})
-                    </span>
-                  </div>
-                </div>
+                <StatCard key={c.label} label={c.label} value={c.value} unit={c.unit} icon={c.icon} {...deltaProps(c.delta)} />
               ))}
             </div>
 
-            <Tabs defaultValue="trends" dir="rtl">
-              <TabsList>
-                <TabsTrigger value="trends" className="gap-1.5"><LineIcon className="w-4 h-4" /> الاتجاهات</TabsTrigger>
-                <TabsTrigger value="performance" className="gap-1.5"><BarChart3 className="w-4 h-4" /> أداء الفعاليات</TabsTrigger>
-                <TabsTrigger value="distribution" className="gap-1.5"><PieIcon className="w-4 h-4" /> التوزيع</TabsTrigger>
-                <TabsTrigger value="financial" className="gap-1.5"><DollarSign className="w-4 h-4" /> المالية</TabsTrigger>
-                <TabsTrigger value="invitations" className="gap-1.5"><Mail className="w-4 h-4" /> الدعوات الخاصة</TabsTrigger>
+            <Tabs defaultValue="trends">
+              {/* على الجوال يتمرر الشريط داخل مكانه ولا تتحرك الصفحة جانبياً */}
+              <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <TabsTrigger value="trends">الاتجاهات</TabsTrigger>
+                <TabsTrigger value="performance">أداء الفعاليات</TabsTrigger>
+                <TabsTrigger value="distribution">التوزيع</TabsTrigger>
+                <TabsTrigger value="financial">المالية</TabsTrigger>
+                <TabsTrigger value="invitations">الدعوات الخاصة</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="trends" className="space-y-5">
-                <div className="bg-card rounded-2xl border border-border/50 p-5">
-                  <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-                    <h3 className="font-semibold text-foreground">التسجيلات والمبيعات — {SALES_PERIODS.find(p => p.key === salesPeriod)?.label}</h3>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {SALES_PERIODS.map(p => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          onClick={() => setSalesPeriod(p.key)}
-                          className={`text-[11px] font-bold rounded-full px-3 py-1 border transition ${
-                            salesPeriod === p.key
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border text-muted-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {p.label}
-                        </button>
-                      ))}
+              <TabsContent value="trends" className="mt-6">
+                <Panel
+                  title="التسجيلات والمبيعات"
+                  description={SALES_PERIODS.find(p => p.key === salesPeriod)?.label}
+                  actions={
+                    <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                      <div className="hidden sm:block"><ChartLegend series={SALES_SERIES} /></div>
+                      <FilterSelect
+                        label="الفترة"
+                        className="h-9 w-[132px] sm:w-[132px] sm:min-w-0"
+                        value={salesPeriod}
+                        onChange={v => setSalesPeriod(v as SalesPeriod)}
+                        options={SALES_PERIODS.map(p => ({ value: p.key, label: p.label }))}
+                      />
                     </div>
-                  </div>
-
-                  <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={trend.series}>
-                      <defs>
-                        <linearGradient id="gradRegs" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(270 30% 52%)" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="hsl(270 30% 52%)" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="gradTickets" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="hsl(172 55% 40%)" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="hsl(172 55% 40%)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickMargin={8} />
-                      <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} width={32} />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Area type="monotone" dataKey="registrations" name="التسجيلات" stroke="hsl(270 30% 52%)" strokeWidth={2.5} fill="url(#gradRegs)" dot={false} activeDot={{ r: 4 }} />
-                      <Area type="monotone" dataKey="tickets" name="التذاكر المباعة" stroke="hsl(172 55% 40%)" strokeWidth={2} fill="url(#gradTickets)" dot={false} activeDot={{ r: 4 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  }
+                >
+                  <div className="mb-3 sm:hidden"><ChartLegend series={SALES_SERIES} /></div>
+                  <TrendChart data={trend.series} xKey="label" series={SALES_SERIES} height={300} />
 
                   {/* بطاقات ملخص الفترة — أسفل الرسم */}
-                  <div className="grid sm:grid-cols-3 gap-3 mt-4">
-                    <div className="rounded-xl border p-3 text-center bg-muted/20">
-                      <div className="font-extrabold text-2xl text-foreground">{trend.tickets.toLocaleString("ar-SA")}</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">تذاكر مباعة خلال الفترة</div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl bg-muted/50 p-4">
+                      <p className="text-xl font-bold leading-7">{formatNumber(trend.tickets)}</p>
+                      <p className="mt-0.5 text-xs leading-[18px] text-muted-foreground">تذاكر مباعة خلال الفترة</p>
                     </div>
-                    <div className="rounded-xl border p-3 text-center bg-muted/20">
-                      <div className="font-extrabold text-2xl text-foreground">
-                        {trend.revenue.toLocaleString("ar-SA")} <span className="text-xs font-normal">ر.س</span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">إجمالي الإيرادات خلال الفترة</div>
+                    <div className="rounded-xl bg-muted/50 p-4">
+                      <p className="text-xl font-bold leading-7">
+                        {formatNumber(trend.revenue)} <span className="text-sm font-semibold text-muted-foreground">ر.س</span>
+                      </p>
+                      <p className="mt-0.5 text-xs leading-[18px] text-muted-foreground">إجمالي الإيرادات خلال الفترة</p>
                     </div>
-                    <div className="rounded-xl border p-3 text-center bg-muted/20">
-                      <div className={`font-extrabold text-2xl inline-flex items-center gap-1 ${
-                        trend.ticketsChange > 0 ? "text-green-600" : trend.ticketsChange < 0 ? "text-destructive" : "text-muted-foreground"
-                      }`}>
-                        {trend.ticketsChange > 0 ? "↑" : trend.ticketsChange < 0 ? "↓" : ""}
-                        <span dir="ltr">{trend.ticketsChange > 0 ? "+" : ""}{trend.ticketsChange}%</span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                    <div className="rounded-xl bg-muted/50 p-4">
+                      <p className={cn(
+                        "flex items-center gap-1.5 text-xl font-bold leading-7",
+                        trend.ticketsChange > 0 ? "text-[#0E7A4F]" : trend.ticketsChange < 0 ? "text-[#B42F24]" : "text-muted-foreground",
+                      )}>
+                        {trend.ticketsChange > 0 && <TrendingUp className="h-4 w-4" />}
+                        {trend.ticketsChange < 0 && <TrendingDown className="h-4 w-4" />}
+                        <bdi dir="ltr">{trend.ticketsChange > 0 ? "+" : ""}{trend.ticketsChange}%</bdi>
+                      </p>
+                      <p className="mt-0.5 text-xs leading-[18px] text-muted-foreground">
                         مقارنة بالفترة السابقة
                         {trend.revenueChange !== trend.ticketsChange && (
-                          <span dir="ltr" className="ms-1">
-                            (الإيرادات {trend.revenueChange > 0 ? "+" : ""}{trend.revenueChange}%)
-                          </span>
+                          <>، الإيرادات <bdi dir="ltr">{trend.revenueChange > 0 ? "+" : ""}{trend.revenueChange}%</bdi></>
                         )}
-                      </div>
+                      </p>
                     </div>
                   </div>
-                </div>
+                </Panel>
               </TabsContent>
 
-              <TabsContent value="performance" className="space-y-5">
-                <div className="bg-card rounded-2xl border border-border/50 p-5">
-                  <h3 className="font-semibold text-foreground mb-4">أعلى الفعاليات حضوراً</h3>
-                  <ResponsiveContainer width="100%" height={320}>
-                    <BarChart data={topEvents} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} width={140} />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                      <Bar dataKey="attendees" name="الحضور" fill="hsl(172 55% 40%)" radius={[0, 8, 8, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="distribution" className="grid md:grid-cols-2 gap-5">
-                <div className="bg-card rounded-2xl border border-border/50 p-5">
-                  <h3 className="font-semibold text-foreground mb-4">توزيع حالات الفعاليات</h3>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie data={statusBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                        {statusBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="bg-card rounded-2xl border border-border/50 p-5">
-                  <h3 className="font-semibold text-foreground mb-4">توزيع الفئات</h3>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie data={categoryBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                        {categoryBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* توزيع مبيعات التذاكر حسب الفئة */}
-                <div className="bg-card rounded-2xl border border-border/50 p-5 md:col-span-2">
-                  <h3 className="font-semibold text-foreground mb-4">توزيع مبيعات التذاكر حسب الفئة</h3>
-                  <div className="grid md:grid-cols-2 gap-4 items-center">
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie data={ticketClassBreakdown} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                          {ticketClassBreakdown.map((c, i) => <Cell key={i} fill={c.color} />)}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="space-y-2">
-                      {ticketClassBreakdown.map(c => (
-                        <div key={c.key} className="border rounded-xl p-3 flex items-center gap-3">
-                          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                          <span className="font-bold text-sm w-14">{c.name}</span>
-                          <div className="flex items-center gap-4 flex-1 justify-end text-center flex-wrap">
-                            <div>
-                              <div className="font-extrabold text-sm">{c.count.toLocaleString("ar-SA")}</div>
-                              <div className="text-[10px] text-muted-foreground">تذاكر مباعة</div>
-                            </div>
-                            <div>
-                              <div className="font-extrabold text-sm">{c.pct}%</div>
-                              <div className="text-[10px] text-muted-foreground">من الإجمالي</div>
-                            </div>
-                            <div>
-                              <div className="font-extrabold text-sm">{c.revenue.toLocaleString("ar-SA")}</div>
-                              <div className="text-[10px] text-muted-foreground">الإيرادات (ر.س)</div>
-                            </div>
+              <TabsContent value="performance" className="mt-6">
+                <Panel title="أعلى الفعاليات حضوراً">
+                  {topEvents.length === 0 ? noData : (
+                    <div id="report-top-events" className="space-y-4">
+                      {topEvents.map((row, i) => (
+                        <div key={i}>
+                          <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                            <span className="truncate font-semibold">{row.name}</span>
+                            <span className="whitespace-nowrap text-xs text-muted-foreground">{formatNumber(row.attendees)}</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-[#EFEDF2]">
+                            <div className="h-full rounded-full bg-primary" style={{ width: `${percent(row.attendees, maxAttendees)}%` }} />
                           </div>
                         </div>
                       ))}
-                      {ticketClassBreakdown.every(c => c.count === 0) && (
-                        <p className="text-center text-xs text-muted-foreground pt-2">
-                          لا توجد مبيعات مدفوعة ضمن الفلاتر الحالية بعد
-                        </p>
-                      )}
                     </div>
-                  </div>
+                  )}
+                </Panel>
+              </TabsContent>
+
+              <TabsContent value="distribution" className="mt-6 space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <Panel title="توزيع حالات الفعاليات" bodyClassName="flex flex-col justify-center">
+                    {statusBreakdown.length === 0 ? noData : (
+                      <DonutChart
+                        center={formatNumber(stats.events)}
+                        centerLabel="الفعاليات"
+                        segments={statusBreakdown.map((d, i) => ({ label: d.name, value: d.value, color: COLORS[i % COLORS.length] }))}
+                      />
+                    )}
+                  </Panel>
+                  <Panel title="توزيع الفئات" bodyClassName="flex flex-col justify-center">
+                    {categoryBreakdown.length === 0 ? noData : (
+                      <DonutChart
+                        center={formatNumber(stats.events)}
+                        centerLabel="الفعاليات"
+                        segments={categoryBreakdown.map((d, i) => ({ label: d.name, value: d.value, color: COLORS[i % COLORS.length] }))}
+                      />
+                    )}
+                  </Panel>
+                </div>
+
+                {/* توزيع مبيعات التذاكر حسب الفئة */}
+                <div className="grid gap-6 xl:grid-cols-3">
+                  <Panel className="xl:col-span-2" title="مبيعات التذاكر حسب الفئة" flush>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="ps-6">الفئة</TableHead>
+                          <TableHead>تذاكر مباعة</TableHead>
+                          <TableHead>من الإجمالي</TableHead>
+                          <TableHead className="pe-6">الإيرادات (ر.س)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ticketClassBreakdown.map(c => (
+                          <TableRow key={c.key}>
+                            <TableCell className="ps-6">
+                              <span className="flex items-center gap-2 font-semibold">
+                                <i className="h-2.5 w-2.5 flex-none rounded-[3px]" style={{ background: c.color }} />
+                                <bdi>{c.name}</bdi>
+                              </span>
+                            </TableCell>
+                            <TableCell>{formatNumber(c.count)}</TableCell>
+                            <TableCell>{formatPercent(c.pct)}</TableCell>
+                            <TableCell className="pe-6">{formatNumber(c.revenue)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Panel>
+                  <Panel title="توزيع المبيعات" bodyClassName="flex flex-col justify-center">
+                    {soldClasses.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">لا توجد مبيعات مدفوعة ضمن الفلاتر الحالية بعد</p>
+                    ) : (
+                      <DonutChart
+                        center={formatNumber(soldClasses.reduce((s, c) => s + c.count, 0))}
+                        centerLabel="تذاكر مباعة"
+                        segments={soldClasses.map(c => ({ label: c.name, value: c.count, color: c.color }))}
+                      />
+                    )}
+                  </Panel>
                 </div>
               </TabsContent>
 
-              <TabsContent value="financial" className="space-y-5">
-                <div className="bg-card rounded-2xl border border-border/50 p-5">
-                  <h3 className="font-semibold text-foreground mb-4">الإيرادات اليومية — آخر 30 يوم (ر.س)</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={timeSeries}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} />
-                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                      <Bar dataKey="revenue" name="الإيراد" fill="hsl(42 65% 55%)" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+              <TabsContent value="financial" className="mt-6">
+                <Panel title="الإيرادات اليومية" description="آخر 30 يوماً (ر.س)">
+                  <TrendChart data={timeSeries} xKey="date" series={REVENUE_SERIES} height={300} />
+                </Panel>
               </TabsContent>
 
-              <TabsContent value="invitations" className="space-y-5">
+              <TabsContent value="invitations" className="mt-6 space-y-6">
                 <InvitationsReport organizationId={organization?.id} period={filterPeriod} />
               </TabsContent>
             </Tabs>
-
           </>
         )}
       </div>

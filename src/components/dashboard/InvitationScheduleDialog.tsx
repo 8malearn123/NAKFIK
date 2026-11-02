@@ -8,11 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import StatusBadge from "@/components/app/StatusBadge";
 import { supabase } from "@/integrations/supabase/client";
+import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
-import { CalendarClock, XCircle, History, Copy, CheckCircle2 } from "lucide-react";
+import { CalendarClock, XCircle, Copy, CheckCircle2 } from "lucide-react";
 
 interface ScheduleChange {
   id: string;
@@ -31,8 +33,7 @@ interface Props {
 
 const SQL_HINT = "شغّل ملف nakfik_invitation_schedule.sql في Supabase لتفعيل الميزة كاملة";
 
-const fmt = (d: string | null) =>
-  d ? new Date(d).toLocaleString("ar-SA", { dateStyle: "medium", timeStyle: "short" }) : "—";
+const fmt = (d: string | null) => (d ? formatDateTime(d) : "—");
 
 const toLocalInput = (iso: string) => {
   const d = new Date(iso);
@@ -165,129 +166,133 @@ const InvitationScheduleDialog = ({ inv, onOpenChange, onDone }: Props) => {
 
   return (
     <Dialog open={!!inv} onOpenChange={onOpenChange}>
-      <DialogContent dir="rtl" className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent dir="rtl" className="flex max-h-[90dvh] w-[calc(100%-1.5rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-2xl p-0 outline-none">
+        <DialogHeader className="px-6 pb-4 pe-12 pt-6 text-start">
           <DialogTitle>إلغاء / إعادة جدولة — {inv.title}</DialogTitle>
+          <DialogDescription>
+            الموعد الحالي: <span className="font-semibold text-foreground">{fmt(inv.event_date)}</span>
+          </DialogDescription>
         </DialogHeader>
 
-        <p className="text-xs text-muted-foreground -mt-1">
-          الموعد الحالي: <span className="font-bold text-foreground">{fmt(inv.event_date)}</span>
-        </p>
-
-        {shareText ? (
-          <div className="space-y-3">
-            <div className="rounded-xl bg-green-500/10 border border-green-400/40 p-3 text-xs text-green-800 flex items-start gap-2 leading-relaxed">
-              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              تمت العملية. صفحة كل مدعو تعرض التحديث تلقائياً — وهذا نص جاهز ترسله للمدعوين عبر واتساب:
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-6">
+          {shareText ? (
+            <>
+              <div className="flex items-start gap-2 rounded-xl bg-[#E8F5EE] p-3 text-[13px] leading-5 text-[#0E7A4F]">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none" />
+                تمت العملية. صفحة كل مدعو تعرض التحديث تلقائياً — وهذا نص جاهز ترسله للمدعوين عبر واتساب:
+              </div>
+              <Textarea value={shareText} onChange={(e) => setShareText(e.target.value)} rows={6} />
+            </>
+          ) : !mode ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setMode("cancel")}
+                className="rounded-xl bg-muted/50 p-4 text-start transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary"><XCircle className="h-[17px] w-[17px]" /></span>
+                <span className="mt-3 block text-sm font-bold leading-[22px]">إلغاء المناسبة</span>
+                <span className="mt-0.5 block text-xs leading-[18px] text-muted-foreground">
+                  رسالة اعتذار رسمية تظهر لكل مدعو يفتح رابط دعوته، مع إمكانية ذكر السبب
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("reschedule")}
+                className="rounded-xl bg-muted/50 p-4 text-start transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-secondary text-primary"><CalendarClock className="h-[17px] w-[17px]" /></span>
+                <span className="mt-3 block text-sm font-bold leading-[22px]">إعادة جدولة</span>
+                <span className="mt-0.5 block text-xs leading-[18px] text-muted-foreground">
+                  موعد جديد يظهر تلقائياً في كل الدعوات مع تنبيه واضح بالتغيير
+                </span>
+              </button>
             </div>
-            <Textarea value={shareText} onChange={(e) => setShareText(e.target.value)} rows={5} className="text-sm" />
+          ) : mode === "cancel" ? (
+            <>
+              <div className="rounded-xl bg-[#FBECEA] p-3 text-[13px] leading-5 text-[#B42F24]">
+                ستتحول المناسبة إلى "ملغاة"، وكل مدعو يفتح رابط دعوته سيشاهد رسالة الاعتذار بدلاً من أزرار تأكيد الحضور.
+              </div>
+              <div className="space-y-1.5">
+                <Label>سبب الإلغاء (يظهر للمدعوين — اختياري)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="مثال: ظرف طارئ، سنوافيكم بموعد بديل قريباً..."
+                  rows={3}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-1.5">
+                <Label>الموعد الجديد (التاريخ والوقت) *</Label>
+                <Input type="datetime-local" className="block" value={newDate} onChange={(e) => setNewDate(e.target.value)} dir="ltr" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>سبب التأجيل (يظهر للمدعوين — اختياري)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="مثال: تعارض مع مناسبة أخرى..."
+                  rows={2}
+                />
+              </div>
+              <div className="rounded-xl bg-muted/50 p-3 text-[13px] leading-5 text-muted-foreground">
+                ستعرض كل الدعوات الموعد الجديد تلقائياً مع تنبيه واضح "تم تغيير الموعد" — وروابط المدعوين تبقى كما هي.
+                كما يُعاد فتح خيارَي <b className="font-semibold text-foreground">التأكيد والاعتذار</b> لجميع من ردّ سابقاً ليؤكدوا حضورهم على الموعد الجديد.
+              </div>
+            </>
+          )}
+
+          {/* سجل التعديلات */}
+          {log.length > 0 && !shareText && (
+            <div className="space-y-3 border-t border-border pt-4">
+              <h3 className="text-[15px] font-bold leading-6">سجل التعديلات</h3>
+              <div className="max-h-44 divide-y divide-border overflow-y-auto rounded-xl bg-muted/50">
+                {log.map((l) => (
+                  <div key={l.id} className="space-y-1 p-3 text-xs leading-[18px]">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <StatusBadge tone={l.action === "cancelled" ? "danger" : "primary"}>
+                        {l.action === "cancelled" ? "إلغاء" : "إعادة جدولة"}
+                      </StatusBadge>
+                      <span className="text-muted-foreground">{fmt(l.created_at)}</span>
+                    </div>
+                    {l.action === "rescheduled" && (
+                      <p className="text-muted-foreground">
+                        من {fmt(l.old_event_date)} إلى <span className="font-semibold text-foreground">{fmt(l.new_event_date)}</span>
+                      </p>
+                    )}
+                    {l.reason && <p>السبب: {l.reason}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-row flex-wrap gap-2 border-t border-border px-6 py-4">
+          {shareText && (
             <Button
-              className="w-full"
-              variant="secondary"
+              className="flex-1 sm:flex-none"
               onClick={() => {
                 navigator.clipboard.writeText(shareText);
                 toast.success("تم نسخ النص — ألصقه في واتساب");
               }}
             >
-              <Copy className="w-4 h-4 ml-1" /> نسخ النص
+              <Copy className="h-4 w-4" /> نسخ النص
             </Button>
-          </div>
-        ) : !mode ? (
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <button
-              type="button"
-              onClick={() => setMode("cancel")}
-              className="rounded-2xl border-2 border-border hover:border-destructive p-4 text-right transition-all hover:-translate-y-0.5"
-            >
-              <XCircle className="w-7 h-7 text-destructive mb-2" />
-              <p className="font-bold text-sm">إلغاء المناسبة</p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                رسالة اعتذار رسمية تظهر لكل مدعو يفتح رابط دعوته، مع إمكانية ذكر السبب
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("reschedule")}
-              className="rounded-2xl border-2 border-border hover:border-primary p-4 text-right transition-all hover:-translate-y-0.5"
-            >
-              <CalendarClock className="w-7 h-7 text-primary mb-2" />
-              <p className="font-bold text-sm">إعادة جدولة</p>
-              <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                موعد جديد يظهر تلقائياً في كل الدعوات مع تنبيه واضح بالتغيير
-              </p>
-            </button>
-          </div>
-        ) : mode === "cancel" ? (
-          <div className="space-y-3">
-            <div className="rounded-xl bg-destructive/5 border border-destructive/30 p-3 text-xs leading-relaxed text-destructive">
-              ستتحول المناسبة إلى "ملغاة"، وكل مدعو يفتح رابط دعوته سيشاهد رسالة الاعتذار بدلاً من أزرار تأكيد الحضور.
-            </div>
-            <div className="space-y-1.5">
-              <Label>سبب الإلغاء (يظهر للمدعوين — اختياري)</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="مثال: ظرف طارئ، سنوافيكم بموعد بديل قريباً..."
-                rows={3}
-              />
-            </div>
-            <Button variant="destructive" className="w-full" onClick={doCancel} disabled={busy}>
+          )}
+          {!shareText && mode === "cancel" && (
+            <Button variant="destructive" className="flex-1 sm:flex-none" onClick={doCancel} disabled={busy}>
               {busy ? "جارٍ الإلغاء..." : "تأكيد إلغاء المناسبة"}
             </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label>الموعد الجديد (التاريخ والوقت) *</Label>
-              <Input type="datetime-local" value={newDate} onChange={(e) => setNewDate(e.target.value)} dir="ltr" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>سبب التأجيل (يظهر للمدعوين — اختياري)</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="مثال: تعارض مع مناسبة أخرى..."
-                rows={2}
-              />
-            </div>
-            <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 text-xs leading-relaxed text-muted-foreground">
-              ستعرض كل الدعوات الموعد الجديد تلقائياً مع تنبيه واضح "تم تغيير الموعد" — وروابط المدعوين تبقى كما هي.
-              كما يُعاد فتح خيارَي <b>التأكيد والاعتذار</b> لجميع من ردّ سابقاً ليؤكدوا حضورهم على الموعد الجديد.
-            </div>
-            <Button className="w-full" onClick={doReschedule} disabled={busy}>
+          )}
+          {!shareText && mode === "reschedule" && (
+            <Button className="flex-1 sm:flex-none" onClick={doReschedule} disabled={busy}>
               {busy ? "جارٍ التحديث..." : "تأكيد التأجيل"}
             </Button>
-          </div>
-        )}
-
-        {/* سجل التعديلات */}
-        {log.length > 0 && !shareText && (
-          <div className="mt-2 pt-3 border-t border-border/50">
-            <p className="text-xs font-bold text-foreground flex items-center gap-1.5 mb-2">
-              <History className="w-3.5 h-3.5" /> سجل التعديلات
-            </p>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {log.map((l) => (
-                <div key={l.id} className="rounded-lg border border-border/50 bg-muted/30 p-2.5 text-[11px] leading-relaxed">
-                  <div className="flex items-center justify-between">
-                    <span className={`font-bold ${l.action === "cancelled" ? "text-destructive" : "text-primary"}`}>
-                      {l.action === "cancelled" ? "إلغاء" : "إعادة جدولة"}
-                    </span>
-                    <span className="text-muted-foreground">{fmt(l.created_at)}</span>
-                  </div>
-                  {l.action === "rescheduled" && (
-                    <p className="text-muted-foreground mt-0.5">
-                      من {fmt(l.old_event_date)} إلى <span className="font-bold text-foreground">{fmt(l.new_event_date)}</span>
-                    </p>
-                  )}
-                  {l.reason && <p className="mt-0.5">السبب: {l.reason}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <DialogFooter className="gap-2">
+          )}
           {mode && !shareText && (
             <Button variant="ghost" onClick={() => setMode(null)} disabled={busy}>رجوع</Button>
           )}

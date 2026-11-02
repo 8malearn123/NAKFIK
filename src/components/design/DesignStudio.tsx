@@ -1,16 +1,29 @@
 // Reusable design editor: templates → layout → ornament → colors → fonts → bg image.
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronDown, Sparkles, Layout, Frame, Type, Palette as PaletteIcon, Image as ImageIcon, Upload, Loader2, X, Check, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Sparkles, Layout, Palette as PaletteIcon, Image as ImageIcon, Upload, Loader2, X, Check, SlidersHorizontal } from "lucide-react";
 import { TEMPLATES, FONTS, LAYOUTS, ORNAMENTS, FRAMES, CORNERS, BG_STYLES, ALIGNMENTS, DEFAULT_EXTRAS, type DesignTemplate } from "./templates";
 import { Slider } from "@/components/ui/slider";
 import DesignPreview, { type DesignValue } from "./DesignPreview";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatPercent } from "@/lib/format";
 import { toast } from "sonner";
+
+// حالة الخيار المحدد موحدة في كل مربعات الاختيار
+const choiceCls = (active: boolean) =>
+  `rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${active ? "bg-secondary font-semibold text-primary ring-1 ring-inset ring-primary" : "bg-muted/50 hover:bg-muted"}`;
+
+const STUDIO_TABS = [
+  { value: "templates", label: "القوالب", Icon: Sparkles },
+  { value: "layout", label: "التخطيط", Icon: Layout },
+  { value: "colors", label: "الألوان", Icon: PaletteIcon },
+  { value: "custom", label: "تخصيص", Icon: SlidersHorizontal },
+  { value: "media", label: "الوسائط", Icon: ImageIcon },
+];
 
 type Props = {
   value: DesignValue & { template_key?: string | null };
@@ -71,47 +84,48 @@ export default function DesignStudio({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
       {/* Left: controls */}
-      <div className="space-y-5">
+      <div className="min-w-0">
         <Tabs defaultValue="templates" className="w-full">
-          <TabsList className="grid grid-cols-5 w-full">
-            <TabsTrigger value="templates"><Sparkles className="w-3.5 h-3.5 ml-1" /> القوالب</TabsTrigger>
-            <TabsTrigger value="layout"><Layout className="w-3.5 h-3.5 ml-1" /> التخطيط</TabsTrigger>
-            <TabsTrigger value="colors"><PaletteIcon className="w-3.5 h-3.5 ml-1" /> الألوان</TabsTrigger>
-            <TabsTrigger value="custom"><SlidersHorizontal className="w-3.5 h-3.5 ml-1" /> تخصيص</TabsTrigger>
-            <TabsTrigger value="media"><ImageIcon className="w-3.5 h-3.5 ml-1" /> الوسائط</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5">
+            {STUDIO_TABS.map(({ value: tab, label, Icon }) => (
+              <TabsTrigger key={tab} value={tab} className="gap-1.5 px-1 text-[13px] sm:px-2">
+                <Icon className="hidden h-3.5 w-3.5 sm:block" /> {label}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           {/* Templates */}
-          <TabsContent value="templates" className="mt-4">
-            <p className="text-xs text-muted-foreground mb-3">ابدأ بقالب جاهز ثم خصّصه — كل قالب يطبّق الألوان والخطوط والتخطيط والزخرفة دفعة واحدة.</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <TabsContent value="templates" className="mt-4 space-y-3">
+            <p className="text-[13px] leading-5 text-muted-foreground">ابدأ بقالب جاهز ثم خصّصه — كل قالب يطبّق الألوان والخطوط والتخطيط والزخرفة دفعة واحدة.</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {TEMPLATES.map((t) => {
                 const active = value.template_key === t.key;
                 return (
                   <button
                     key={t.key}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => applyTemplate(t)}
-                    className={`relative rounded-xl overflow-hidden border-2 transition group ${active ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/40"}`}
+                    className={`relative overflow-hidden rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : "ring-1 ring-border hover:ring-primary/40"}`}
                   >
-                    <div className="aspect-[3/4] relative" style={{ background: `linear-gradient(160deg, ${t.theme_color}, ${t.theme_color}dd)` }}>
+                    <div className="relative aspect-[3/4]" style={{ background: `linear-gradient(160deg, ${t.theme_color}, ${t.theme_color}dd)` }}>
                       <div className="absolute inset-3 border" style={{ borderColor: t.accent_color + "aa" }} />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2" style={{ color: t.text_color, fontFamily: t.heading_font }}>
-                        <div className="h-px w-8 mb-1.5" style={{ background: t.accent_color }} />
-                        <p className="text-[10px] tracking-widest opacity-80" style={{ color: t.accent_color }}>INVITATION</p>
-                        <p className="text-sm font-bold mt-1">دعوة</p>
-                        <div className="h-px w-8 mt-1.5" style={{ background: t.accent_color }} />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center" style={{ color: t.text_color, fontFamily: t.heading_font }}>
+                        <div className="mb-1.5 h-px w-8" style={{ background: t.accent_color }} />
+                        <p className="text-xs opacity-80" style={{ color: t.accent_color }}>INVITATION</p>
+                        <p className="mt-1 text-sm font-bold">دعوة</p>
+                        <div className="mt-1.5 h-px w-8" style={{ background: t.accent_color }} />
                       </div>
                       {active && (
-                        <div className="absolute top-1 left-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center">
-                          <Check className="w-3 h-3" />
+                        <div className="absolute start-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground">
+                          <Check className="h-3 w-3" />
                         </div>
                       )}
                     </div>
-                    <div className="p-2 bg-card">
-                      <p className="text-[11px] font-semibold truncate">{t.label}</p>
+                    <div className="bg-card px-2 py-2">
+                      <p className="truncate text-xs font-semibold">{t.label}</p>
                     </div>
                   </button>
                 );
@@ -121,194 +135,225 @@ export default function DesignStudio({
 
           {/* Layout + Ornament */}
           <TabsContent value="layout" className="mt-4 space-y-5">
-            <div>
-              <Label className="mb-2 block">نمط التخطيط</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {LAYOUTS.map((l) => (
-                  <button
-                    key={l.key}
-                    type="button"
-                    onClick={() => onChange({ layout_style: l.key })}
-                    className={`p-3 rounded-lg border-2 text-right transition ${value.layout_style === l.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
-                  >
-                    <LayoutIcon name={l.key} />
-                    <p className="text-xs font-semibold mt-2">{l.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{l.desc}</p>
-                  </button>
-                ))}
+            <div className="space-y-2">
+              <Label>نمط التخطيط</Label>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {LAYOUTS.map((l) => {
+                  const active = value.layout_style === l.key;
+                  return (
+                    <button
+                      key={l.key}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => onChange({ layout_style: l.key })}
+                      className={`${choiceCls(active)} p-3 text-start`}
+                    >
+                      <LayoutIcon name={l.key} />
+                      <p className="mt-2 text-xs font-semibold leading-[18px]">{l.label}</p>
+                      <p className="text-xs font-normal leading-[18px] text-muted-foreground">{l.desc}</p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <div>
-              <Label className="mb-2 block">الزخرفة</Label>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div className="space-y-2">
+              <Label>الزخرفة</Label>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {ORNAMENTS.map((o) => (
                   <button
                     key={o.key}
                     type="button"
+                    aria-pressed={value.ornament_style === o.key}
                     onClick={() => onChange({ ornament_style: o.key })}
-                    className={`px-2 py-2 rounded-lg border text-xs transition ${value.ornament_style === o.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}
+                    className={`${choiceCls(value.ornament_style === o.key)} h-10 px-2 text-xs`}
                   >
                     {o.label}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label><Type className="w-3 h-3 inline ml-1" /> خط العناوين</Label>
-                <select className="w-full h-10 rounded-md border bg-background px-3 text-sm mt-1" value={value.heading_font} onChange={(e) => onChange({ heading_font: e.target.value })}>
-                  {FONTS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>خط العناوين</Label>
+                <Select value={value.heading_font} onValueChange={(v) => onChange({ heading_font: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FONTS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <div>
-                <Label><Type className="w-3 h-3 inline ml-1" /> خط النصوص</Label>
-                <select className="w-full h-10 rounded-md border bg-background px-3 text-sm mt-1" value={value.body_font} onChange={(e) => onChange({ body_font: e.target.value })}>
-                  {FONTS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
+              <div className="space-y-1.5">
+                <Label>خط النصوص</Label>
+                <Select value={value.body_font} onValueChange={(v) => onChange({ body_font: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FONTS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </TabsContent>
 
           {/* Colors */}
-          <TabsContent value="colors" className="mt-4 space-y-3">
-            <ColorRow label="اللون الأساسي" value={value.theme_color} onChange={(v) => onChange({ theme_color: v })} />
-            <ColorRow label="لون التمييز (الذهبي / الإطار)" value={value.accent_color} onChange={(v) => onChange({ accent_color: v })} />
-            <button type="button" onClick={() => setAdvanced(!advanced)} className="text-xs text-primary flex items-center gap-1">
-              <ChevronDown className={`w-3 h-3 transition ${advanced ? "rotate-180" : ""}`} /> خيارات متقدمة
+          <TabsContent value="colors" className="mt-4 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ColorRow label="اللون الأساسي" value={value.theme_color} onChange={(v) => onChange({ theme_color: v })} />
+              <ColorRow label="لون التمييز (الذهبي / الإطار)" value={value.accent_color} onChange={(v) => onChange({ accent_color: v })} />
+            </div>
+            <button type="button" onClick={() => setAdvanced(!advanced)} className="flex items-center gap-1.5 text-[13px] font-semibold leading-5 text-primary">
+              <ChevronDown className={`h-4 w-4 transition-transform ${advanced ? "rotate-180" : ""}`} /> خيارات متقدمة
             </button>
             {advanced && (
-              <div className="space-y-3 pt-2 border-t">
+              <div className="grid gap-4 rounded-xl bg-muted/50 p-4 sm:grid-cols-2">
                 <ColorRow label="لون الخلفية (للقوالب الفاتحة)" value={value.background_color || "#FFFFFF"} onChange={(v) => onChange({ background_color: v })} />
                 <ColorRow label="لون النص الأساسي" value={value.text_color} onChange={(v) => onChange({ text_color: v })} />
               </div>
             )}
             {/* Quick palette suggestions */}
-            <div className="pt-3">
-              <Label className="text-xs">اقتراحات سريعة</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
+            <div className="space-y-2">
+              <Label>اقتراحات سريعة</Label>
+              <div className="grid grid-cols-4 gap-2.5 sm:grid-cols-8">
                 {QUICK_PALETTES.map((p, i) => (
                   <button
                     key={i}
                     type="button"
                     onClick={() => onChange({ theme_color: p[0], accent_color: p[1] })}
-                    className="flex h-8 rounded-md overflow-hidden border hover:scale-105 transition"
+                    className="flex h-9 overflow-hidden rounded-lg ring-1 ring-border transition hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     title={`${p[0]} + ${p[1]}`}
                   >
-                    <span className="w-8" style={{ background: p[0] }} />
-                    <span className="w-8" style={{ background: p[1] }} />
+                    <span className="flex-1" style={{ background: p[0] }} />
+                    <span className="flex-1" style={{ background: p[1] }} />
                   </button>
                 ))}
               </div>
             </div>
-            <div className="pt-3">
-              <Label className="text-xs">نمط الخلفية</Label>
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {BG_STYLES.map((b) => (
-                  <button key={b.key} type="button" onClick={() => onChange({ bg_style: b.key } as any)}
-                    className={`px-2 py-2 rounded-lg border text-xs transition ${(value.bg_style || "gradient") === b.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}>
-                    {b.label}
-                  </button>
-                ))}
+            <div className="space-y-2">
+              <Label>نمط الخلفية</Label>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {BG_STYLES.map((b) => {
+                  const active = (value.bg_style || "gradient") === b.key;
+                  return (
+                    <button key={b.key} type="button" aria-pressed={active} onClick={() => onChange({ bg_style: b.key } as any)}
+                      className={`${choiceCls(active)} h-10 px-2 text-xs`}>
+                      {b.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </TabsContent>
 
           {/* Customize — التخصيص المتقدم */}
           <TabsContent value="custom" className="mt-4 space-y-5">
-            <div>
-              <Label className="mb-2 block"><Frame className="w-3 h-3 inline ml-1" /> إطار الدعوة</Label>
-              <div className="grid grid-cols-5 gap-2">
-                {FRAMES.map((fr) => (
-                  <button key={fr.key} type="button" onClick={() => onChange({ frame_style: fr.key } as any)}
-                    className={`p-2 rounded-lg border-2 text-center transition ${(value.frame_style || "none") === fr.key ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}>
-                    <FramePreview kind={fr.key} accent={value.accent_color} />
-                    <p className="text-[10px] font-semibold mt-1.5">{fr.label}</p>
-                  </button>
-                ))}
+            <div className="space-y-2">
+              <Label>إطار الدعوة</Label>
+              <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
+                {FRAMES.map((fr) => {
+                  const active = (value.frame_style || "none") === fr.key;
+                  return (
+                    <button key={fr.key} type="button" aria-pressed={active} onClick={() => onChange({ frame_style: fr.key } as any)}
+                      className={`${choiceCls(active)} p-2 text-center`}>
+                      <FramePreview kind={fr.key} accent={value.accent_color} />
+                      <p className="mt-1.5 text-xs font-semibold">{fr.label}</p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block">شكل الزوايا</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {CORNERS.map((c) => (
-                  <button key={c.key} type="button" onClick={() => onChange({ corner_style: c.key } as any)}
-                    className={`px-2 py-2.5 rounded-lg border text-xs transition ${(value.corner_style || "rounded") === c.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}>
-                    {c.label}
-                  </button>
-                ))}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>شكل الزوايا</Label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {CORNERS.map((c) => {
+                    const active = (value.corner_style || "rounded") === c.key;
+                    return (
+                      <button key={c.key} type="button" aria-pressed={active} onClick={() => onChange({ corner_style: c.key } as any)}
+                        className={`${choiceCls(active)} h-10 px-2 text-xs`}>
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>محاذاة النصوص</Label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {ALIGNMENTS.map((a) => {
+                    const active = (value.text_align || "center") === a.key;
+                    return (
+                      <button key={a.key} type="button" aria-pressed={active} onClick={() => onChange({ text_align: a.key } as any)}
+                        className={`${choiceCls(active)} h-10 px-2 text-xs`}>
+                        {a.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block">محاذاة النصوص</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {ALIGNMENTS.map((a) => (
-                  <button key={a.key} type="button" onClick={() => onChange({ text_align: a.key } as any)}
-                    className={`px-2 py-2.5 rounded-lg border text-xs transition ${(value.text_align || "center") === a.key ? "border-primary bg-primary/5 font-semibold" : "border-border hover:border-primary/40"}`}>
-                    {a.label}
-                  </button>
-                ))}
-              </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <SliderRow label="حجم العنوان" value={value.heading_scale ?? 1} min={0.7} max={1.5} step={0.05}
+                onChange={(v) => onChange({ heading_scale: v } as any)} />
+              <SliderRow label="حجم النصوص" value={value.body_scale ?? 1} min={0.7} max={1.4} step={0.05}
+                onChange={(v) => onChange({ body_scale: v } as any)} />
+              <SliderRow label="المسافات بين العناصر" value={value.spacing_scale ?? 1} min={0.6} max={1.6} step={0.05}
+                onChange={(v) => onChange({ spacing_scale: v } as any)} />
+              <SliderRow label="شفافية المحتوى" value={value.content_opacity ?? 1} min={0.5} max={1} step={0.05}
+                onChange={(v) => onChange({ content_opacity: v } as any)} />
             </div>
-
-            <SliderRow label="حجم العنوان" value={value.heading_scale ?? 1} min={0.7} max={1.5} step={0.05}
-              onChange={(v) => onChange({ heading_scale: v } as any)} />
-            <SliderRow label="حجم النصوص" value={value.body_scale ?? 1} min={0.7} max={1.4} step={0.05}
-              onChange={(v) => onChange({ body_scale: v } as any)} />
-            <SliderRow label="المسافات بين العناصر" value={value.spacing_scale ?? 1} min={0.6} max={1.6} step={0.05}
-              onChange={(v) => onChange({ spacing_scale: v } as any)} />
-            <SliderRow label="شفافية المحتوى" value={value.content_opacity ?? 1} min={0.5} max={1} step={0.05} percent
-              onChange={(v) => onChange({ content_opacity: v } as any)} />
 
             <button type="button" onClick={() => onChange({ ...DEFAULT_EXTRAS, logo_url: value.logo_url } as any)}
-              className="text-xs text-muted-foreground hover:text-primary underline">
+              className="text-[13px] font-semibold leading-5 text-primary">
               إعادة ضبط التخصيص للوضع الافتراضي
             </button>
           </TabsContent>
 
           {/* Media */}
-          <TabsContent value="media" className="mt-4 space-y-3">
-            <Label>صورة الخلفية</Label>
-            <div className="flex gap-3 items-start">
-              {value.background_image_url ? (
-                <div className="relative w-28 h-28 rounded-lg overflow-hidden border shrink-0 group">
-                  <img src={value.background_image_url} alt="bg" className="w-full h-full object-cover" />
-                  <button type="button" onClick={() => onChange({ background_image_url: null })} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                    <X className="w-5 h-5 text-white" />
-                  </button>
-                </div>
-              ) : (
-                <label className={`w-28 h-28 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer shrink-0 transition ${uploading ? "opacity-50 pointer-events-none" : "hover:border-primary hover:bg-primary/5"}`}>
-                  {uploading ? <Loader2 className="w-5 h-5 animate-spin text-primary" /> : <Upload className="w-5 h-5 text-muted-foreground" />}
-                  <span className="text-[10px] text-muted-foreground mt-1">{uploading ? "جاري الرفع" : "ارفع صورة"}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
-                </label>
-              )}
-              <div className="flex-1 space-y-1">
-                <Input dir="ltr" value={value.background_image_url || ""} onChange={(e) => onChange({ background_image_url: e.target.value })} placeholder="أو الصق رابط https://..." className="text-xs" />
-                <p className="text-[11px] text-muted-foreground">سيتم وضع طبقة لون شفافة فوق الصورة لضمان قراءة النص.</p>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <Label>الشعار أو الختم الخاص</Label>
-              <div className="flex gap-3 items-start mt-2">
-                {value.logo_url ? (
-                  <div className="relative w-20 h-20 rounded-lg overflow-hidden border shrink-0 group bg-muted/30">
-                    <img src={value.logo_url} alt="logo" className="w-full h-full object-contain" />
-                    <button type="button" onClick={() => onChange({ logo_url: null } as any)} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                      <X className="w-5 h-5 text-white" />
+          <TabsContent value="media" className="mt-4 space-y-5">
+            <div className="space-y-2">
+              <Label>صورة الخلفية</Label>
+              <div className="flex items-start gap-3">
+                {value.background_image_url ? (
+                  <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-muted/50">
+                    <img src={value.background_image_url} alt="bg" className="h-full w-full object-cover" />
+                    <button type="button" aria-label="إزالة الصورة" onClick={() => onChange({ background_image_url: null })} className="absolute end-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-md bg-foreground/70 text-white transition-colors hover:bg-foreground">
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ) : (
-                  <label className={`w-20 h-20 rounded-lg border-2 border-dashed flex flex-col items-center justify-center cursor-pointer shrink-0 transition ${uploading ? "opacity-50 pointer-events-none" : "hover:border-primary hover:bg-primary/5"}`}>
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Upload className="w-4 h-4 text-muted-foreground" />}
-                    <span className="text-[10px] text-muted-foreground mt-1">شعار</span>
+                  <label className={`flex h-28 w-28 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-input bg-muted/50 transition-colors ${uploading ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}>
+                    {uploading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+                    <span className="mt-1 text-xs text-muted-foreground">{uploading ? "جاري الرفع" : "ارفع صورة"}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} />
+                  </label>
+                )}
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Input dir="ltr" value={value.background_image_url || ""} onChange={(e) => onChange({ background_image_url: e.target.value })} placeholder="أو الصق رابط https://..." />
+                  <p className="text-xs leading-[18px] text-muted-foreground">سيتم وضع طبقة لون شفافة فوق الصورة لضمان قراءة النص.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 border-t border-border pt-5">
+              <Label>الشعار أو الختم الخاص</Label>
+              <div className="flex items-start gap-3">
+                {value.logo_url ? (
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted/50">
+                    <img src={value.logo_url} alt="logo" className="h-full w-full object-contain" />
+                    <button type="button" aria-label="إزالة الشعار" onClick={() => onChange({ logo_url: null } as any)} className="absolute end-1 top-1 grid h-6 w-6 place-items-center rounded-md bg-foreground/70 text-white transition-colors hover:bg-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className={`flex h-20 w-20 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-input bg-muted/50 transition-colors ${uploading ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}>
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
+                    <span className="mt-1 text-xs text-muted-foreground">شعار</span>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => { const fl = e.target.files?.[0]; if (fl) handleUpload(fl, "logo_url"); e.target.value = ""; }} />
                   </label>
                 )}
-                <p className="text-[11px] text-muted-foreground flex-1">يظهر الشعار أعلى الدعوة — يفضّل صورة بخلفية شفافة (PNG).</p>
+                <p className="min-w-0 flex-1 text-xs leading-[18px] text-muted-foreground">يظهر الشعار أعلى الدعوة — يفضّل صورة بخلفية شفافة (PNG).</p>
               </div>
             </div>
           </TabsContent>
@@ -316,8 +361,8 @@ export default function DesignStudio({
       </div>
 
       {/* Right: live preview */}
-      <div className="lg:sticky lg:top-4 self-start">
-        <p className="text-xs text-muted-foreground mb-2 text-center">معاينة مباشرة</p>
+      <div className="min-w-0 self-start lg:sticky lg:top-4">
+        <p className="mb-2 text-center text-xs text-muted-foreground">معاينة مباشرة</p>
         {previewNode ? previewNode : <DesignPreview
           design={value}
           title={previewTitle}
@@ -334,40 +379,40 @@ export default function DesignStudio({
 
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      <div className="flex gap-2 items-center mt-1">
-        <Input type="color" className="w-14 h-10 p-1 cursor-pointer" value={value} onChange={(e) => onChange(e.target.value)} />
-        <Input dir="ltr" value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input type="color" className="h-10 w-14 flex-none cursor-pointer p-1" value={value} onChange={(e) => onChange(e.target.value)} />
+        <Input dir="ltr" value={value} onChange={(e) => onChange(e.target.value)} />
       </div>
     </div>
   );
 }
 
 function LayoutIcon({ name }: { name: string }) {
-  const cls = "w-full h-12 rounded border";
+  const cls = "h-12 w-full rounded-md border border-border";
   if (name === "classic") return (
-    <div className={`${cls} bg-muted flex flex-col items-center justify-center gap-1`}>
+    <div className={`${cls} flex flex-col items-center justify-center gap-1 bg-card`}>
       <div className="h-px w-8 bg-foreground/40" />
       <div className="h-1.5 w-10 bg-foreground/70 rounded" />
       <div className="h-px w-8 bg-foreground/40" />
     </div>
   );
   if (name === "framed") return (
-    <div className={`${cls} bg-muted p-1.5`}>
+    <div className={`${cls} bg-card p-1.5`}>
       <div className="w-full h-full border border-foreground/40 flex items-center justify-center">
         <div className="h-1.5 w-6 bg-foreground/70 rounded" />
       </div>
     </div>
   );
   if (name === "split") return (
-    <div className={`${cls} bg-muted overflow-hidden flex flex-col`}>
+    <div className={`${cls} flex flex-col overflow-hidden bg-card`}>
       <div className="h-1/2 bg-foreground/70 flex items-center justify-center"><div className="h-1 w-6 bg-background rounded" /></div>
       <div className="flex-1 flex items-center justify-center"><div className="h-1 w-6 bg-foreground/40 rounded" /></div>
     </div>
   );
   return (
-    <div className={`${cls} bg-background flex items-center justify-center`}>
+    <div className={`${cls} flex items-center justify-center bg-card`}>
       <div className="h-1 w-8 bg-foreground/60 rounded" />
     </div>
   );
@@ -384,24 +429,22 @@ const QUICK_PALETTES: [string, string][] = [
   ["#1E3A5F", "#C9A84C"],
 ];
 
-function SliderRow({ label, value, min, max, step, percent, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; percent?: boolean; onChange: (v: number) => void;
+function SliderRow({ label, value, min, max, step, onChange }: {
+  label: string; value: number; min: number; max: number; step: number; onChange: (v: number) => void;
 }) {
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <Label className="text-xs">{label}</Label>
-        <span className="text-[11px] text-muted-foreground font-mono" dir="ltr">
-          {percent ? `${Math.round(value * 100)}%` : `${Math.round(value * 100)}%`}
-        </span>
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        <span className="text-xs text-muted-foreground">{formatPercent(Math.round(value * 100))}</span>
       </div>
-      <Slider value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0])} />
+      <Slider dir="rtl" value={[value]} min={min} max={max} step={step} onValueChange={(v) => onChange(v[0])} />
     </div>
   );
 }
 
 function FramePreview({ kind, accent }: { kind: string; accent: string }) {
-  const base = "w-full aspect-[3/4] rounded bg-muted/60 relative overflow-hidden";
+  const base = "relative aspect-[3/4] w-full overflow-hidden rounded-md bg-card";
   if (kind === "none") return <div className={base} />;
   if (kind === "simple") return (
     <div className={base}><div className="absolute inset-1 border" style={{ borderColor: accent }} /></div>

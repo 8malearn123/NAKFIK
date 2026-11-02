@@ -153,7 +153,7 @@ export const computeEventReadiness = (i: ReadinessInput): EventReadiness => {
 };
 
 export const healthMeta: Record<HealthLevel, { label: string; text: string; bg: string; bar: string }> = {
-  excellent: { label: "ممتاز", text: "text-green-700", bg: "bg-green-500/10", bar: "bg-green-500" },
-  good:      { label: "جيد", text: "text-amber-700", bg: "bg-amber-500/10", bar: "bg-amber-500" },
-  poor:      { label: "يحتاج تحسين", text: "text-destructive", bg: "bg-destructive/10", bar: "bg-destructive" },
+  excellent: { label: "ممتاز", text: "text-[#0E7A4F]", bg: "bg-[#E8F5EE]", bar: "bg-[#0E7A4F]" },
+  good:      { label: "جيد", text: "text-[#9A5F12]", bg: "bg-[#FDF3E3]", bar: "bg-[#D89B3C]" },
+  poor:      { label: "يحتاج تحسين", text: "text-[#B42F24]", bg: "bg-[#FBECEA]", bar: "bg-[#B42F24]" },
 };
