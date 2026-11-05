@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { DEMO_ACCOUNTS_ON_LOGIN } from "../src/lib/phase";
 import { PROTECTED_ROUTES, PUBLIC_PARAM_ROUTES, PUBLIC_ROUTES } from "./routes";
 
 // أخطاء الشبكة (مثل انقطاع الاتصال بـSupabase في بيئات معزولة) ليست
@@ -70,4 +71,21 @@ test("مسار غير معروف يعرض صفحة 404", async ({ page }) => {
   await page.goto("/this-page-does-not-exist");
   await expectAppBooted(page);
   await expect(page.getByText("404")).toBeVisible();
+});
+
+// يُفحص على نسخة الإنتاج لأن الصندوق يظهر دائماً في التطوير المحلي،
+// فلا يُكتشف اختفاؤه من الموقع الحي إلا هنا.
+test("صندوق الحسابات التجريبية في صفحة الدخول يتبع مفتاحه", async ({ page }) => {
+  await page.goto("/login");
+  await expectAppBooted(page);
+  const demoBox = page.getByText("حسابات تجريبية (للاختبار)");
+  if (!DEMO_ACCOUNTS_ON_LOGIN) {
+    await expect(demoBox).toHaveCount(0);
+    return;
+  }
+  await expect(demoBox).toBeVisible();
+  // ضغطة على الحساب تعبّئ بياناته، ثم الدخول يفتح لوحة المنظّم في الوضع التجريبي
+  await page.getByRole("button", { name: /org-private@nakfeek\.sa/ }).click();
+  await page.locator("form").getByRole("button", { name: "تسجيل الدخول" }).click();
+  await page.waitForURL("**/dashboard", { timeout: 20_000 });
 });

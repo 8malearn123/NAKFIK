@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getReturnPath } from "@/lib/returnPath";
+import { DEMO_ACCOUNTS_ON_LOGIN } from "@/lib/phase";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -166,8 +167,8 @@ const Login = () => {
             </Button>
           </form>
 
-          {/* حسابات الديمو للتطوير المحلي فقط، حتى لا تظهر بيانات الدخول لزوار الموقع */}
-          {import.meta.env.DEV && (
+          {/* حسابات الديمو: تظهر محلياً دائماً، وعلى الموقع الحي حسب DEMO_ACCOUNTS_ON_LOGIN في src/lib/phase.ts */}
+          {(DEMO_ACCOUNTS_ON_LOGIN || import.meta.env.DEV) && (
             <div className="mt-6 rounded-xl bg-muted/60 p-4">
               <p className="mb-3 text-center text-xs font-semibold text-muted-foreground">{t("pgAuth.login.demoTitle")}</p>
               <div className="space-y-2">
