@@ -1,494 +1,651 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { toast } from "sonner";
+import {
+  CalendarDays, Check, ChevronDown, Clock, ExternalLink, Gift, Mail, MapPin, MessageCircle,
+  Minus, Paperclip, Phone, Plus, QrCode, Shirt, X,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { QRCodeSVG } from "qrcode.react";
-import {
-  Calendar, MapPin, Shirt, Phone, Gift, CheckCircle2, X,
-  MessageCircle, Mail, ExternalLink, Clock, HeartHandshake, ChevronDown,
-} from "lucide-react";
+import BrandMark from "@/components/BrandMark";
 import DesignPreview from "@/components/design/DesignPreview";
 import CustomTemplateRender from "@/components/design/CustomTemplateRender";
 import { DEFAULT_OVERLAY } from "@/components/design/CustomTemplateDesigner";
+import SealedEnvelope, { type EnvelopePhase } from "@/components/invitation/SealedEnvelope";
+import CardFlip from "@/components/invitation/CardFlip";
+import EntryFace from "@/components/invitation/EntryFace";
+import WaxSeal from "@/components/invitation/WaxSeal";
+import { alpha, mix } from "@/components/invitation/colors";
+import type { GuestInvitation, InvitationGuest, InvitationPayload, RsvpResult } from "@/components/invitation/types";
+import { demoGuest, demoInvitation } from "@/lib/inviteDemo";
+import { formatDateTime, formatTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-const PrivateInvitation = () => {
+// صفحة الدعوة الخاصة كما يراها الضيف من رابطه.
+// أول مرة تصله الدعوة في ظرف مختوم باسمه: يفك الختم فتخرج البطاقة ويُكتب اسمه عليها،
+// وحين يؤكد حضوره يُختم ردّه على البطاقة، وخلفها رمز الدخول.
+// demo: نسخة تجريبية على /demo/invite ببيانات ثابتة ورد لا يُحفظ.
+
+const openedKey = (token: string) => `nakfeek-invite-opened:${token}`;
+// ختم أول فتح للدعوة عند المضيف — الدالة خارج الأنواع المولّدة، والخطأ يُتجاهل بصمت إن لم تُفعّل بعد
+const markOpened = (token: string) =>
+  (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => PromiseLike<unknown>)("mark_invitation_opened", { _token: token }).then(
+    () => {},
+    () => {},
+  );
+const storage = {
+  get: (k: string) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
+};
+
+// ورد/بوكس/شيك بقيم ثابتة — و"أخرى" يحددها المستفيد بنفسه
+const GIFT_META: Record<string, { label: string; emoji: string; amount: number | null }> = {
+  flowers: { label: "ورد", emoji: "🌹", amount: 100 },
+  box: { label: "بوكس", emoji: "🎁", amount: 300 },
+  cheque: { label: "شيك", emoji: "📝", amount: 500 },
+  other: { label: "أخرى", emoji: "", amount: null },
+};
+const PAY_METHOD_LABELS: Record<string, string> = { bank: "تحويل بنكي", tabby: "Tabby", tamara: "Tamara" };
+
+const inHours = (h: number) => (h === 1 ? "بعد ساعة" : h === 2 ? "بعد ساعتين" : h <= 10 ? `بعد ${h} ساعات` : `بعد ${h} ساعة`);
+const inMinutes = (m: number) => (m <= 1 ? "بعد دقيقة" : m === 2 ? "بعد دقيقتين" : m <= 10 ? `بعد ${m} دقائق` : `بعد ${m} دقيقة`);
+const optionsLabel = (n: number) => (n === 1 ? "خيار واحد" : n === 2 ? "خياران" : `${n} خيارات`);
+const companionsLine = (n: number) => (n === 1 ? "ومعك مرافق واحد" : n === 2 ? "ومعك مرافقان" : n <= 10 ? `ومعك ${n} مرافقين` : `ومعك ${n} مرافقاً`);
+
+const MUTED = "text-[#6B6573]";
+
+const Panel = ({ className, children }: { className?: string; children: ReactNode }) => (
+  <div className={cn("rounded-[18px] bg-white px-5 py-4 shadow-soft", className)}>{children}</div>
+);
+
+type IconType = ComponentType<{ className?: string }>;
+
+const IconTile = ({ icon: Icon, theme }: { icon: IconType; theme: string }) => (
+  <span className="grid h-9 w-9 flex-none place-items-center rounded-xl" style={{ background: alpha(theme, 0.08), color: theme }}>
+    <Icon className="h-[18px] w-[18px]" />
+  </span>
+);
+
+const PrivateInvitation = ({ demo = false }: { demo?: boolean }) => {
   const { token } = useParams<{ token: string }>();
-  const [guest, setGuest] = useState<any>(null);
-  const [inv, setInv] = useState<any>(null);
+  const reduce = useReducedMotion();
+  const [guest, setGuest] = useState<InvitationGuest | null>(null);
+  const [inv, setInv] = useState<GuestInvitation | null>(null);
   const [loading, setLoading] = useState(true);
   const [companions, setCompanions] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [declineModalOpen, setDeclineModalOpen] = useState(false);
-  // اختيار المستفيد لهديته: التحويل وأخرى يكتب قيمتها بنفسه
+  // اختيار المستفيد لهديته: "أخرى" يكتب قيمتها بنفسه
   const [giftPick, setGiftPick] = useState<string | null>(null);
   const [giftAmount, setGiftAmount] = useState("");
   const [giftOtherType, setGiftOtherType] = useState("");
   // قسم الهدايا مطوي افتراضياً — يظهر عند الحاجة فقط ولا يزاحم محتوى الدعوة
   const [giftOpen, setGiftOpen] = useState(false);
+  // الظرف يظهر في أول فتح فقط، والاسم يُكتب بالحبر في تلك المرة
+  const [phase, setPhase] = useState<EnvelopePhase>("open");
+  const [fresh, setFresh] = useState(false);
+  // وجه البطاقة: الدعوة أو رمز الدخول
+  const [flipped, setFlipped] = useState(false);
 
   useEffect(() => {
     const load = async () => {
-      if (!token) { setLoading(false); return; }
-      const { data, error } = await supabase.rpc("get_invitation_by_token", { _token: token });
-      if (error || !data) { setLoading(false); return; }
-      const payload = data as any;
-      setGuest(payload.guest);
-      setInv(payload.invitation);
-      setCompanions(payload.guest?.companions_count || 0);
+      let g: InvitationGuest | null;
+      let i: GuestInvitation | null;
+      if (demo) {
+        g = demoGuest();
+        i = demoInvitation();
+      } else {
+        if (!token) { setLoading(false); return; }
+        const { data, error } = await supabase.rpc("get_invitation_by_token", { _token: token });
+        if (error || !data) { setLoading(false); return; }
+        ({ guest: g, invitation: i } = data as unknown as InvitationPayload);
+      }
+      if (!g || !i) { setLoading(false); return; }
+      setGuest(g);
+      setInv(i);
+      setCompanions(g.companions_count || 0);
+      const firstOpen =
+        i.status !== "cancelled" && g.rsvp_status === "pending" && !g.checked_in_at && !(!demo && storage.get(openedKey(g.token)));
+      setPhase(firstOpen ? "sealed" : "open");
+      setFresh(firstOpen);
+      // قرب الموعد يفتح رمز الدخول مباشرة لمن أكّد، فهو ما يحتاجه عند الباب
+      const msToEvent = new Date(i.event_date).getTime() - Date.now();
+      setFlipped(g.rsvp_status === "confirmed" && Math.abs(msToEvent) < 12 * 3600000);
       setLoading(false);
-      // ختم أول فتح للدعوة (يتجاهل الخطأ بصمت إن لم تُفعّل الدالة بعد)
-      supabase.rpc("mark_invitation_opened" as any, { _token: token }).then(() => {});
+      if (!demo) markOpened(token);
     };
     load();
-  }, [token]);
+  }, [token, demo]);
 
   useEffect(() => {
     if (inv) document.title = inv.title + " | دعوة خاصة";
   }, [inv]);
 
-  const confirm = async (status: "confirmed" | "declined") => {
-    if (!guest) return;
-    setSubmitting(true);
-    const { data, error } = await supabase.rpc("confirm_invitation_rsvp", {
-      _token: guest.token,
-      _status: status,
-      _companions: status === "confirmed" ? companions : 0,
-    });
-    setSubmitting(false);
-    if (error || !data) return toast.error("تعذر حفظ ردك");
-    if (status === "confirmed") toast.success("تم تأكيد حضورك ❤");
-    else setDeclineModalOpen(true); // الاعتذار يظهر في نافذة منبثقة
-    const result = data as any;
-    setGuest({
-      ...guest,
-      rsvp_status: result.rsvp_status,
-      companions_count: result.companions_count,
-      confirmed_at: new Date().toISOString(),
-    });
+  const changePhase = (next: EnvelopePhase) => {
+    setPhase(next);
+    if (next === "opening" && !demo && guest?.token) storage.set(openedKey(guest.token), "1");
   };
 
+  const respond = async (status: "confirmed" | "declined") => {
+    if (!guest) return;
+    setSubmitting(true);
+    let result: RsvpResult;
+    if (demo) {
+      const cap = inv.allow_companions ? inv.max_companions || 0 : 0;
+      result = { rsvp_status: status, companions_count: status === "confirmed" ? Math.min(companions, cap) : 0 };
+    } else {
+      const { data, error } = await supabase.rpc("confirm_invitation_rsvp", {
+        _token: guest.token,
+        _status: status,
+        _companions: status === "confirmed" ? companions : 0,
+      });
+      if (error || !data) {
+        setSubmitting(false);
+        toast.error("تعذر حفظ ردك");
+        return;
+      }
+      result = data as unknown as RsvpResult;
+    }
+    setSubmitting(false);
+    setFlipped(false);
+    setGuest({ ...guest, rsvp_status: result.rsvp_status, companions_count: result.companions_count, confirmed_at: new Date().toISOString() });
+  };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">جاري التحميل...</div>;
-  if (!guest || !inv) return (
-    <div className="min-h-screen flex items-center justify-center p-6 font-cairo">
-      <div className="text-center">
-        <X className="w-12 h-12 text-destructive mx-auto mb-3" />
-        <h1 className="font-bold text-xl">رابط الدعوة غير صحيح</h1>
-        <p className="text-muted-foreground text-sm mt-2">قد تكون الدعوة محذوفة أو الرابط منتهي</p>
+  // تغيير الرد: يعيد الأزرار فقط، ولا يتغير شيء عند المضيف حتى يختار الضيف من جديد
+  const changeReply = () => {
+    setFlipped(false);
+    setCompanions(guest.companions_count || 0);
+    setGuest({ ...guest, rsvp_status: "pending" });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F6F5F8]">
+        <BrandMark className="h-12 w-12 animate-pulse" />
       </div>
-    </div>
-  );
+    );
+  }
+  if (!guest || !inv) {
+    return (
+      <div dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F6F5F8] p-6 font-cairo">
+        <Panel className="max-w-sm px-6 py-8 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#FBECEE] text-[#A03C4A]">
+            <X className="h-6 w-6" />
+          </span>
+          <h1 className="mt-4 text-lg font-bold text-[#1C1524]">رابط الدعوة غير صحيح</h1>
+          <p className={cn("mt-2 text-sm", MUTED)}>قد تكون الدعوة محذوفة أو الرابط منتهياً</p>
+        </Panel>
+      </div>
+    );
+  }
 
-  const inviteUrl = window.location.href;
-  const bg = inv.background_image_url
-    ? `url(${inv.background_image_url}) center/cover`
-    : `linear-gradient(135deg, ${inv.theme_color}, ${inv.accent_color})`;
+  const theme: string = inv.theme_color || "#492C5A";
+  const accent: string = inv.accent_color || "#CC8E3D";
+  const canvas = mix(theme, "#FFFFFF", 0.93);
+  const guestName: string = guest.guest_name || "ضيفنا الكريم";
+  const cancelled = inv.status === "cancelled";
+  const confirmed = guest.rsvp_status === "confirmed";
+  const declined = guest.rsvp_status === "declined";
+  const sealed = phase !== "open";
+  const qrValue = `${window.location.origin}/invite/${guest.token}`;
 
   const eventDate = new Date(inv.event_date);
-
+  const when = formatDateTime(eventDate);
   // تذكير المستفيد: يظهر بوضوح إذا حان وقت التذكير الذي حدده المنظم (1-12 ساعة قبل الموعد)
-  const now = Date.now();
-  const msToEvent = eventDate.getTime() - now;
-  const reminderActive =
-    inv.status !== "cancelled" &&
-    inv.reminder_hours_before &&
-    msToEvent > 0 &&
-    msToEvent <= inv.reminder_hours_before * 60 * 60 * 1000;
+  const msToEvent = eventDate.getTime() - Date.now();
+  const reminderActive = !cancelled && inv.reminder_hours_before && msToEvent > 0 && msToEvent <= inv.reminder_hours_before * 3600000;
   const hoursLeft = Math.floor(msToEvent / 3600000);
   const minsLeft = Math.floor((msToEvent % 3600000) / 60000);
 
   // خيار التحويل أُزيل من النظام — نتجاهله في الدعوات القديمة المحفوظة
   const giftTypes: string[] = (inv.gift_options?.types || []).filter((t: string) => t !== "transfer");
   const giftPayMethods: string[] = inv.gift_options?.payment_methods || [];
-  // ورد/بوكس/شيك بقيم ثابتة — و"أخرى" يحددها المستفيد بنفسه
-  const GIFT_META: Record<string, { label: string; emoji: string; amount: number | null }> = {
-    flowers: { label: "ورد", emoji: "🌹", amount: 100 },
-    box: { label: "بوكس", emoji: "🎁", amount: 300 },
-    cheque: { label: "شيك", emoji: "📝", amount: 500 },
-    other: { label: "أخرى", emoji: "", amount: null },
-  };
-  const PAY_METHOD_LABELS: Record<string, string> = { bank: "تحويل بنكي", tabby: "Tabby", tamara: "Tamara" };
   const attachments: { name: string; url: string; size?: number }[] = Array.isArray(inv.attachments) ? inv.attachments : [];
+  const maxCompanions = inv.allow_companions ? inv.max_companions || 0 : 0;
+
+  // بعد فك الختم يتأخر ظهور الرد والتفاصيل قليلاً حتى يُكتب الاسم أولاً
+  const reveal = (delay: number) => ({
+    initial: reduce ? false : { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    transition: { delay: fresh ? delay : 0.05, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+  });
+
+  // ===== البطاقة: تصميم المضيف في الأمام ورمز الدخول في الخلف =====
+  const ink = fresh ? { play: phase === "open" } : undefined;
+  const front = (
+    <div className="relative">
+      {inv.use_custom_template && inv.custom_template_url ? (
+        <CustomTemplateRender
+          templateUrl={inv.custom_template_url}
+          overlay={inv.name_overlay || DEFAULT_OVERLAY}
+          guest={guest}
+          inkName={ink}
+        />
+      ) : (
+        <DesignPreview
+          mode="invitation"
+          design={{
+            theme_color: theme,
+            accent_color: accent,
+            background_color: "#FFFFFF",
+            text_color: inv.text_color || "#FFFFFF",
+            heading_font: inv.font_family || "Cairo",
+            body_font: inv.body_font || inv.font_family || "Cairo",
+            layout_style: inv.layout_style || "classic",
+            ornament_style: inv.ornament_style || "none",
+            background_image_url: inv.background_image_url || inv.cover_image_url || null,
+            ...(inv.design_extras || {}),
+          }}
+          title={inv.title}
+          subtitle={inv.host_name ? `يتشرف بدعوتكم · ${inv.host_name}` : "دعوة كريمة"}
+          body={inv.custom_message || undefined}
+          guestName={guestName}
+          inkName={ink}
+        />
+      )}
+      {/* ختم التأكيد: رد الضيف يُختم على بطاقته */}
+      <AnimatePresence>
+        {confirmed && (
+          <motion.div
+            key="stamp"
+            className="pointer-events-none absolute bottom-[3.5%] left-[4.5%] z-30 w-[21%] max-w-[88px]"
+            initial={reduce ? false : { opacity: 0, scale: 1.9, rotate: -26 }}
+            animate={{ opacity: 1, scale: 1, rotate: -9 }}
+            exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.2 } }}
+            transition={{ type: "spring", stiffness: 420, damping: 24, delay: 0.15 }}
+            style={{ filter: "drop-shadow(0 3px 4px rgb(30 8 18 / .45))" }}
+          >
+            <WaxSeal color="#C49A55" emblem="check" className="block h-auto w-full" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+  const back = (
+    <EntryFace
+      theme={theme}
+      accent={accent}
+      guestName={guestName}
+      title={inv.title}
+      qrValue={qrValue}
+      companions={guest.companions_count || 0}
+      checkedInAt={guest.checked_in_at ? formatTime(guest.checked_in_at) : null}
+    />
+  );
+
+  // ===== الرد =====
+  const rsvp = (
+    <Panel>
+      <AnimatePresence mode="wait" initial={false}>
+        {confirmed ? (
+          <motion.div key="confirmed" {...swap(reduce)} className="text-center">
+            <p className="text-[17px] font-bold" style={{ color: theme }}>حضورك مؤكد</p>
+            <p className={cn("mt-1 text-balance text-[13px] leading-relaxed", MUTED)}>
+              نتشرف باستقبالك {when}
+              {guest.companions_count > 0 && <span className="block">{companionsLine(guest.companions_count)}</span>}
+            </p>
+            {guest.checked_in_at && (
+              <p className="mx-auto mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold text-white" style={{ background: theme }}>
+                <Check className="h-3.5 w-3.5" /> تم استخدام الدعوة للدخول {formatTime(guest.checked_in_at)}
+              </p>
+            )}
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFlipped((f) => !f)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl px-4 text-[13px] font-bold text-white transition-opacity hover:opacity-90"
+                style={{ background: theme }}
+              >
+                <QrCode className="h-4 w-4" aria-hidden />
+                {flipped ? "عرض الدعوة" : "رمز الدخول"}
+              </button>
+              {!guest.checked_in_at && (
+                <button type="button" onClick={changeReply} className={cn("h-10 rounded-xl px-4 text-[13px] font-semibold underline-offset-4 hover:underline", MUTED)}>
+                  تغيير الرد
+                </button>
+              )}
+            </div>
+          </motion.div>
+        ) : declined ? (
+          <motion.div key="declined" {...swap(reduce)} className="text-center">
+            <p className="text-[17px] font-bold text-[#1C1524]">تم تسجيل اعتذارك</p>
+            <p className={cn("mt-1 text-[13px] leading-relaxed", MUTED)}>نشكر لك ردّك، ونتمنى رؤيتك في مناسبة قادمة.</p>
+            <button type="button" onClick={changeReply} className={cn("mt-2 h-10 rounded-xl px-4 text-[13px] font-semibold underline-offset-4 hover:underline", MUTED)}>
+              تغيير الرد
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div key="ask" {...swap(reduce)}>
+            <div className={cn("space-y-1.5 border-b border-[#F0EDF3] pb-3 text-[13px]", MUTED)}>
+              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4 flex-none" style={{ color: theme }} />{when}</p>
+              {inv.venue_name && (
+                <p className="flex items-center gap-2"><MapPin className="h-4 w-4 flex-none" style={{ color: theme }} />{inv.venue_name}</p>
+              )}
+            </div>
+            <p className="mt-3 text-center text-[15px] font-bold">هل ستشرفنا بحضورك؟</p>
+            {maxCompanions > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-[#F6F5F8] px-3 py-2">
+                <span className={cn("text-[13px]", MUTED)}>
+                  المرافقون <span className="text-[11px] opacity-80">(حتى {maxCompanions})</span>
+                </span>
+                <div className="flex items-center gap-3">
+                  <Stepper label="إنقاص مرافق" disabled={companions <= 0} onClick={() => setCompanions(companions - 1)}>
+                    <Minus className="h-3.5 w-3.5" />
+                  </Stepper>
+                  <span className="w-4 text-center font-inter text-[15px] font-bold tabular-nums">{companions}</span>
+                  <Stepper label="زيادة مرافق" disabled={companions >= maxCompanions} onClick={() => setCompanions(companions + 1)}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </Stepper>
+                </div>
+              </div>
+            )}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => respond("confirmed")}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                style={{ background: theme }}
+              >
+                <Check className="h-4 w-4" aria-hidden /> سأحضر
+              </button>
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => respond("declined")}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-[#E7E2EC] text-sm font-bold text-[#1C1524]/80 transition-colors hover:bg-[#F6F5F8] disabled:opacity-60"
+              >
+                <X className="h-4 w-4" aria-hidden /> أعتذر
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Panel>
+  );
 
   return (
     <div
       dir="rtl"
-      className="min-h-screen py-8 px-4"
-      style={{ background: bg, fontFamily: inv.font_family }}
+      className="min-h-screen font-cairo text-[#1C1524]"
+      style={{ background: `radial-gradient(90% 60% at 50% 30%, #FFFFFF, ${canvas} 72%) top center / 100% 100svh no-repeat, ${canvas}` }}
     >
-      <div className="max-w-md mx-auto">
-        {/* Hero card — custom uploaded template OR generated design */}
-        {inv.use_custom_template && inv.custom_template_url ? (
-          <CustomTemplateRender
-            templateUrl={inv.custom_template_url}
-            overlay={(inv.name_overlay as any) || DEFAULT_OVERLAY}
-            guest={guest}
-            className="mb-4"
-          />
-        ) : (
-          <DesignPreview
-            mode="invitation"
-            design={{
-              theme_color: inv.theme_color,
-              accent_color: inv.accent_color,
-              background_color: "#FFFFFF",
-              text_color: inv.text_color || "#FFFFFF",
-              heading_font: inv.font_family || "Cairo",
-              body_font: inv.body_font || inv.font_family || "Cairo",
-              layout_style: inv.layout_style || "classic",
-              ornament_style: inv.ornament_style || "none",
-              background_image_url: inv.background_image_url || inv.cover_image_url || null,
-              ...((inv.design_extras as any) || {}),
-            }}
-            title={inv.title}
-            subtitle={inv.host_name ? `يتشرف بدعوتكم · ${inv.host_name}` : "دعوة كريمة"}
-            body={inv.custom_message || undefined}
-            guestName={guest.guest_name}
-            className="mb-4"
-          />
-        )}
+      <main className="mx-auto w-full max-w-md px-6 pb-10">
+        <section style={{ paddingTop: "max(1.75rem, calc((100svh - 41rem) / 2))" }}>
+          <motion.p
+            className="mb-6 text-center text-[13px]"
+            style={{ color: alpha(theme, 0.72) }}
+            initial={false}
+            animate={{ opacity: phase === "sealed" ? 1 : 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            دعوة خاصة {inv.host_name ? <>من <b className="font-bold">{inv.host_name}</b></> : "لك"}
+          </motion.p>
 
-        {/* Details card */}
-        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl overflow-hidden">
-          <div className="p-6 space-y-5">
+          <div className="mx-auto w-full max-w-[21.25rem]">
+            <SealedEnvelope phase={phase} onPhaseChange={changePhase} guestName={guestName} theme={theme} accent={accent}>
+              <CardFlip flipped={flipped} front={front} back={back} />
+            </SealedEnvelope>
+          </div>
 
-            {/* إشعار الإلغاء — يظهر لكل مدعو فور فتح دعوته */}
-            {inv.status === "cancelled" && (
-              <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-4 text-center">
-                <X className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                <p className="font-bold text-red-700 text-lg">نعتذر منكم — تم إلغاء المناسبة</p>
-                {inv.cancel_reason && (
-                  <p className="text-sm text-red-600 mt-1 leading-relaxed">السبب: {inv.cancel_reason}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                  نشكر تفهمكم ونعتذر عن أي إزعاج، ونتطلع للقائكم في مناسبة قادمة بإذن الله.
-                </p>
-              </div>
-            )}
-
-            {/* إشعار تغيير الموعد — الموعد الجديد معروض في البطاقات أدناه تلقائياً */}
-            {inv.status !== "cancelled" && inv.rescheduled_from && (
-              <div className="rounded-2xl border-2 border-amber-200 bg-amber-50 p-4 text-center">
-                <Clock className="w-6 h-6 text-amber-600 mx-auto mb-1.5" />
-                <p className="font-bold text-amber-800">تنبيه: تم تغيير موعد المناسبة</p>
-                {inv.reschedule_note && (
-                  <p className="text-xs text-amber-700 mt-1">{inv.reschedule_note}</p>
-                )}
-              </div>
-            )}
-
-            {/* تذكير قبل الموعد — بمدة يحددها المنظم (1-12 ساعة) */}
-            {reminderActive && (
-              <div className="rounded-2xl border-2 p-4 text-center" style={{ borderColor: inv.accent_color, background: inv.accent_color + "15" }}>
-                <p className="font-bold text-lg" style={{ color: inv.theme_color }}>
-                  ⏰ تذكير: مناسبتك تبدأ {hoursLeft > 0 ? `بعد ${hoursLeft} ${hoursLeft === 1 ? "ساعة" : hoursLeft === 2 ? "ساعتين" : hoursLeft <= 10 ? "ساعات" : "ساعة"}` : `بعد ${minsLeft} دقيقة`}
-                </p>
-                <p className="text-xs text-gray-600 mt-1">
-                  {eventDate.toLocaleString("ar-SA", { dateStyle: "full", timeStyle: "short" })} — نتشرف بحضورك في الموعد
-                </p>
-              </div>
-            )}
-
-            {/* التاريخ والوقت — بطاقتان بارزتان */}
-            <div className="grid grid-cols-2 gap-3">
-              <div
-                className="rounded-2xl p-4 text-center border-2"
-                style={{ borderColor: inv.accent_color + "55", background: inv.accent_color + "0d" }}
+          {/* أسفل البطاقة: تلميح الفتح ثم الرد — بارتفاع ثابت حتى لا تقفز البطاقة */}
+          <div className="mt-7 min-h-[10.5rem]">
+            {sealed ? (
+              <motion.p
+                className="pt-1 text-center text-[13px] font-semibold"
+                style={{ color: alpha(theme, 0.8) }}
+                initial={reduce ? false : { opacity: 0 }}
+                animate={{ opacity: phase === "sealed" ? 1 : 0 }}
+                transition={phase === "sealed" ? { delay: 0.9, duration: 0.5 } : { duration: 0.25 }}
               >
-                <div
-                  className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white shadow-md"
-                  style={{ background: inv.accent_color }}
-                >
-                  <Calendar className="w-6 h-6" />
-                </div>
-                <p className="text-xs text-gray-500 mb-1">التاريخ</p>
-                <p className="font-bold text-gray-800 leading-snug">
-                  {eventDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                </p>
-              </div>
-              <div
-                className="rounded-2xl p-4 text-center border-2"
-                style={{ borderColor: inv.accent_color + "55", background: inv.accent_color + "0d" }}
-              >
-                <div
-                  className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white shadow-md"
-                  style={{ background: inv.accent_color }}
-                >
-                  <Clock className="w-6 h-6" />
-                </div>
-                <p className="text-xs text-gray-500 mb-1">الوقت</p>
-                <p className="font-bold text-gray-800 text-lg">
-                  {eventDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
-            </div>
+                اضغط على الختم لتفتح دعوتك
+              </motion.p>
+            ) : (
+              <motion.div className="space-y-3" {...reveal(0.5)}>
+                {cancelled ? (
+                  <Panel className="text-center">
+                    <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#FBECEE] text-[#A03C4A]">
+                      <X className="h-5 w-5" />
+                    </span>
+                    <p className="mt-2 text-[16px] font-bold text-[#A03C4A]">نعتذر منكم — تم إلغاء المناسبة</p>
+                    {inv.cancel_reason && <p className="mt-1 text-[13px] leading-relaxed text-[#A03C4A]/85">السبب: {inv.cancel_reason}</p>}
+                    <p className={cn("mt-2 text-[12px] leading-relaxed", MUTED)}>
+                      نشكر تفهمكم ونعتذر عن أي إزعاج، ونتطلع للقائكم في مناسبة قادمة بإذن الله.
+                    </p>
+                  </Panel>
+                ) : (
+                  <>
+                    {inv.rescheduled_from && (
+                      <Notice icon={Clock} tone="#B7791F" title="تنبيه: تم تغيير موعد المناسبة" body={inv.reschedule_note || `الموعد الجديد: ${when}`} />
+                    )}
+                    {reminderActive && (
+                      <Notice
+                        icon={Clock}
+                        tone={theme}
+                        title={`تذكير: مناسبتك تبدأ ${hoursLeft > 0 ? inHours(hoursLeft) : inMinutes(minsLeft)}`}
+                        body={`${when} — نتشرف بحضورك في الموعد`}
+                      />
+                    )}
+                    {rsvp}
+                  </>
+                )}
+              </motion.div>
+            )}
+          </div>
+        </section>
 
-            {/* Details */}
-            <div className="space-y-3 border-t border-b py-4">
+        {!sealed && (
+          <motion.div className="mt-4 space-y-4" {...reveal(0.8)}>
+            {/* التفاصيل */}
+            <Panel className="py-1">
+              <InfoRow icon={CalendarDays} theme={theme} label="الموعد" first>
+                {when}
+              </InfoRow>
               {inv.venue_name && (
-                <Row icon={<MapPin className="w-4 h-4" />} color={inv.accent_color} label="الموقع">
-                  <p>{inv.venue_name}</p>
-                  {inv.venue_address && <p className="text-xs text-gray-500">{inv.venue_address}</p>}
-                  {inv.venue_map_url && (
-                    <a href={inv.venue_map_url} target="_blank" rel="noreferrer" className="text-xs underline mt-1 inline-flex items-center gap-1" style={{ color: inv.theme_color }}>
-                      <ExternalLink className="w-3 h-3" /> فتح في الخرائط
-                    </a>
-                  )}
-                </Row>
+                <InfoRow
+                  icon={MapPin}
+                  theme={theme}
+                  label="المكان"
+                  action={inv.venue_map_url ? <ActionLink href={inv.venue_map_url}>الخريطة</ActionLink> : null}
+                >
+                  {inv.venue_name}
+                  {inv.venue_address && <span className={cn("block text-[12px] font-normal", MUTED)}>{inv.venue_address}</span>}
+                </InfoRow>
               )}
               {inv.dress_code && (
-                <Row icon={<Shirt className="w-4 h-4" />} color={inv.accent_color} label="الزي المطلوب">
+                <InfoRow icon={Shirt} theme={theme} label="الزي المطلوب">
                   {inv.dress_code}
-                </Row>
+                </InfoRow>
               )}
-              {(inv.contact_phone || inv.contact_whatsapp || inv.contact_email) && (
-                <Row icon={<Phone className="w-4 h-4" />} color={inv.accent_color} label="للتواصل">
-                  <div className="flex flex-wrap gap-2 mt-1">
+              {(inv.contact_whatsapp || inv.contact_phone || inv.contact_email) && (
+                <InfoRow icon={Phone} theme={theme} label="للتواصل">
+                  <span className="mt-1 flex flex-wrap gap-1.5">
                     {inv.contact_whatsapp && (
-                      <a href={`https://wa.me/${inv.contact_whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1">
-                        <MessageCircle className="w-3 h-3" /> واتساب
-                      </a>
+                      <Chip href={`https://wa.me/${inv.contact_whatsapp.replace(/\D/g, "")}`} icon={MessageCircle} className="bg-[#E8F5EE] text-[#1E7A4C]">
+                        واتساب
+                      </Chip>
                     )}
                     {inv.contact_phone && (
-                      <a href={`tel:${inv.contact_phone}`} className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 inline-flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> {inv.contact_phone}
-                      </a>
+                      <Chip href={`tel:${inv.contact_phone}`} icon={Phone} className="bg-[#F1ECF5] text-[#492C5A]">
+                        <bdi>{inv.contact_phone}</bdi>
+                      </Chip>
                     )}
                     {inv.contact_email && (
-                      <a href={`mailto:${inv.contact_email}`} className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 inline-flex items-center gap-1">
-                        <Mail className="w-3 h-3" /> {inv.contact_email}
-                      </a>
+                      <Chip href={`mailto:${inv.contact_email}`} icon={Mail} className="bg-[#F6F5F8] text-[#1C1524]">
+                        {inv.contact_email}
+                      </Chip>
                     )}
-                  </div>
-                </Row>
+                  </span>
+                </InfoRow>
               )}
-            </div>
+            </Panel>
 
             {/* المرفقات — ملفات ومحتويات المناسبة في مكان منظم */}
             {attachments.length > 0 && (
-              <div className="rounded-2xl p-4" style={{ background: inv.accent_color + "10" }}>
-                <h3 className="font-bold flex items-center gap-1 text-sm mb-2" style={{ color: inv.theme_color }}>
-                  📎 مرفقات المناسبة
-                </h3>
-                <div className="space-y-2">
+              <Panel>
+                <p className="flex items-center gap-2 text-[14px] font-bold">
+                  <Paperclip className="h-4 w-4" style={{ color: theme }} /> مرفقات المناسبة
+                </p>
+                <div className="mt-3 space-y-2">
                   {attachments.map((a, i) => (
                     <a
                       key={i}
                       href={a.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-2 bg-white rounded-xl px-3 py-2.5 text-sm text-gray-800 shadow-sm hover:shadow transition"
+                      className="flex items-center gap-3 rounded-xl bg-[#F6F5F8] px-3 py-2.5 text-[13px] transition-colors hover:bg-[#F1ECF5]"
                     >
-                      <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0" style={{ background: inv.accent_color }}>
-                        <ExternalLink className="w-4 h-4" />
-                      </span>
+                      <IconTile icon={ExternalLink} theme={theme} />
                       <span className="flex-1 truncate font-semibold">{a.name}</span>
-                      {a.size ? <span className="text-[10px] text-gray-400">{(a.size / 1024).toFixed(0)} KB</span> : null}
+                      {a.size ? <span className="font-inter text-[11px] text-[#736D7C]">{(a.size / 1024).toFixed(0)} KB</span> : null}
                     </a>
                   ))}
                 </div>
-              </div>
+              </Panel>
             )}
 
-            {/* الهدايا — قسم مطوي مختصر: شريط أنيق يُفتح عند الحاجة فقط */}
+            {/* الهدايا — قسم مطوي مختصر يُفتح عند الحاجة فقط */}
             {(inv.gift_notes || giftTypes.length > 0) && (
-              <div className="rounded-2xl overflow-hidden" style={{ background: inv.accent_color + "15" }}>
-                <button
-                  type="button"
-                  onClick={() => setGiftOpen(!giftOpen)}
-                  className="w-full flex items-center gap-2 p-3.5 text-right"
-                >
-                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-white flex-shrink-0" style={{ background: inv.accent_color }}>
-                    <Gift className="w-4 h-4" />
-                  </span>
+              <Panel className="p-0">
+                <button type="button" onClick={() => setGiftOpen(!giftOpen)} aria-expanded={giftOpen} className="flex w-full items-center gap-3 px-5 py-4 text-right">
+                  <IconTile icon={Gift} theme={theme} />
                   <span className="flex-1">
-                    <span className="block font-bold text-sm" style={{ color: inv.theme_color }}>الهدايا</span>
+                    <span className="block text-[14px] font-bold">الهدايا</span>
                     {giftTypes.length > 0 && !giftOpen && (
-                      <span className="block text-[11px] text-gray-500">{giftTypes.length} خيارات متاحة — اضغط للاطلاع</span>
+                      <span className={cn("block text-[12px]", MUTED)}>{optionsLabel(giftTypes.length)} — اضغط للاطلاع</span>
                     )}
                   </span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${giftOpen ? "rotate-180" : ""}`} style={{ color: inv.theme_color }} />
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", giftOpen && "rotate-180")} style={{ color: theme }} />
                 </button>
-
                 {giftOpen && (
-                <div className="px-4 pb-4">
-                {giftTypes.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                    {giftTypes.map((t) => {
-                      const meta = GIFT_META[t];
-                      if (!meta) return null;
-                      const active = giftPick === t;
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setGiftPick(active ? null : t)}
-                          className={`rounded-xl py-2 px-1 text-center bg-white shadow-sm transition border-2 ${active ? "" : "border-transparent"}`}
-                          style={active ? { borderColor: inv.theme_color } : undefined}
-                        >
-                          <span className="block text-lg">{meta.emoji || "•"}</span>
-                          <span className="block text-xs font-bold" style={{ color: inv.theme_color }}>{meta.label}</span>
-                          <span className="block text-[10px] text-gray-500 mt-0.5">
-                            {meta.amount ? `${meta.amount} ريال` : "باختيارك"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* تفاصيل الهدية المختارة */}
-                {giftPick && GIFT_META[giftPick] && (
-                  <div className="mt-3 bg-white rounded-xl p-3 space-y-2">
-                    {GIFT_META[giftPick].amount ? (
-                      <p className="text-sm font-bold text-gray-800">
-                        {GIFT_META[giftPick].emoji} قيمة الهدية: {GIFT_META[giftPick].amount} ريال
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs">نوع الهدية</Label>
-                          <Input value={giftOtherType} onChange={(e) => setGiftOtherType(e.target.value)} placeholder="مثال: عطر" className="mt-1" />
-                        </div>
-                        <div>
-                          <Label className="text-xs">القيمة (ريال)</Label>
-                          <Input type="number" min={1} dir="ltr" value={giftAmount} onChange={(e) => setGiftAmount(e.target.value)} className="mt-1" />
-                        </div>
+                  <div className="px-5 pb-5">
+                    {giftTypes.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {giftTypes.map((t) => {
+                          const meta = GIFT_META[t];
+                          if (!meta) return null;
+                          const active = giftPick === t;
+                          return (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setGiftPick(active ? null : t)}
+                              className={cn("rounded-xl border-2 bg-[#F6F5F8] px-1 py-2 text-center transition-colors", !active && "border-transparent")}
+                              style={active ? { borderColor: theme, background: "#FFFFFF" } : undefined}
+                            >
+                              <span className="block text-lg">{meta.emoji || "•"}</span>
+                              <span className="block text-xs font-bold" style={{ color: theme }}>{meta.label}</span>
+                              <span className="mt-0.5 block text-[10px] text-[#736D7C]">{meta.amount ? `${meta.amount} ريال` : "باختيارك"}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
-                    {giftPayMethods.length > 0 && (
-                      <div>
-                        <p className="text-[11px] text-gray-500 mb-1">طرق الدفع المقبولة:</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {giftPayMethods.map((m) => (
-                            <span key={m} className="text-[11px] font-bold rounded-full px-2.5 py-1 text-white" style={{ background: inv.theme_color }}>
-                              {PAY_METHOD_LABELS[m] || m}
-                            </span>
-                          ))}
-                        </div>
+                    {giftPick && GIFT_META[giftPick] && (
+                      <div className="mt-3 space-y-2 rounded-xl bg-[#F6F5F8] p-3">
+                        {GIFT_META[giftPick].amount ? (
+                          <p className="text-sm font-bold">
+                            {GIFT_META[giftPick].emoji} قيمة الهدية: {GIFT_META[giftPick].amount} ريال
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs">نوع الهدية</Label>
+                              <Input value={giftOtherType} onChange={(e) => setGiftOtherType(e.target.value)} placeholder="مثال: عطر" className="mt-1 bg-white" />
+                            </div>
+                            <div>
+                              <Label className="text-xs">القيمة (ريال)</Label>
+                              <Input type="number" min={1} dir="ltr" value={giftAmount} onChange={(e) => setGiftAmount(e.target.value)} className="mt-1 bg-white" />
+                            </div>
+                          </div>
+                        )}
+                        {giftPayMethods.length > 0 && (
+                          <div>
+                            <p className={cn("mb-1 text-[11px]", MUTED)}>طرق الدفع المقبولة:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {giftPayMethods.map((m) => (
+                                <span key={m} className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white" style={{ background: theme }}>
+                                  {PAY_METHOD_LABELS[m] || m}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
+                    {inv.gift_notes && <p className="mt-2 text-sm text-[#1C1524]/80">{inv.gift_notes}</p>}
                   </div>
                 )}
-                {inv.gift_notes && <p className="text-sm text-gray-700 mt-2">{inv.gift_notes}</p>}
-                </div>
-                )}
-              </div>
+              </Panel>
             )}
 
-            {/* RSVP — مخفي بالكامل عند إلغاء المناسبة */}
-            <div className="border-t pt-5">
-              {inv.status === "cancelled" ? (
-                <p className="text-center text-sm text-gray-400">أُلغيت هذه المناسبة — لا حاجة لتأكيد الحضور</p>
-              ) : guest.rsvp_status === "confirmed" ? (
-                <div className="text-center space-y-3">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 text-green-700 font-bold">
-                    <CheckCircle2 className="w-5 h-5" /> تم تأكيد حضورك
-                  </div>
-                  {guest.companions_count > 0 && (
-                    <p className="text-sm text-gray-600">عدد المرافقين: {guest.companions_count}</p>
-                  )}
-                  {/* بعد المسح: الدعوة والرمز يبقيان — فقط تتحدث الحالة لتوضيح الاستخدام */}
-                  {guest.checked_in_at && (
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold text-white" style={{ background: inv.theme_color }}>
-                      ✓ تم استخدام الدعوة للدخول — {new Date(guest.checked_in_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                  )}
-                  <div className="bg-white rounded-2xl p-4 inline-block border-2" style={{ borderColor: inv.accent_color }}>
-                    <p className="text-xs text-gray-500 mb-2">QR للدخول</p>
-                    <QRCodeSVG value={inviteUrl} size={160} />
-                    <p className="text-[10px] text-gray-400 mt-2">
-                      {guest.checked_in_at
-                        ? "دعوتك تبقى متاحة دائماً — يمكن الرجوع إليها واستخدامها عند الحاجة"
-                        : "يرجى إبراز هذا الرمز عند الباب"}
-                    </p>
-                  </div>
-                </div>
-              ) : guest.rsvp_status === "declined" ? (
-                <div className="text-center">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-700 font-bold">
-                    <CheckCircle2 className="w-5 h-5" /> تم تسجيل اعتذارك
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-center font-bold" style={{ color: inv.theme_color }}>هل ستشرفنا بحضورك؟</p>
-                  {inv.allow_companions && inv.max_companions > 0 && (
-                    <div>
-                      <Label className="text-xs">عدد المرافقين (الحد الأقصى {inv.max_companions})</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={inv.max_companions}
-                        value={companions}
-                        onChange={(e) => setCompanions(Math.min(inv.max_companions, Math.max(0, Number(e.target.value))))}
-                      />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => confirm("confirmed")}
-                      disabled={submitting}
-                      className="text-white"
-                      style={{ background: inv.theme_color }}
-                    >
-                      <CheckCircle2 className="w-4 h-4 ml-1" /> سأحضر
-                    </Button>
-                    <Button variant="outline" onClick={() => confirm("declined")} disabled={submitting}>
-                      <X className="w-4 h-4 ml-1" /> لن أحضر
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <p className="text-center text-xs text-white/70 mt-6">دعوة عبر نكفيك تيكت</p>
-      </div>
-
-      {/* نافذة تأكيد الاعتذار */}
-      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
-        <DialogContent dir="rtl" className="max-w-sm rounded-3xl text-center font-cairo">
-          <div className="py-4">
-            <div
-              className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white shadow-lg"
-              style={{ background: inv.theme_color }}
-            >
-              <HeartHandshake className="w-8 h-8" />
-            </div>
-            <h2 className="font-bold text-xl text-gray-800 mb-2">تم تسجيل اعتذارك بنجاح</h2>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              نشكر لك إبلاغنا، ونتمنى رؤيتك في مناسبة قادمة.
+            <p className="flex items-center justify-center gap-1.5 pt-2 text-[11px] text-[#736D7C]">
+              <BrandMark className="h-3.5 w-3.5" />
+              دعوة عبر نكفيك
             </p>
-            <Button
-              className="mt-5 rounded-full px-8 text-white"
-              style={{ background: inv.theme_color }}
-              onClick={() => setDeclineModalOpen(false)}
-            >
-              حسناً
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </motion.div>
+        )}
+      </main>
     </div>
   );
 };
 
-const Row = ({ icon, label, color, children }: any) => (
-  <div className="flex items-start gap-3">
-    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: color }}>
-      {icon}
-    </div>
-    <div className="flex-1 text-sm">
-      <p className="text-xs text-gray-500">{label}</p>
-      <div className="text-gray-800">{children}</div>
+const swap = (reduce: boolean | null) => ({
+  initial: reduce ? false : { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: reduce ? undefined : { opacity: 0, y: -8 },
+  transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const },
+});
+
+const Stepper = ({ label, disabled, onClick, children }: { label: string; disabled: boolean; onClick: () => void; children: ReactNode }) => (
+  <button
+    type="button"
+    aria-label={label}
+    disabled={disabled}
+    onClick={onClick}
+    className="grid h-7 w-7 place-items-center rounded-full border border-[#E7E2EC] bg-white text-[#492C5A] transition-colors hover:bg-[#F1ECF5] disabled:opacity-35"
+  >
+    {children}
+  </button>
+);
+
+const Notice = ({ icon: Icon, tone, title, body }: { icon: IconType; tone: string; title: string; body?: string | null }) => (
+  <div className="flex items-start gap-3 rounded-[18px] px-4 py-3" style={{ background: alpha(tone, 0.1) }}>
+    <span className="mt-0.5" style={{ color: tone }}>
+      <Icon className="h-5 w-5" />
+    </span>
+    <div className="min-w-0 flex-1">
+      <p className="text-[14px] font-bold" style={{ color: tone }}>{title}</p>
+      {body && <p className={cn("mt-0.5 text-[12px] leading-relaxed", MUTED)}>{body}</p>}
     </div>
   </div>
+);
+
+const InfoRow = ({
+  icon, theme, label, action, first, children,
+}: { icon: IconType; theme: string; label: string; action?: ReactNode; first?: boolean; children: ReactNode }) => (
+  <div className={cn("flex items-center gap-3 py-3", !first && "border-t border-[#F0EDF3]")}>
+    <IconTile icon={icon} theme={theme} />
+    <div className="min-w-0 flex-1">
+      <p className="text-[12px] text-[#736D7C]">{label}</p>
+      <div className="text-[14px] font-semibold">{children}</div>
+    </div>
+    {action}
+  </div>
+);
+
+const ActionLink = ({ href, children }: { href: string; children: ReactNode }) => (
+  <a href={href} target="_blank" rel="noreferrer" className="flex-none rounded-lg bg-[#F1ECF5] px-2.5 py-1.5 text-[12px] font-bold text-[#492C5A]">
+    {children}
+  </a>
+);
+
+const Chip = ({ href, icon: Icon, className, children }: { href: string; icon: IconType; className: string; children: ReactNode }) => (
+  <a href={href} target="_blank" rel="noreferrer" className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold", className)}>
+    <Icon className="h-3.5 w-3.5" />
+    {children}
+  </a>
 );
 
 export default PrivateInvitation;

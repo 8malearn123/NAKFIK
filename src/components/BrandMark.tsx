@@ -3,7 +3,7 @@
 // tone="light" للخلفيات الداكنة: البتلات بالأبيض والنقاط الملونة كما هي.
 // شاشة الإقلاع في index.html تحمل نسخة ثابتة من هذا الرسم، فعدّلهما معاً.
 
-const PETAL = "M-42 127V71.28A42 42 0 0 1 42 71.28V127L17 112.19V52.65A17 17 0 0 0-17 52.65V112.19Z";
+export const BRAND_PETAL = "M-42 127V71.28A42 42 0 0 1 42 71.28V127L17 112.19V52.65A17 17 0 0 0-17 52.65V112.19Z";
 const ROTATIONS = [0, 72, 144, 216, 288];
 
 type Props = {
@@ -17,7 +17,7 @@ const BrandMark = ({ className, tone = "color" }: Props) => {
     <svg viewBox="-140 -128 280 274" className={className} aria-hidden="true" focusable="false">
       {ROTATIONS.map((deg) => (
         <g key={deg} transform={`rotate(${deg})`} fill={ink}>
-          <path d={PETAL} />
+          <path d={BRAND_PETAL} />
           <path d="M0 71.87V133.83" stroke={ink} strokeWidth="4.5" />
           <circle cy="71.87" r="11.65" fill="#A03C4A" />
           <circle cy="102.85" r="11.65" fill="#CC8E3D" />
