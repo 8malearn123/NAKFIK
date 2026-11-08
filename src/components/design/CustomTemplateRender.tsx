@@ -1,4 +1,5 @@
 import { toFields, type NameOverlay } from "./CustomTemplateDesigner";
+import InkReveal from "./InkReveal";
 
 interface GuestData {
   guest_name?: string | null;
@@ -12,10 +13,12 @@ interface Props {
   guest: GuestData;
   className?: string;
   maxWidth?: number;
+  /** صفحة الدعوة: اسم الضيف يُكتب بالحبر حين play بدل أن يظهر ثابتاً */
+  inkName?: { play: boolean };
 }
 
 export default function CustomTemplateRender({
-  templateUrl, overlay, guest, className = "", maxWidth = 480,
+  templateUrl, overlay, guest, className = "", maxWidth = 480, inkName,
 }: Props) {
   const fields = toFields(overlay);
   const valueOf = (f: ReturnType<typeof toFields>[number]): string => {
@@ -69,9 +72,19 @@ export default function CustomTemplateRender({
               borderRadius: f.bgColor ? 8 : undefined,
             }}
           >
-            {f.prefix && <span>{f.prefix} </span>}
-            {v}
-            {f.suffix && <span> {f.suffix}</span>}
+            {inkName && f.field === "guest_name" ? (
+              <InkReveal as="span" play={inkName.play} className="inline-block">
+                {f.prefix && <span>{f.prefix} </span>}
+                {v}
+                {f.suffix && <span> {f.suffix}</span>}
+              </InkReveal>
+            ) : (
+              <>
+                {f.prefix && <span>{f.prefix} </span>}
+                {v}
+                {f.suffix && <span> {f.suffix}</span>}
+              </>
+            )}
           </div>
         );
       })}

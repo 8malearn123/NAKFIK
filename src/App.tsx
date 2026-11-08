@@ -113,6 +113,8 @@ const App = () => (
                 <Route path="/demo/checkout" element={<Checkout demo />} />
                 <Route path="/demo/payment" element={<PaymentCallback demo />} />
                 <Route path="/demo/gift/:token" element={<GiftClaim demo />} />
+                {/* صفحة الدعوة ببيانات تجريبية — لتجربة الظرف المختوم بدون قاعدة بيانات */}
+                <Route path="/demo/invite" element={<PrivateInvitation demo />} />
                 <Route path="/connect/:code" element={<ConnectCard />} />
                 <Route path="/brand" element={<BrandGuidelines />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />

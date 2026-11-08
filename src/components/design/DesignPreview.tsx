@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { OrnamentBorder, CornerFlourish } from "./Ornaments";
 import { QRCodeSVG } from "qrcode.react";
 import { DEFAULT_EXTRAS, type DesignExtras } from "./templates";
+import InkReveal from "./InkReveal";
 
 export type DesignValue = {
   theme_color: string;
@@ -28,13 +29,15 @@ type Props = {
   qrValue?: string;
   mode?: "invitation" | "certificate";
   className?: string;
+  /** صفحة الدعوة: اسم الضيف يُكتب بالحبر حين play بدل أن يظهر ثابتاً */
+  inkName?: { play: boolean };
 };
 
 const GOLD = ["#C9A84C", "#E8D48B"];
 const SILVER = ["#9BA6B2", "#DDE3EA"];
 
 export default function DesignPreview({
-  design, title, subtitle, body, footer, guestName, qrValue, mode = "invitation", className = "",
+  design, title, subtitle, body, footer, guestName, qrValue, mode = "invitation", className = "", inkName,
 }: Props) {
   const {
     theme_color, accent_color, background_color, text_color,
@@ -97,6 +100,12 @@ export default function DesignPreview({
     lineHeight: 1.75,
   };
   const guestStyle: CSSProperties = { fontSize: `${1.1 * x.body_scale}rem` };
+  const nameEl = (style: CSSProperties, className?: string) =>
+    !guestName ? null : inkName ? (
+      <InkReveal play={inkName.play} className={className} style={style}>{guestName}</InkReveal>
+    ) : (
+      <p className={className} style={style}>{guestName}</p>
+    );
 
   // ===== طبقات الإطار =====
   const frameLayers = (() => {
@@ -144,7 +153,7 @@ export default function DesignPreview({
       )}
       <h2 style={{ ...headingStyle, color: opts.titleColor }}>{title}</h2>
       {opts.divider !== false && <div className="h-px w-20" style={{ background: subtleAccent }} />}
-      {guestName && <p className="opacity-95" style={{ ...guestStyle, color: opts.titleColor }}>{guestName}</p>}
+      {nameEl({ ...guestStyle, color: opts.titleColor }, "opacity-95")}
       {body && <p className={`max-w-md whitespace-pre-wrap ${opts.bodyMuted ? "text-foreground/75" : "opacity-90"}`} style={bodyStyle}>{body}</p>}
       {footer && <p className="text-xs opacity-70" style={{ marginTop: `${0.6 * sp}rem` }}>{footer}</p>}
       {qrValue && (
@@ -188,7 +197,7 @@ export default function DesignPreview({
         {ornateCorners}
         <div className="absolute inset-x-0 top-1/3 bottom-0 flex flex-col justify-center" style={{ ...contentStyle, opacity: x.content_opacity }}>
           <div className="h-1 w-16 rounded" style={{ background: subtleAccent }} />
-          {guestName && <p style={{ ...guestStyle, color: theme_color, fontFamily: heading_font, fontWeight: 700 }}>{guestName}</p>}
+          {nameEl({ ...guestStyle, color: theme_color, fontFamily: heading_font, fontWeight: 700 })}
           {body && <p className="max-w-md text-foreground/80 whitespace-pre-wrap" style={bodyStyle}>{body}</p>}
           {footer && <p className="text-xs text-muted-foreground">{footer}</p>}
           {qrValue && (
@@ -230,7 +239,7 @@ export default function DesignPreview({
         </div>
         <h2 style={headingStyle}>{title}</h2>
         <div className="h-px w-20" style={{ background: subtleAccent }} />
-        {guestName && <p className="opacity-95" style={guestStyle}>{guestName}</p>}
+        {nameEl(guestStyle, "opacity-95")}
         {body && <p className="max-w-md opacity-90 whitespace-pre-wrap" style={bodyStyle}>{body}</p>}
         {footer && <p className="text-xs opacity-70" style={{ marginTop: `${0.6 * sp}rem` }}>{footer}</p>}
         {qrValue && (
